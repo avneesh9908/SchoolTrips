@@ -1,0 +1,39 @@
+<svg viewBox="0 0 680 600" width="680" height="600" xmlns="http://www.w3.org/2000/svg" role="img" font-family="Inter, 'Segoe UI', system-ui, sans-serif">
+<title>Setup chain: name the spreadsheets, put them in a Drive folder, paste the folder link into the code</title>
+<desc>Step one, name the eight spreadsheets exactly. Step two, put them in one Drive folder alongside a folder per grade for documents. Step three, share the folder and copy its link. Step four, paste that link into folderId in public config.json. Parents then see changes on refresh, with no rebuild.</desc>
+<defs>
+<marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+<path d="M 0 0 L 10 5 L 0 10 z" fill="#767066"/>
+</marker>
+</defs>
+
+<rect x="60" y="20" width="560" height="130" rx="14" fill="#E6F1FB" stroke="#85B7EB"/>
+<text x="340" y="46" text-anchor="middle" dominant-baseline="central" font-size="14" font-weight="600" fill="#0C447C">1 · Name the spreadsheets exactly</text>
+<text x="340" y="78" text-anchor="middle" dominant-baseline="central" font-size="14.5" font-family="ui-monospace, Consolas, monospace" fill="#185FA5">Students · Trips · Itinerary · Documents</text>
+<text x="340" y="103" text-anchor="middle" dominant-baseline="central" font-size="14.5" font-family="ui-monospace, Consolas, monospace" fill="#185FA5">Guidelines · Reminders · Travel · Media</text>
+<text x="340" y="130" text-anchor="middle" dominant-baseline="central" font-size="12" fill="#378ADD">each one a Google Sheet, not an uploaded .xlsx</text>
+
+<line x1="340" y1="150" x2="340" y2="182" stroke="#767066" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+<rect x="140" y="190" width="400" height="64" rx="10" fill="#E6F1FB" stroke="#85B7EB"/>
+<text x="340" y="213" text-anchor="middle" dominant-baseline="central" font-size="14" font-weight="600" fill="#0C447C">2 · Put them in one Drive folder</text>
+<text x="340" y="234" text-anchor="middle" dominant-baseline="central" font-size="12.5" fill="#185FA5">plus a folder per grade for the documents</text>
+
+<line x1="340" y1="254" x2="340" y2="286" stroke="#767066" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+<rect x="140" y="294" width="400" height="64" rx="10" fill="#E6F1FB" stroke="#85B7EB"/>
+<text x="340" y="317" text-anchor="middle" dominant-baseline="central" font-size="14" font-weight="600" fill="#0C447C">3 · Share it, then copy the folder link</text>
+<text x="340" y="338" text-anchor="middle" dominant-baseline="central" font-size="12.5" fill="#185FA5">Anyone with the link → Viewer</text>
+
+<line x1="340" y1="358" x2="340" y2="390" stroke="#767066" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+<rect x="140" y="398" width="400" height="64" rx="10" fill="#FAEEDA" stroke="#EF9F27"/>
+<text x="340" y="421" text-anchor="middle" dominant-baseline="central" font-size="14" font-weight="600" fill="#854F0B">4 · Paste it into the code</text>
+<text x="340" y="442" text-anchor="middle" dominant-baseline="central" font-size="12.5" font-family="ui-monospace, Consolas, monospace" fill="#BA7517">public/config.json → folderId</text>
+
+<line x1="340" y1="462" x2="340" y2="494" stroke="#767066" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+<rect x="140" y="502" width="400" height="64" rx="10" fill="#E1F5EE" stroke="#5DCAA5"/>
+<text x="340" y="525" text-anchor="middle" dominant-baseline="central" font-size="14" font-weight="600" fill="#0F6E56">Parents see it on refresh</text>
+<text x="340" y="546" text-anchor="middle" dominant-baseline="central" font-size="12.5" fill="#1D9E75">no rebuild, no developer, from here on</text>
+</svg>

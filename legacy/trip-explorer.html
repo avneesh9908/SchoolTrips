@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trip Explorer — Grade-wise Educational Trips</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{ --bg:#FCF8ED; --ink:#22303F; --muted:#767066; --card:#FFFFFF; --line:#ECE6D6; }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased;}
+  .display{font-family:'Baloo 2',sans-serif;}
+  .shell{max-width:1160px;margin:0 auto;padding:0 22px 70px;}
+  .topbar{display:flex;justify-content:space-between;align-items:center;padding:22px 0 18px;flex-wrap:wrap;gap:10px;}
+  .brand{display:flex;align-items:center;gap:10px;}
+  .brand .dot{width:14px;height:14px;border-radius:50%;background:#FF6B5B;}
+  .brand h1{font-size:20px;margin:0;font-weight:700;}
+
+  .hero{background:linear-gradient(120deg,#FFE1B0,#FFC9C4 45%,#C9E4FF 100%);border-radius:26px;padding:40px 34px;margin-bottom:30px;position:relative;overflow:hidden;}
+  .hero h2{font-size:33px;margin:0 0 8px;font-weight:800;}
+  .hero p{margin:0;max-width:540px;font-size:14.5px;color:#4B4438;line-height:1.6;}
+  .hero-blob{position:absolute;border-radius:50%;background:rgba(255,255,255,0.35);}
+  .hero-blob.b1{width:220px;height:220px;right:-50px;top:-60px;}
+  .hero-blob.b2{width:120px;height:120px;right:120px;bottom:-60px;background:rgba(255,255,255,0.25);}
+
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:14px;margin-bottom:20px;}
+  .gcard{border-radius:18px;padding:0;cursor:pointer;color:#fff;min-height:150px;transition:transform .14s ease;position:relative;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end;border:none;text-align:left;font-family:inherit;}
+  .gcard:hover{transform:translateY(-4px);}
+  .gcard .gcard-bg{position:absolute;inset:0;}
+  .gcard .icon{position:absolute;top:14px;left:14px;width:30px;height:30px;opacity:.95;}
+  .gcard .status{position:absolute;top:12px;right:12px;font-size:9px;font-weight:700;text-transform:uppercase;background:rgba(255,255,255,0.3);padding:3px 8px;border-radius:20px;}
+  .gcard .txt{position:relative;padding:14px;}
+  .gcard .label{font-size:20px;font-weight:800;font-family:'Baloo 2',sans-serif;}
+  .gcard .sub{font-size:10.5px;opacity:.95;font-weight:500;}
+
+  .backbtn{background:none;border:none;color:var(--muted);font-weight:600;font-size:13px;cursor:pointer;margin-bottom:16px;padding:0;display:flex;align-items:center;gap:6px;}
+  .detail-hero{border-radius:22px;overflow:hidden;margin-bottom:24px;position:relative;color:#fff;}
+  .detail-hero .banner{padding:36px 34px;position:relative;}
+  .detail-hero h2{font-size:32px;margin:8px 0 6px;font-weight:800;}
+  .detail-hero .full{font-size:14px;opacity:.92;margin:0;}
+  .pill{display:inline-block;background:rgba(255,255,255,0.25);padding:5px 13px;border-radius:20px;font-size:12px;font-weight:600;margin-right:8px;}
+
+  .sections{display:grid;grid-template-columns:1fr;gap:16px;}
+  .section{background:var(--card);border-radius:18px;padding:20px 22px;border:1px solid var(--line);}
+  .section-head{display:flex;align-items:center;gap:10px;margin-bottom:12px;}
+  .badge{width:34px;height:34px;border-radius:11px;display:flex;align-items:center;justify-content:center;flex:0 0 auto;}
+  .badge svg{width:18px;height:18px;}
+  .section h3{font-size:16px;margin:0;font-weight:700;font-family:'Baloo 2',sans-serif;}
+  .empty-note{color:var(--muted);font-size:13px;font-style:italic;}
+
+  .overview-text{font-size:14px;line-height:1.75;white-space:pre-wrap;}
+  ul.plain{margin:0;padding-left:20px;}
+  ul.plain li{font-size:13.5px;line-height:1.75;margin-bottom:6px;}
+  .two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  .do-col h4, .dont-col h4{font-size:12px;text-transform:uppercase;letter-spacing:.04em;margin:0 0 8px;font-weight:700;}
+  .do-col h4{color:#4CAF6D;} .dont-col h4{color:#FF6B5B;}
+
+  .kv-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:13.5px;}
+  .kv-grid div span{display:block;font-size:10px;text-transform:uppercase;color:var(--muted);letter-spacing:.05em;margin-bottom:3px;font-weight:700;}
+
+  .reminder-item{border-left:4px solid #FFB100;padding:9px 13px;margin-bottom:8px;background:#FFF8E8;border-radius:0 10px 10px 0;font-size:13.5px;}
+  .reminder-item .rdate{font-size:10.5px;color:#B5790C;font-weight:700;text-transform:uppercase;}
+
+  .linkcard{display:flex;align-items:center;gap:12px;border:1.5px solid var(--line);border-radius:14px;padding:12px 14px;text-decoration:none;color:var(--ink);margin-bottom:10px;}
+  .linkcard:hover{border-color:#8C6BE0;background:#FAF8FF;}
+  .linkcard .lc-icon{width:36px;height:36px;border-radius:10px;background:#EFE8FF;display:flex;align-items:center;justify-content:center;flex:0 0 auto;}
+  .linkcard .lc-title{font-weight:600;font-size:13.5px;}
+
+  .embed-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px;}
+  .embed-card{border:1.5px solid var(--line);border-radius:14px;overflow:hidden;background:var(--bg);}
+  .embed-label{font-size:12.5px;font-weight:700;padding:10px 12px 8px;color:var(--ink);}
+  .embed-frame{width:100%;border:none;display:block;background:#fff;}
+  .embed-image{width:100%;max-height:420px;object-fit:contain;display:block;background:#fff;}
+  .embed-foot{padding:8px 12px 10px;}
+
+  .photo-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;}
+  .photo-item{border-radius:14px;overflow:hidden;background:var(--bg);border:1px solid var(--line);display:block;text-decoration:none;color:var(--ink);}
+  .photo-item img{width:100%;height:120px;object-fit:cover;display:block;}
+  .photo-item .cap{font-size:11.5px;color:var(--muted);padding:7px 9px;font-weight:600;}
+  .photo-item .thumb{height:120px;display:flex;align-items:center;justify-content:center;background:#EFE8FF;color:#8C6BE0;font-weight:700;font-size:13px;}
+
+  .check-list li{list-style:none;position:relative;padding-left:24px;}
+  .check-list li::before{content:"";position:absolute;left:0;top:4px;width:14px;height:14px;border:2px solid #4CAF6D;border-radius:5px;}
+  footer.note{text-align:center;color:var(--muted);font-size:11.5px;margin-top:26px;}
+  @media(max-width:720px){ .two-col, .kv-grid, .embed-grid{grid-template-columns:1fr;} }
+</style>
+</head>
+<body>
+<div class="shell">
+  <div class="topbar"><div class="brand"><span class="dot"></span><h1 class="display">Trip Explorer</h1></div></div>
+  <div id="root"></div>
+  <footer class="note">Questions about a trip? Contact your child's grade coordinator listed on that grade's page.</footer>
+</div>
+
+<script>
+const GRADE_ICONS = ['map','compass','camera','backpack','tent','binoculars','train','sun','leaf','globe','flag','kite','star'];
+const GRADES = [
+  {id:'jk', label:'JK', full:'Junior Kindergarten', color:'#FF6B5B'},
+  {id:'g1', label:'G1', full:'Grade 1', color:'#FFB100'},
+  {id:'g2', label:'G2', full:'Grade 2', color:'#4CAF6D'},
+  {id:'g3', label:'G3', full:'Grade 3', color:'#2AA8DE'},
+  {id:'g4', label:'G4', full:'Grade 4', color:'#8C6BE0'},
+  {id:'g5', label:'G5', full:'Grade 5', color:'#EF5DA8'},
+  {id:'g6', label:'G6', full:'Grade 6', color:'#FF8A3D'},
+  {id:'g7', label:'G7', full:'Grade 7', color:'#26C0B0'},
+  {id:'g8', label:'G8', full:'Grade 8', color:'#5B7FFF'},
+  {id:'g9', label:'G9', full:'Grade 9', color:'#E0566B'},
+  {id:'g10', label:'G10', full:'Grade 10', color:'#7BB92B'},
+  {id:'g11', label:'G11', full:'Grade 11', color:'#B45BD4'},
+  {id:'g12', label:'G12', full:'Grade 12', color:'#1E9E8C'},
+];
+
+function empty(){
+  return { tripTitle:'', tripDates:'', tripStatus:'pending', coverImage:'',
+    overview:'', resources:[], itinerary:[], safety:[], dos:[], donts:[],
+    ticket:null, reminders:[], media:[], comm:null, carry:[] };
+}
+
+// ---- Content lives here. To update, edit this object and re-send the file. ----
+const TRIP_DATA = {
+  g7: {
+    tripTitle:'Jaipur · Abhaneri · Ranthambore Educational Trip',
+    tripDates:'Batch 1: 12–19 December 2026 · Batch 2: 13–20 December 2026',
+    tripStatus:'confirmed', coverImage:'',
+    overview:'A week-long educational trip for Grade 7 covering Jaipur, Abhaneri and Ranthambore, run across two batches. Please go through the parent and student orientation decks below before the trip.',
+    resources:[
+      {label:"Parent's Orientation deck", url:"https://docs.google.com/presentation/d/1aLt74Pl7Il7gr3imlgqOwwI8Z0Bq8eed49DTbEmL2Ek/edit?usp=sharing"},
+      {label:"Student's Orientation deck", url:"https://docs.google.com/presentation/d/1jOTfBXlf9S6OqQ1GtTZ5OuirUnDvcanls3fmTYMDHwo/edit?usp=sharing"},
+      {label:"Full day-wise itinerary", url:"https://docs.google.com/document/d/1hvrj9BRAR0ryKsim8RsAbG3VIwJBPHGZtiK2uHsv9V8/edit?usp=sharing"},
+      {label:"Orientation poster", url:"https://drive.google.com/file/d/1MreeNsh-JdmK57O6VNRyOYLjECVhCfv2/view?usp=sharing"},
+      {label:"Last year's trip photos", url:"https://drive.google.com/drive/folders/1B5CSsY9XkB4uA6Og6Q5WtMNrfeVBWuFJ?usp=sharing"},
+    ],
+    itinerary:[],
+    safety:[
+      "A ratio of 1:12 is maintained (one accompanying adult for every 10 students), including teachers, admin, support staff and Safety Monitors.",
+      "Room allocation lets teachers easily monitor students; students know which room their teacher is in.",
+      "One adult accompanies students at all times, including washroom breaks and activities.",
+      "A student orientation is held 15 days before the trip covering safety protocols.",
+      "A trained medical person and first-aid facility are available at the campsite at all times.",
+      "Nearest Police Station and Hospital details are kept handy with the Safety Monitor.",
+      "Accompanying staff receive first-aid training and carry contact details of all parents.",
+      "Staff and vendors are trained under POCSO, with signed undertakings from all vendors.",
+      "Each batch has 2 dedicated Safety Monitors focused solely on student safety.",
+      "Regular WhatsApp updates with photos/videos are shared with parents.",
+      "Headcount is taken at every stop and at regular intervals; health checks are done daily at end of day."
+    ],
+    dos:[
+      "If your child takes any medicine regularly, hand it to the Safety Monitor a day prior at the bus stop, with clear instructions.",
+      "Inform the accompanying teacher if your child has any medical history needing personal attention."
+    ],
+    donts:[
+      "Students may not carry personal medicines — staff carry a first-aid box with basics if needed.",
+      "Students may not carry mobile phones, smart watches, or other gadgets; these will be confiscated if found."
+    ],
+    ticket:{ trainNo:"MMCT JAIPUR SF (12955)", date:"", departure:"10:30 PM (onward)", platform:"", coachSeat:"",
+      notes:"Return: JP BDTS EXP (12980), overnight 3AC, departing 8:20 PM for Surat." },
+    reminders:[
+      {date:"1 September", text:"Submit purchase form"},
+      {date:"5 September", text:"Submit purchase form"},
+      {date:"10 September", text:"Submit purchase form"},
+    ],
+    media:[],
+    comm:null,
+    carry:[
+      "Original School ID & Aadhar card (mandatory)",
+      "Clothes for 7 days — full pants, full-sleeve T-shirts, sweatshirts",
+      "Sweater / fleece jacket / thermals","Night dress","Heavy woolens","Shawl / light blanket",
+      "Sport or trekking shoes (compulsory)","Sandals / slippers",
+      "Water bottle + shoulder bag to carry it throughout the day",
+      "Towel, napkin, cap/hat, bandana, cotton socks, warm gloves",
+      "Toiletries, moisturizer, sun cream, lip balm",
+      "Mosquito repellent cream — Odomos (compulsory)",
+      "Dry, healthy snacks for travelling"
+    ]
+  }
+};
+
+const ICON_SVG = {
+  map:'<path d="M9 3 3 5v16l6-2 6 2 6-2V3l-6 2-6-2z"/><path d="M9 3v16M15 5v16"/>',
+  compass:'<circle cx="12" cy="12" r="9"/><path d="M15 9l-2 6-6 2 2-6 6-2z"/>',
+  camera:'<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7l1.5-2.5h5L16 7"/><circle cx="12" cy="13.5" r="3.5"/>',
+  backpack:'<rect x="5" y="8" width="14" height="12" rx="2"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/><path d="M9 12h6"/>',
+  tent:'<path d="M12 4l9 16H3z"/><path d="M12 4v16"/>',
+  binoculars:'<rect x="4" y="10" width="6" height="8" rx="2"/><rect x="14" y="10" width="6" height="8" rx="2"/><path d="M9 10 8 6h3l1 4M15 10l-1-4h3l1 4"/>',
+  train:'<rect x="4" y="4" width="16" height="13" rx="3"/><path d="M4 12h16M8 17l-2 3M16 17l2 3"/><circle cx="8.5" cy="14" r="1"/><circle cx="15.5" cy="14" r="1"/>',
+  sun:'<circle cx="12" cy="12" r="4.5"/><path d="M12 3v2M12 19v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M4 12h2M19 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"/>',
+  leaf:'<path d="M20 4S9 4 6 9s0 11 0 11 9 3 12-6c1.5-4.5-1-10-1-10z"/>',
+  globe:'<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18 14 14 0 0 1 0-18z"/>',
+  flag:'<path d="M5 21V4"/><path d="M5 5h13l-3 4 3 4H5"/>',
+  kite:'<path d="M12 3l7 8-7 10-7-10 7-8z"/><path d="M12 13v8"/>',
+  star:'<path d="M12 3l2.7 6 6.3.6-4.8 4.2 1.5 6.2L12 16.9 6.3 20l1.5-6.2L3 9.6 9.3 9z"/>',
+};
+const ICONS = {
+  overview:'<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M4 19V6a2 2 0 0 1 2-2h9l5 5v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><path d="M14 4v5h5"/></svg>',
+  resources:'<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.5.5l2-2a5 5 0 0 0-7-7l-1.5 1.5"/><path d="M14 11a5 5 0 0 0-7.5-.5l-2 2a5 5 0 0 0 7 7l1.5-1.5"/></svg>',
+  itinerary:'<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M12 21s-7-6.5-7-11a7 7 0 0 1 14 0c0 4.5-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>',
+  safety:'<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M12 3l7 3v6c0 4.5-3 8-7 9-4-1-7-4.5-7-9V6l7-3z"/></svg>',
+  dodont:'<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>',
+  ticket:'<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="4" y="7" width="16" height="12" rx="2"/><path d="M9 4v3M15 4v3M4 13h16"/></svg>',
+  reminder:'<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>',
+  photo:'<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="3" y="6" width="18" height="14" rx="2"/><circle cx="12" cy="13" r="3.5"/><path d="M8 6l1.5-2h5L16 6"/></svg>',
+  comm:'<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M22 16.9v2a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3 19.5 19.5 0 0 1-6-6 19.8 19.8 0 0 1-3-8.7A2 2 0 0 1 4.1 1h2a2 2 0 0 1 2 1.7c.1.9.3 1.8.6 2.7a2 2 0 0 1-.4 2.1L7 8.9a16 16 0 0 0 6 6l1.4-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.5 2.7.6A2 2 0 0 1 22 16.9z"/></svg>',
+  carry:'<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="5" y="8" width="14" height="12" rx="2"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/><path d="M9 12h6"/></svg>',
+  link:'<svg viewBox="0 0 24 24" fill="none" stroke="#8C6BE0" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.5.5l2-2a5 5 0 0 0-7-7l-1.5 1.5"/><path d="M14 11a5 5 0 0 0-7.5-.5l-2 2a5 5 0 0 0 7 7l1.5-1.5"/></svg>',
+};
+const SC = {overview:'#2AA8DE',resources:'#B45BD4',itinerary:'#8C6BE0',safety:'#FF6B5B',dodont:'#4CAF6D',ticket:'#FFB100',reminder:'#FF8A3D',photo:'#EF5DA8',comm:'#26C0B0',carry:'#5B7FFF'};
+
+function esc(s){ return (s||'').toString().replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function gradeIcon(name){ return `<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICON_SVG[name]}</svg>`; }
+
+function detectEmbed(url){
+  if(!url) return null;
+  let m;
+  if(m = url.match(/presentation\/d\/([a-zA-Z0-9_-]+)/)) return {type:'slides', id:m[1], src:`https://docs.google.com/presentation/d/${m[1]}/embed?start=false&loop=false&delayms=5000`};
+  if(m = url.match(/document\/d\/([a-zA-Z0-9_-]+)/)) return {type:'doc', id:m[1], src:`https://docs.google.com/document/d/${m[1]}/preview`};
+  if(m = url.match(/spreadsheets\/d\/([a-zA-Z0-9_-]+)/)) return {type:'sheet', id:m[1], src:`https://docs.google.com/spreadsheets/d/${m[1]}/preview`};
+  if(m = url.match(/file\/d\/([a-zA-Z0-9_-]+)/)) return {type:'file', id:m[1], img:`https://drive.google.com/thumbnail?id=${m[1]}&sz=w1600`, src:`https://drive.google.com/file/d/${m[1]}/preview`};
+  return null;
+}
+function linkCard(icon,title,url){
+  return `<a class="linkcard" href="${esc(url)}" target="_blank" rel="noopener"><div class="lc-icon">${icon}</div><div class="lc-title">${esc(title)}</div></a>`;
+}
+function resourceEmbedCard(item){
+  const emb = detectEmbed(item.url);
+  const openLink = `<a href="${esc(item.url)}" target="_blank" rel="noopener" style="font-size:11.5px;color:#8C6BE0;font-weight:600;text-decoration:none;">Open full size ↗</a>`;
+  if(!emb) return linkCard(ICONS.link, item.label, item.url);
+  if(emb.type==='file'){
+    return `<div class="embed-card">
+      <div class="embed-label">${esc(item.label)}</div>
+      <img class="embed-image" src="${emb.img}" alt="${esc(item.label)}" loading="lazy"
+        onerror="this.outerHTML='<iframe class=&quot;embed-frame&quot; style=&quot;height:420px&quot; src=&quot;${emb.src}&quot; loading=&quot;lazy&quot;></iframe>'">
+      <div class="embed-foot">${openLink}</div></div>`;
+  }
+  const height = emb.type==='slides' ? 340 : 420;
+  return `<div class="embed-card">
+    <div class="embed-label">${esc(item.label)}</div>
+    <iframe class="embed-frame" style="height:${height}px" src="${emb.src}" loading="lazy" allowfullscreen></iframe>
+    <div class="embed-foot">${openLink}</div></div>`;
+}
+
+const root = document.getElementById('root');
+
+function renderHome(){
+  root.innerHTML = `
+    <div class="hero"><div class="hero-blob b1"></div><div class="hero-blob b2"></div>
+      <h2 class="display">Where's your class headed?</h2>
+      <p>Pick your child's grade to see the full trip plan — itinerary, safety guidelines, packing list, train details, photos and how to reach us.</p>
+    </div>
+    <div class="grid" id="gradeGrid"></div>`;
+  const grid = document.getElementById('gradeGrid');
+  GRADES.forEach((g,i)=>{
+    const d = TRIP_DATA[g.id] || empty();
+    const card = document.createElement('button');
+    card.className='gcard';
+    card.innerHTML = `
+      <div class="gcard-bg" style="background:${g.color}"></div>
+      <div class="status">${d.tripStatus==='confirmed' ? 'Confirmed' : 'Coming soon'}</div>
+      <div class="icon">${gradeIcon(GRADE_ICONS[i % GRADE_ICONS.length])}</div>
+      <div class="txt"><div class="label display">${g.label}</div><div class="sub">${esc(d.tripTitle) || g.full}</div></div>`;
+    card.addEventListener('click', ()=>renderDetail(g.id));
+    grid.appendChild(card);
+  });
+}
+
+function section(container,key,title,bodyHtml){
+  container.insertAdjacentHTML('beforeend', `<div class="section">
+    <div class="section-head"><div class="badge" style="background:${SC[key]}">${ICONS[key]}</div><h3>${title}</h3></div>
+    <div>${bodyHtml}</div></div>`);
+}
+
+function renderDetail(id){
+  const grade = GRADES.find(g=>g.id===id);
+  const d = TRIP_DATA[id] || empty();
+  const hasContent = !!d.tripTitle;
+
+  root.innerHTML = `
+    <button class="backbtn" id="backBtn">&larr; All grades</button>
+    <div class="detail-hero" style="background:${grade.color};">
+      <div class="banner">
+        <span class="pill">${grade.full}</span>
+        <span class="pill">${d.tripStatus==='confirmed' ? 'Confirmed' : 'Details coming soon'}</span>
+        <h2 class="display">${esc(d.tripTitle) || grade.full + ' Trip'}</h2>
+        <p class="full">${esc(d.tripDates) || 'Dates to be announced'}</p>
+      </div>
+      ${d.coverImage ? `<img class="cover-photo" src="${esc(d.coverImage)}" alt="" onerror="this.style.display='none'" style="width:100%;height:240px;object-fit:cover;display:block;">` : ''}
+    </div>
+    <div class="sections" id="sectionsRoot"></div>`;
+  document.getElementById('backBtn').addEventListener('click', renderHome);
+
+  const s = document.getElementById('sectionsRoot');
+  if(!hasContent){
+    s.innerHTML = `<div class="section"><p class="empty-note">Details for ${grade.full} haven't been added yet. Check back soon, or contact the school office.</p></div>`;
+    return;
+  }
+
+  section(s,'overview','Orientation overview', `<p class="overview-text">${esc(d.overview)}</p>`);
+
+  if(d.resources && d.resources.length) section(s,'resources','Orientation decks & documents', `<div class="embed-grid">${d.resources.map(resourceEmbedCard).join('')}</div>`);
+
+  if(d.itinerary && d.itinerary.length){
+    section(s,'itinerary','Itinerary', `<table style="width:100%;border-collapse:collapse;font-size:13px;">
+      <tr><th style="text-align:left;font-size:10.5px;text-transform:uppercase;color:var(--muted);border-bottom:2px solid var(--line);padding:6px 8px;">Day</th><th style="text-align:left;font-size:10.5px;text-transform:uppercase;color:var(--muted);border-bottom:2px solid var(--line);padding:6px 8px;">Time</th><th style="text-align:left;font-size:10.5px;text-transform:uppercase;color:var(--muted);border-bottom:2px solid var(--line);padding:6px 8px;">Activity</th><th style="text-align:left;font-size:10.5px;text-transform:uppercase;color:var(--muted);border-bottom:2px solid var(--line);padding:6px 8px;">Location</th></tr>
+      ${d.itinerary.map(r=>`<tr><td style="padding:9px 8px;border-bottom:1px solid var(--line);font-weight:700;color:#2AA8DE;">${esc(r.day)}</td><td style="padding:9px 8px;border-bottom:1px solid var(--line);">${esc(r.time)}</td><td style="padding:9px 8px;border-bottom:1px solid var(--line);">${esc(r.activity)}</td><td style="padding:9px 8px;border-bottom:1px solid var(--line);">${esc(r.location)}</td></tr>`).join('')}
+      </table>`);
+  }
+
+  if(d.safety && d.safety.length) section(s,'safety','Safety guidelines', `<ul class="plain">${d.safety.map(i=>`<li>${esc(i)}</li>`).join('')}</ul>`);
+
+  if((d.dos&&d.dos.length)||(d.donts&&d.donts.length)) section(s,'dodont',"Do's and don'ts", `<div class="two-col">
+      <div class="do-col"><h4>Do</h4>${d.dos&&d.dos.length?`<ul class="plain">${d.dos.map(i=>`<li>${esc(i)}</li>`).join('')}</ul>`:'<p class="empty-note">—</p>'}</div>
+      <div class="dont-col"><h4>Don't</h4>${d.donts&&d.donts.length?`<ul class="plain">${d.donts.map(i=>`<li>${esc(i)}</li>`).join('')}</ul>`:'<p class="empty-note">—</p>'}</div>
+    </div>`);
+
+  if(d.ticket) section(s,'ticket','Train ticket details', `<div class="kv-grid">
+      <div><span>Train number</span>${esc(d.ticket.trainNo)||'—'}</div>
+      <div><span>Departure</span>${esc(d.ticket.departure)||'—'}</div>
+      ${d.ticket.platform?`<div><span>Platform</span>${esc(d.ticket.platform)}</div>`:''}
+      ${d.ticket.coachSeat?`<div><span>Coach / seat</span>${esc(d.ticket.coachSeat)}</div>`:''}
+    </div>${d.ticket.notes?`<p style="margin-top:10px;font-size:13px;">${esc(d.ticket.notes)}</p>`:''}`);
+
+  if(d.reminders && d.reminders.length) section(s,'reminder','Reminders', d.reminders.map(r=>`<div class="reminder-item"><div class="rdate">${esc(r.date)}</div>${esc(r.text)}</div>`).join(''));
+
+  if(d.media && d.media.length) section(s,'photo','Photos and videos', `<div class="photo-grid">${d.media.map(m=>{
+      if(m.type==='video') return `<a class="photo-item" href="${esc(m.url)}" target="_blank" rel="noopener"><div class="thumb">▶ Video</div><div class="cap">${esc(m.caption)||'Watch'}</div></a>`;
+      return `<a class="photo-item" href="${esc(m.url)}" target="_blank" rel="noopener"><img src="${esc(m.url)}" alt="" onerror="this.outerHTML='<div class=thumb>🔗 Link</div>'"><div class="cap">${esc(m.caption)||'Photo'}</div></a>`;
+    }).join('')}</div>`);
+
+  section(s,'comm','Communication', d.comm ? `<div class="kv-grid">
+      <div><span>Trip coordinator</span>${esc(d.comm.contact)||'—'}</div>
+      <div><span>Phone</span>${esc(d.comm.phone)||'—'}</div>
+      <div><span>Email</span>${esc(d.comm.email)||'—'}</div>
+      <div><span>Emergency contact</span>${esc(d.comm.emergency)||'—'}</div>
+    </div>` : `<p class="empty-note">Coordinator contact details to be added.</p>`);
+
+  if(d.carry && d.carry.length) section(s,'carry','Things to carry', `<ul class="plain check-list">${d.carry.map(i=>`<li>${esc(i)}</li>`).join('')}</ul>`);
+}
+
+renderHome();
+</script>
+</body>
+</html>

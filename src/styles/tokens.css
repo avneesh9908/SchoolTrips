@@ -1,0 +1,26 @@
+:root {
+  --bg: #fcf8ed;
+  --ink: #22303f;
+  --muted: #767066;
+  --card: #ffffff;
+  --line: #ece6d6;
+
+  --green: #4caf6d;
+  --red: #ff6b5b;
+  --amber: #ffb100;
+  --amber-ink: #b5790c;
+  --amber-bg: #fff8e8;
+  --violet: #8c6be0;
+  --violet-bg: #efe8ff;
+  --blue: #2aa8de;
+
+  --r-hero: 26px;
+  --r-detail: 22px;
+  --r-card: 18px;
+  --r-tile: 14px;
+  --r-badge: 11px;
+  --r-pill: 20px;
+
+  --font-display: 'Baloo 2', system-ui, sans-serif;
+  --font-body: 'Inter', system-ui, -apple-system, sans-serif;
+}

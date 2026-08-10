@@ -1,0 +1,28 @@
+{
+  "_readme": "Repoint the site by editing this file on the server and refreshing — no rebuild. Blank values fall back to .env.",
+
+  "dataSource": "sheets",
+
+  "_folderId": "Drive folder share link. The app lists it and matches spreadsheets to sources BY FILE NAME (Students, Trips, Itinerary, Documents, Guidelines, Reminders, Travel, Media). Requires driveApiKey.",
+  "folderId": "",
+
+  "_sheetId": "Alternative to folderId: the link of one spreadsheet holding all the tabs. Used when folderId is blank or a file is missing from it.",
+  "sheetId": "",
+
+  "_csvBase": "Local demo data. MUST be cleared before folderId or sheetId is used at all.",
+  "csvBase": "/sample-sheets",
+
+  "_settingsTab": "Tab in the master sheet holding per-source link overrides. Blank links mean 'use the tab of the same name'.",
+  "settingsTab": "Settings",
+
+  "_gids": "Only needed if a tab has been renamed — a gid survives renames and wins over the tab name.",
+  "gids": {},
+
+  "_driveApiKey": "Required for folderId, and for turning a folder link in the Documents tab into one card per file.",
+  "driveApiKey": "",
+
+  "_driveApiBase": "Leave blank for Google. Set to /sample-drive to demo folder expansion offline.",
+  "driveApiBase": "",
+
+  "googleClientId": ""
+}

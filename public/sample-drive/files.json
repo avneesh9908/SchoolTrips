@@ -1,0 +1,28 @@
+{
+  "files": [
+    {
+      "id": "FAKE_DECK_1",
+      "name": "Parent Orientation deck.pptx",
+      "mimeType": "application/vnd.google-apps.presentation",
+      "webViewLink": "https://docs.google.com/presentation/d/FAKE_DECK_1/view"
+    },
+    {
+      "id": "FAKE_DECK_2",
+      "name": "Student Orientation deck.pptx",
+      "mimeType": "application/vnd.google-apps.presentation",
+      "webViewLink": "https://docs.google.com/presentation/d/FAKE_DECK_2/view"
+    },
+    {
+      "id": "FAKE_DOC_1",
+      "name": "Day-wise itinerary.docx",
+      "mimeType": "application/vnd.google-apps.document",
+      "webViewLink": "https://docs.google.com/document/d/FAKE_DOC_1/view"
+    },
+    {
+      "id": "FAKE_IMG_1",
+      "name": "Orientation poster.png",
+      "mimeType": "image/png",
+      "webViewLink": "https://drive.google.com/file/d/FAKE_IMG_1/view"
+    }
+  ]
+}

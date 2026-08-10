@@ -1,0 +1,410 @@
+---
+name: school-trips
+description: Source of truth for the schoolTrips "Trip Explorer" React app — a parent-facing, grade-gated educational-trip site fed by Google Sheets. Read at the start of every session and every turn; curate after each exchange.
+---
+
+# schoolTrips — Trip Explorer
+
+## What this is
+A **React (Vite) single-page app** for parents. A parent signs in with the email address or
+mobile number the school has on file and sees the trip plan for **their own child's grade
+only**. All content
+is authored by school management in Google Sheets — nothing is hard-coded.
+
+Superseded the original single-file HTML prototype, which is kept unmodified at
+`legacy/trip-explorer.html` for design reference. Its Artifact lives at
+`https://claude.ai/public/artifacts/4e6c7575-5375-4976-ab4b-8feb1dd6ffed`.
+
+Stack: React 18, react-router-dom 6, Vite 5, plain CSS with custom properties. No UI
+library, no state library, no TypeScript.
+
+## Layout
+```
+index.html            Vite entry
+.env.example          adapter + sheet id configuration
+docs/SHEET-SCHEMA.md  the tab/column contract, written for a developer
+docs/DATA-HANDOVER.md the same contract written for school staff, plus the open
+                      decisions management must settle — use this in meetings
+docs/ARCHITECTURE.md   three diagrams + the reasoning; docs/diagrams/*.svg are
+                      hand-written, self-contained, no build step
+docs/WHERE-TO-CONNECT.md the one-field answer: public/config.json → sheetId
+docs/CONNECT-SHEET.md step-by-step: upload the workbook, share it, paste the link
+scripts/             generate_sample_data.py (xlsx + split workbooks + CSVs),
+                      generate_sample_deck.py (dummy orientation deck),
+                      generate_setup_deck.py (setup guide for management)
+sample-data/         Trip Data.xlsx (Settings + 8 source tabs) + a dummy deck.pptx
+sample-data/split/   the master-links-to-separate-sheets layout: Trip Master.xlsx
+                      (Settings only) plus one workbook per source
+public/sample-sheets/ the same dummy data as CSV, served by Vite for the offline demo
+                      (no settings.csv — the index tab is meaningless in local mode)
+public/config.json    the live pointer; there is deliberately no committed .env
+legacy/               original single-file prototype (reference only)
+src/
+  main.jsx            BrowserRouter > AuthProvider > App
+  App.jsx             routes + footer
+  auth/               AuthContext, RequireAuth / RequireStudent
+  components/         Icon, Section, DocCard, TopBar, States
+  data/               index (adapter pick), mockAdapter, sheetsAdapter,
+                      apiAdapter, csv, normalize, useTrip, mock/rows
+  lib/                grades, phone, docPreview
+  pages/              Login, ChildPicker, TripPage
+  styles/             tokens.css, global.css
+```
+
+## Routes
+| Path | Guard | Renders |
+|---|---|---|
+| `/login` | none | email-or-mobile entry, plus Google button when configured |
+| `/children` | `RequireAuth` | child picker; **auto-redirects when the parent has one child** |
+| `/trip/:gradeId` | `RequireStudent` | the trip page |
+| `*` | — | redirect to `/children` |
+
+## Access control — the important part
+One login box takes **either an email address or a mobile number**;
+`classifyIdentifier()` branches on the presence of `@`.
+
+- **Email** → matched case-insensitively against `FatherEmail`.
+- **Mobile** → matched on the **last 10 digits** of `FatherPhone`. Handles `+91`, leading
+  `0`, spaces, dashes, Excel-numeric cells.
+- **A student row is reachable by whichever of the two columns is filled in.** Both blank
+  → the child is reachable by nobody. This is the answer to "why can't this parent log in".
+- The session holds `students`, `grades` (derived from the matched rows), `activeStudentId`,
+  plus `via` (`email` | `phone` | `google`) and `identifier`. **Grade is derived in
+  `AuthContext` and nowhere else** — no screen reads a grade from the URL or user input.
+- `TripPage` calls `canAccessGrade(gradeId)` before mounting; `useTrip` is passed
+  `enabled: false` when it fails, so an unauthorised grade **never triggers a fetch**.
+  Verified: `/trip/g5` as a G7 parent shows "Not your child's grade" and issues no request.
+- Session lives in `sessionStorage`, keyed `schoolTrips.session`; ends with the tab.
+
+### Google Sign-In (optional)
+Set `VITE_GOOGLE_CLIENT_ID` and the login page renders a Google button above the typed box;
+blank and it is hidden entirely. `googleSignIn.js` lazy-loads Google Identity Services once,
+and `loginWithGoogle` matches the returned address against `FatherEmail` — access still
+depends on the sheet, Google only proves the address is really theirs.
+
+**`readEmailFromCredential` decodes the ID token, it does not verify it** — the browser
+cannot check Google's signature safely. Fine while the sheets are world-readable anyway;
+once the `api` adapter is live the backend must verify the raw credential itself. The
+`api` contract carries `kind: 'google'` with the raw credential for exactly this.
+
+Without a client id there is **no verification at all** — anyone who knows a registered
+email or number can sign in as that parent. `login` / `loginWithGoogle` are the seams.
+
+### The standing security caveat
+With `VITE_DATA_SOURCE=sheets` the spreadsheet must be world-readable and its id ships in
+the JS bundle — any parent can open the raw sheet and read every family's row. The grade
+filter is then **UI convenience, not a security boundary**. Real per-grade control needs the
+`api` adapter backed by a service that holds a service-account key. Restate this whenever
+someone proposes going live on the sheets adapter.
+
+## Data layer
+`src/data/index.js` picks an adapter from `VITE_DATA_SOURCE`, defaulting to `mock`.
+
+| id | Source | Notes |
+|---|---|---|
+| `mock` | `src/data/mock/rows.js` | default; ~250ms simulated latency; UI shows a "Sample data" tag |
+| `sheets` | `gviz/tq?tqx=out:csv` per tab, **or local CSVs when `VITE_SHEET_CSV_BASE` is set** | tolerates missing optional tabs via `Promise.allSettled`; detects Google's sign-in HTML returned with a 200 |
+| `api` | your backend | contract documented at the top of `apiAdapter.js`; exposes `lookup()`, which `AuthContext` prefers when present |
+
+Adapters expose `fetchStudents()` and `fetchTripSets(gradeId)`. An adapter may also expose
+`lookup({kind, value})`; when present `AuthContext` delegates the whole credential match to
+it instead of filtering a roster client-side. Only `apiAdapter` does today.
+
+### Eight sheets, flat and per-grade
+Tab names are the address and live in `TAB_NAMES` (`sheetsAdapter.js`), plus `settingsTab`
+(default `Settings`) in `config.js`. **File names are never read** — only tab names and the
+links between sheets. Keep those two facts distinct when explaining this; conflating them is
+the most likely way someone loses data silently.
+
+`Students`, `Trips`, `Itinerary`, `Documents`, `Guidelines`, `Reminders`, `Travel`, `Media`.
+Every tab except Students carries a `Grade` column. `assembleTrip(gradeId, sets)` folds the
+flat rows into the object `TripPage` renders. Full contract in `docs/SHEET-SCHEMA.md`.
+
+`Guidelines` is one tab holding four list types discriminated by a `Type` column
+(`Safety` / `Do` / `Dont` / `Carry`) — deliberately, so the school manages one sheet.
+
+### The dummy dataset and the local-CSV mode
+`scripts/generate_sample_data.py` is the **single source of truth** for the dummy data and
+emits both artefacts — edit the `SHEETS` dict and re-run, never hand-edit the outputs:
+- `sample-data/Trip Data.xlsx` — 8 tabs, styled headers, frozen top row, and a **validation
+  dropdown on every `Grade` column** (the cheapest guard against the silent row-drop).
+  Uploading it to Drive and saving as Google Sheets reproduces the tabs exactly.
+- `public/sample-sheets/*.csv` — the same rows, served by Vite.
+
+`public/sample-drive/files.json` is the matching fixture for Drive folder listing — setting
+`driveApiBase` to `/sample-drive` serves it regardless of query, which is how folder expansion
+was tested without a Google account. The CSV fixtures carry `DEMO_FOLDER_ID` where the
+workbook carries `REPLACE_WITH_YOUR_FOLDER_ID`, so the offline demo resolves; that swap
+happens in `write_csvs()`.
+
+Setting `VITE_SHEET_CSV_BASE=/sample-sheets` (or `csvBase` in config.json) makes the **real
+sheets adapter** read those files: same `parseCsv`, same `normalize`, same `assembleTrip`. This is how the CSV pipeline
+got tested without a Google account, and it is the current `.env` default. Moving to a real
+sheet is only swapping that one line for `VITE_SHEET_ID` + gids.
+
+The dummy data deliberately exercises the tolerances rather than hiding them: grades written
+as `Grade 7`, `9`, `VII` and `Class 5`; a phone as `+91 98765 43210`; one row with an empty
+`FatherEmail`; a multi-line quoted `Overview`; Grade 9 left `Pending` with most tabs empty;
+`Media` empty entirely. The `Documents` tab ships `REPLACE_WITH_YOUR_…` placeholder ids on
+purpose — they render as fallback tiles, which is what an unshared document also looks like.
+
+### Header and value tolerance — do not weaken this
+The school owns the sheets and renames things without warning, so:
+- `normalizeKey()` lowercases and strips all non-alphanumerics, making `Father Name`,
+  `father_name` and `FatherName` the same key. **Mock rows keep human casing, so
+  `mockAdapter` must run them through `normalizeRow` first** — skipping that was a real bug
+  that silently broke login.
+- `pick(row, ...aliases)` reads the first alias actually present.
+- `normalizeGradeId()` accepts `7`, `Grade 7`, `grade-7`, `Class 7`, `VII`, `JK`. Anything
+  unreadable yields `''` and the row is dropped — a grade typo makes a row vanish silently.
+- `parseCsv()` is a real RFC4180 parser; Google quotes any cell with a comma or newline, so
+  `split(',')` mangles multi-line overview text.
+
+## Document previews
+Requirement was **image preview, click through to the real doc** — not live iframes (the
+prototype used iframes; that was deliberately dropped).
+
+`describeDoc(url)` classifies a Google URL into `slides | doc | sheet | form | folder |
+file | link` and returns `thumb` = `drive.google.com/thumbnail?id={id}&sz=w1000`, which
+serves Docs, Slides, Sheets, PDFs and images from one URL shape.
+
+`thumb` is null for **folders and Forms** — neither has a single renderable page.
+`DocCard` tracks a `broken` flag and swaps to a typed placeholder tile on `onError`, so a
+non-public file degrades gracefully and still opens on click.
+
+**Confirmed behaviour:** the thumbnail endpoint only answers for files shared "anyone with
+the link → Viewer". The five sample Grade-7 documents are private, so they all render the
+fallback tile locally. External images are not blocked in general (a Google favicon loads
+fine) — it is specifically the private Drive files that 403. Do not chase this as a bug.
+
+## Design system
+Carried over from the prototype, now in `src/styles/tokens.css`.
+```
+--bg #FCF8ED  --ink #22303F  --muted #767066  --card #FFFFFF  --line #ECE6D6
+```
+Baloo 2 display / Inter body. Radii 26/22/18/14/11/20px. Section badges are coloured per
+key in `Section.jsx`'s `SECTION_COLOR`. Grade colours and icons live on `GRADES` in
+`lib/grades.js` — **icons are now a property of each grade, not positional** as they were
+in the prototype, so reordering grades no longer reshuffles them.
+Sole breakpoint `max-width:720px`. Light theme only.
+
+## Verified working
+Exercised in the browser on the dev server, sample data:
+- two-child login by **email** (`rakesh.mehta@example.com`) → picker → G7 trip
+- one-child login by **email** (`nilesh.shah@example.com`) → picker auto-skipped
+- login by **mobile** `9876543210`; `+91 98765 43210` in the sheet matched it
+- one-child mobile login where grade is stored as `VII` → resolved to G7
+- **`9900112233`, a row with an empty `FatherEmail`** → mobile still works
+- unknown email `stranger@example.com` → "could not find a student", stays on `/login`
+- malformed `not-an-email@@x` → "does not look like a valid email address"
+- `/trip/g5` as a G7 parent → blocked, no fetch
+- all ten sections render; mobile 375px reflows cleanly
+- `npm run build` clean, no console errors
+
+Then re-verified against the **real sheets adapter reading CSV fixtures** — this closed the
+"sheets adapter never tested" gap for everything except the Google URL itself:
+- email login resolved from `students.csv`; two-child picker correct
+- G7 → 9 sections, 7 itinerary rows, 5 doc cards, 13 packing items, 2 travel legs
+- the quoted multi-line `Overview` survived parsing with its blank line intact, which is
+  the whole reason `parseCsv` exists
+- `Class 5` → g5 → Sundarbans trip; Grade 9 `Pending` → "Details coming soon" pill and only
+  the two sections it has data for
+
+Runtime config and folder expansion, against the local fixtures:
+- app renders with all pointers coming from `config.json`, none from `.env`
+- with `driveApiKey` set, one folder row became **4 cards**, each inheriting the row's grade
+  and category, labels stripped of file extensions
+- with `driveApiKey` blank, the same row stayed **1 link card** — the graceful default
+
+Folder file-name matching (`matchFolderFiles`, pure-function check):
+- exact names matched; `Grade 7 Itinerary 2026` → itinerary via unique substring
+- `Media` exact beat `Old Media backup`, so no false ambiguity
+- an unconverted `.xlsx` and a Slides file were skipped with warnings naming them
+- `Winter Trips` + `Summer Trips` → **no match at all** plus an ambiguity warning
+
+Sheet-link handling (pure-function check, plus local mode still rendering):
+- share link with `#gid=`, share link with `?usp=sharing`, bare id → all parse correctly
+- a Drive **folder** URL correctly yields `null` rather than a bogus sheet id
+- `?tqx=out:csv&sheet=Students` by name, `&gid=…` when a gid is given
+
+**Vite gotcha:** after the `adapter` → `getAdapter()` refactor the dev server served a stale
+module and the app rendered nothing, while `npm run build` passed. HMR reported
+"does not provide an export named getAdapter". Restart the server and `rm -rf node_modules/.vite`
+before believing a runtime error that the build does not reproduce.
+
+**Testing note:** the browser tool's synthetic clicks do not reliably reach React's
+handlers on this login form. Drive it with `element.click()` and set inputs through the
+native value setter plus a bubbling `input` event, or React state stays empty and the form
+looks silently broken. Also clear the AuthProvider state with a real reload between cases —
+`sessionStorage.clear()` alone leaves the in-memory session and masks failures.
+
+## Known gaps
+Observations, not a to-do list — do not act without a request.
+- No verification on a typed email or phone; Google Sign-In is optional and unconfigured.
+- Google Sign-In is untested end-to-end — no client id has ever been set, so the button,
+  the GIS load and the credential decode have not run against real Google.
+- `sheets` adapter cannot enforce access control (see caveat above).
+- The adapter has still **never run against a real Google URL** — only local CSVs and a local
+  Drive fixture. The `gviz/tq` URL shape, **tab-addressing by `sheet=` name**, the `Settings`
+  index lookup, the sign-in-HTML detection, and the real `files.list` call with an API key are
+  all unproven in the wild. URL construction is unit-checked; the round trip is not.
+- The `Settings` tab ships with every link blank, so the index path resolves to `{}` and has
+  never actually redirected a source.
+- **Trip history is undecided.** Today a new trip overwrites the old rows and nothing is
+  kept. Adding a year/season column later means migrating a sheet the school has already
+  filled — raised with them in `DATA-HANDOVER.md §4b`, unanswered.
+- Both decks in `sample-data/` were generated but **never visually rendered** — no
+  LibreOffice on this machine. Shape geometry is confirmed inside the canvas; text could
+  still overflow its own box. Open them once before showing them to anyone.
+- Of the five SVGs in `docs/diagrams/`, only `pipeline` and `sheet-map` have been seen
+  rendered. The rest use identical constructs but are unviewed.
+- No backend exists yet; `apiAdapter` is a documented stub that throws if selected.
+- No admin UI; the school edits sheets directly.
+- No caching between navigations — switching child refetches the whole set.
+- Media section is wired but the sample data has no rows, so it is unexercised.
+- No tests.
+- Accessibility beyond semantic buttons/labels has not been audited.
+
+## Keeping it dynamic — built, and why it is shaped this way
+The user's pain was reconfiguring for every trip. Their proposal: point the app at one Drive
+folder and let it discover everything. What shipped instead, and the reasoning:
+
+1. **The spreadsheet id is permanent.** The schema was always grade-keyed and multi-trip —
+   the dummy workbook holds three trips. A new trip is *new rows*, needing no developer at
+   all. This removes most of the pain on its own; state it before proposing anything else.
+2. **`public/config.json`, read at page load** (`src/config.js` → `loadConfig()` awaited in
+   `main.jsx` before render). `.env` remains the fallback for blank values. Previously every
+   pointer was baked in at build time, so any change meant a rebuild and redeploy — that was
+   the real structural flaw, independent of folders.
+3. **Folder links inside the `Documents` tab** (`src/lib/drive.js`). One row holding a Drive
+   folder URL expands into one card per file, inheriting that row's grade and category, label
+   from the filename with the extension stripped.
+4. **One pasted link is the entire configuration.** `gviz/tq` addresses a tab **by name**
+   (`?sheet=Students`), so the eight gids are gone — `sheetId` accepts a full share link or a
+   bare id (`parseSheetRef` in `src/lib/sheetUrl.js`). Cost of this: **renaming a tab silently
+   empties that section**, since the name is the address. A `gid` still wins when supplied,
+   because a gid survives renames — that is the documented escape hatch, keep it.
+5. **An optional `Settings` tab** (`Key | Link | Notes`) lets the school point any one source
+   at a different spreadsheet by pasting a link, with nobody touching `config.json`. Blank
+   links mean "use the tab of the same name in this file" — the normal case. Only the eight
+   known keys are read; a missing tab is normal and resolves to `{}`. Cached per session in
+   `indexCache`.
+
+6. **A Drive folder link can be the whole configuration** (`folderId`). `loadFolderMap` lists
+   it and `matchFolderFiles` maps spreadsheets onto sources **by file name** — exact match
+   first, then a *unique* substring match (`Grade 7 Itinerary 2026` → itinerary). Two
+   candidates is ambiguous and yields **nothing**, with a console warning naming both; never
+   change this to guess. Non-spreadsheet mime types are skipped, which catches the very
+   common "uploaded the .xlsx but never converted it" mistake. Requires `driveApiKey`.
+
+**This reverses the usual rule**: with `sheetId` file names are irrelevant and only tab names
+matter; with `folderId` file names become the address. Always state which mode is in play
+before answering a naming question.
+
+Resolution order in `urlsFor`: csvBase → `Settings` tab → `sheetIds` → folder → master
+`sheetId`. `urlsFor` returns a **list**; `withFallback` appends a `gid=0` URL so a dedicated
+file whose tab is still `Sheet1` resolves. `loadSheet` walks the list and rethrows the last
+error only if all fail.
+
+`csvExportUrl` builds its query **by hand, not with `URLSearchParams`**, which would encode
+the colon in `out:csv` as `%3A`. Do not "tidy" that back.
+
+**A folder can never replace the spreadsheet** — itinerary, safety points, packing list and
+travel legs are structured rows; a folder yields filenames only, with no grade, label,
+category or order. Fully folder-driven would need filename conventions the school will break.
+Do not revisit this without new information.
+
+Because adapters now read `config()` synchronously, `src/data/index.js` exports **`getAdapter()`
+/ `isMock()` / `isServerEnforced()` as functions**, not constants — resolving at import time
+would capture the pre-config values.
+
+`driveApiKey` blank is the safe default: `expandFolderDocuments` returns its input untouched
+and folder rows stay a single link card. A folder that errors is also left as a link, so the
+section never breaks.
+
+## Open with management — unsettled, blocks decisions
+Raised in `docs/DATA-HANDOVER.md`; none answered yet. Do not assume any of these.
+- **Privacy of the `Students` tab.** Direct-from-Sheets makes every family's name, email and
+  phone publicly readable. If management says no, a backend is required — timeline/budget.
+  Middle path floated: keep PII in a private sheet behind the server, trip content public.
+- **Which credential**, and whether to verify (Google Sign-In / SMS OTP / none).
+- **"Father" naming.** `FatherName/Email/Phone` excludes mothers and guardians. Options put
+  to them: rename to `Parent*` (already accepted as aliases), add a second contact set, or
+  allow multiple contact rows per student. Cheap to change before the roster is typed.
+- **Whether trip documents will be publicly shared** (governs thumbnail previews).
+- **Ownership and update cadence** of the sheet.
+- **Scope beyond the eight tabs** — consent forms, fees, rooming, medical declarations.
+- Confirmation that only JK and Grades 1–12 exist.
+
+## Working rules
+- **React + Vite, plain CSS.** Do not add a UI kit, CSS framework, state library or
+  TypeScript without being asked.
+- Content never gets hard-coded in a component — it comes from an adapter.
+- New sheet column → add an alias in `normalize.js`, never read `row.someKey` directly.
+- Any new grade-scoped screen must go through `canAccessGrade` before fetching.
+- Keep `docs/SHEET-SCHEMA.md` in step with `normalize.js`; it is what the school works from.
+- Dummy data changes go in `scripts/generate_sample_data.py` and get re-run. Never hand-edit
+  `sample-data/*.xlsx` or `public/sample-sheets/*.csv` — they are build outputs.
+- **This directory is not a git repository.** Nothing deleted here is recoverable, so confirm
+  before removing anything not regenerable by a script or a build.
+- Two exports have no external caller and are kept on purpose: `matchFolderFiles`
+  (exported so folder matching can be checked without a network call) and `GRADES` (the
+  canonical domain list `gradeById` reads). Do not "clean" either away.
+- Keep the codebase comment-light: comments explain *why* (a tolerance, a caveat), never
+  what the line does.
+- `legacy/trip-explorer.html` is frozen reference. Do not edit it.
+
+## Changelog
+- 2026-08-07 — Cleanup pass: deleted dead `maskPhone`, `isValidPhone`, `isFolderUrl`;
+  un-exported `parseCsv` and `isValidEmail`; stopped generating the never-read
+  `sample-sheets/settings.csv`; removed the redundant local `.env` so `config.json` is the
+  single pointer. Verified the app still renders afterwards. Noted that this directory has no
+  git history, so deletions are irreversible.
+- 2026-08-07 — Added the end-to-end `setup-chain.svg` diagram and
+  `Trip Explorer - Setup guide.pptx`, a 7-slide deck covering the four setup steps, the
+  exact spreadsheet names, sharing as two distinct jobs, and the five quiet failure modes.
+- 2026-08-07 — Added **Drive-folder-as-configuration** (`folderId`): the app lists the folder
+  and matches spreadsheets to sources by file name, refusing to guess when two files match.
+  Added a `gid=0` fallback so a dedicated file with a `Sheet1` tab still resolves. Recorded
+  that this reverses the file-names-are-free rule.
+- 2026-08-07 — Added `sample-data/split/` (Trip Master + one workbook per source) for the
+  master-links-to-sheets layout, `docs/WHERE-TO-CONNECT.md` answering "where does the sheet
+  plug in", and an exact-names section in `SHEET-SCHEMA.md` distinguishing free file names
+  from strict tab names. Corrected a doc that stated the source-resolution order backwards.
+- 2026-08-07 — Config collapsed to **one pasted spreadsheet link**: tabs are addressed by
+  name via `gviz ?sheet=`, so the eight gids are gone, and `sheetId` parses a share URL.
+  Added the optional `Settings` index tab for redirecting a single source. Wrote
+  `docs/ARCHITECTURE.md` with three self-contained SVG diagrams.
+- 2026-08-07 — Made updates dynamic. Added `public/config.json` read at page load so pointers
+  change without a rebuild, refactored `src/data/index.js` to function exports so adapters
+  resolve after config lands, and added Drive folder expansion for `Documents` rows behind an
+  optional API key. Established the permanent-spreadsheet-id convention as the main fix.
+  Verified both the expansion and the no-key fallback against local fixtures.
+- 2026-08-07 — Explored making trip updates dynamic. Confirmed a Drive API key can list a
+  public folder, but established that a folder cannot carry grade/label/order and so can only
+  replace the `Documents` list, never the sheet. Identified that a permanent spreadsheet id
+  plus runtime config removes most of the pain without folder-listing at all. Design choice
+  pending.
+- 2026-08-07 — Built the dummy dataset and the connection path: `Trip Data.xlsx` (8 tabs,
+  grade dropdowns) for upload to Drive, matching CSVs served locally, and a dummy Parent
+  Orientation deck. Added `VITE_SHEET_CSV_BASE` so the real sheets adapter can run offline —
+  which finally exercised `parseCsv`/`normalize`/`assembleTrip` against real CSV bytes across
+  three grades. Wrote `docs/CONNECT-SHEET.md`. Default `.env` now uses this local-CSV mode.
+- 2026-08-07 — Wrote `docs/DATA-HANDOVER.md`, the school-facing brief: Drive folder layout,
+  the two distinct sharing steps, all eight tabs with copy-paste headers, the failure modes
+  (unreadable grade drops a row silently; a document not listed in `Documents` is invisible
+  because the app never scans the folder), and six decisions for management. Logged those
+  decisions as open above.
+- 2026-08-07 — Added **email-based access**: one login box accepting an email or a mobile,
+  matched against `FatherEmail` / `FatherPhone`. A row is reachable by whichever column is
+  filled; both blank means nobody. Added optional Google Sign-In behind
+  `VITE_GOOGLE_CLIENT_ID`, and an adapter-level `lookup({kind,value})` seam replacing
+  `lookupByPhone`. Recorded that the browser-tool synthetic click does not reach React on
+  this form.
+- 2026-08-07 — Rewrote as a React + Vite app per requirements: Google-Sheets-backed content,
+  phone login, per-grade access control, and thumbnail-preview document cards replacing the
+  prototype's iframes. Added the eight-sheet schema contract, three swappable data adapters,
+  and loose header/grade/phone parsing. Fixed a mock-adapter key-normalization bug that
+  broke login. Verified the full flow in-browser. **Superseded the prototype's "one file,
+  zero dependencies" rule**, which the user explicitly overrode.
+- 2026-08-07 — Created skill from the single-file Trip Explorer artifact.

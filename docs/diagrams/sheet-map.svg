@@ -1,0 +1,39 @@
+<svg viewBox="0 0 680 480" width="680" height="480" xmlns="http://www.w3.org/2000/svg" role="img" font-family="Inter, 'Segoe UI', system-ui, sans-serif">
+<title>Which spreadsheet tab produces which part of the trip page</title>
+<desc>Students controls sign-in and is never rendered. Trips produces the banner, overview and communication. Itinerary, Documents, Reminders, Travel and Media each produce their own section. Guidelines produces three sections, split by its Type column.</desc>
+
+<g font-size="13.5">
+<rect x="10" y="10" width="660" height="50" rx="10" fill="#FFFFFF" stroke="#ECE6D6"/>
+<text x="28" y="35" dominant-baseline="central" font-size="14" font-family="ui-monospace, Consolas, monospace" fill="#8C6BE0">Students</text>
+<text x="150" y="35" dominant-baseline="central" fill="#767066">Who can sign in, and which grade they get. Never shown on screen.</text>
+
+<rect x="10" y="68" width="660" height="50" rx="10" fill="#FFFFFF" stroke="#ECE6D6"/>
+<text x="28" y="93" dominant-baseline="central" font-size="14" font-family="ui-monospace, Consolas, monospace" fill="#8C6BE0">Trips</text>
+<text x="150" y="93" dominant-baseline="central" fill="#767066">The coloured banner, overview, and communication details.</text>
+
+<rect x="10" y="126" width="660" height="50" rx="10" fill="#FFFFFF" stroke="#ECE6D6"/>
+<text x="28" y="151" dominant-baseline="central" font-size="14" font-family="ui-monospace, Consolas, monospace" fill="#8C6BE0">Itinerary</text>
+<text x="150" y="151" dominant-baseline="central" fill="#767066">The day-by-day table.</text>
+
+<rect x="10" y="184" width="660" height="50" rx="10" fill="#FFFFFF" stroke="#ECE6D6"/>
+<text x="28" y="209" dominant-baseline="central" font-size="14" font-family="ui-monospace, Consolas, monospace" fill="#8C6BE0">Documents</text>
+<text x="150" y="209" dominant-baseline="central" fill="#767066">Preview cards. A folder link here becomes one card per file.</text>
+
+<rect x="10" y="242" width="660" height="68" rx="10" fill="#EEEDFE" stroke="#AFA9EC"/>
+<text x="28" y="267" dominant-baseline="central" font-size="14" font-family="ui-monospace, Consolas, monospace" fill="#3C3489">Guidelines</text>
+<text x="150" y="264" dominant-baseline="central" fill="#26215C">Three sections from one tab, split by its Type column:</text>
+<text x="150" y="286" dominant-baseline="central" fill="#534AB7">safety · do's and don'ts · things to carry</text>
+
+<rect x="10" y="318" width="660" height="50" rx="10" fill="#FFFFFF" stroke="#ECE6D6"/>
+<text x="28" y="343" dominant-baseline="central" font-size="14" font-family="ui-monospace, Consolas, monospace" fill="#8C6BE0">Reminders</text>
+<text x="150" y="343" dominant-baseline="central" fill="#767066">The amber deadline notices.</text>
+
+<rect x="10" y="376" width="660" height="50" rx="10" fill="#FFFFFF" stroke="#ECE6D6"/>
+<text x="28" y="401" dominant-baseline="central" font-size="14" font-family="ui-monospace, Consolas, monospace" fill="#8C6BE0">Travel</text>
+<text x="150" y="401" dominant-baseline="central" fill="#767066">Train details — one row per leg, so onward and return are two rows.</text>
+
+<rect x="10" y="434" width="660" height="40" rx="10" fill="#FFFFFF" stroke="#ECE6D6"/>
+<text x="28" y="454" dominant-baseline="central" font-size="14" font-family="ui-monospace, Consolas, monospace" fill="#8C6BE0">Media</text>
+<text x="150" y="454" dominant-baseline="central" fill="#767066">Photos and videos.</text>
+</g>
+</svg>
