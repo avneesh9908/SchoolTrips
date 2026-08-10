@@ -355,6 +355,7 @@ Raised in `docs/DATA-HANDOVER.md`; none answered yet. Do not assume any of these
 - `legacy/trip-explorer.html` is frozen reference. Do not edit it.
 
 ## Changelog
+- 2026-08-10 — Added `netlify.toml` in the project root and `public/_redirects` to support both Git-based and direct drag-and-drop Netlify deployments. Set build command to `npm run build`, publish directory to `dist`, and set up SPA redirect rules to handle React Router client-side routing.
 - 2026-08-07 — Cleanup pass: deleted dead `maskPhone`, `isValidPhone`, `isFolderUrl`;
   un-exported `parseCsv` and `isValidEmail`; stopped generating the never-read
   `sample-sheets/settings.csv`; removed the redundant local `.env` so `config.json` is the
