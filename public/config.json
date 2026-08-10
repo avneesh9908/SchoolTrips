@@ -4,7 +4,8 @@
   "dataSource": "sheets",
 
   "_folderId": "Drive folder share link. The app lists it and matches spreadsheets to sources BY FILE NAME (Students, Trips, Itinerary, Documents, Guidelines, Reminders, Travel, Media). Requires driveApiKey.",
-  "folderId": "",
+  "_folderId_status": "SET BUT INERT. Two things still needed: (1) share the folder Anyone with the link -> Viewer, it is currently private; (2) supply driveApiKey. Also clear csvBase below.",
+  "folderId": "https://drive.google.com/drive/folders/1kBYDyPs-2nAW-l2sEf7Czz5RaevzrxgQ",
 
   "_sheetId": "Alternative to folderId: the link of one spreadsheet holding all the tabs. Used when folderId is blank or a file is missing from it.",
   "sheetId": "",
