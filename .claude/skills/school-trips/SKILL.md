@@ -340,6 +340,33 @@ Two gitignored pieces make this work without ever committing PII or breaking the
 **The proxy is dev-only** — `npm run build` emits static files with no proxy — and it hands
 the *entire* roster to the browser. Never present it as the production pattern.
 
+## The roster lookup function — the production answer
+`netlify/functions/lookup.js`, served at **`/api/lookup`** (POST `{kind, value}`).
+
+- Fetches the roster server-side, matches the credential, returns **only**
+  `{id, name, grade, section}` per matched child plus `parentName`. No emails, phones,
+  addresses, DOB or blood group ever cross the boundary. Verified against the live feed:
+  real email → 200 with exactly those four fields; unknown → 404; malformed → 400.
+- 404 is returned for both "no such address" and "address with no children", so the endpoint
+  cannot be used to enumerate who is on the school's roll.
+- **Imports the frontend's own `csv.js` / `normalize.js` / `identity.js`** so column handling
+  cannot drift. That is why those modules now use **explicit `.js` extensions** — Vite did not
+  need them, plain Node does. Keep them.
+- `resolveParent()` is plain JS with no Netlify-specific types. **Only the thin `handler`
+  wrapper is host-specific**, so moving to a paid domain/host means rewriting ~20 lines.
+- `ROSTER_CSV_URL` comes from the server environment and is **deliberately not committed** —
+  the repo is public and the feed is unauthenticated.
+- 5-minute in-memory cache, per warm instance.
+
+Frontend side: `sheetsAdapter.lookup()` posts to `config().rosterApiUrl` when set, else falls
+back to filtering a client-side roster (correct for demo data, wrong for real). `rosterApiUrl`
+lives in `config.json`, read at runtime — repointing after a host move needs no rebuild.
+Trip content still comes from Sheets directly; it carries no personal data, so there is no
+reason to route it through a server.
+
+**Not yet done:** `rosterApiUrl` ships blank, and `ROSTER_CSV_URL` has never been set on
+Netlify, so the deployed site has not exercised this. Untested end-to-end in the cloud.
+
 ## The real roster feed — needs a backend, cannot be used from the browser
 The school publishes its roster at `.../CSVDATA/StudentData.csv` (an HTTP IP that 302s to an
 HTTPS host). Checked 2026-08-11; only row 1 was fetched, never the records.
@@ -427,6 +454,11 @@ Raised in `docs/DATA-HANDOVER.md`; none answered yet. Do not assume any of these
 - `legacy/trip-explorer.html` is frozen reference. Do not edit it.
 
 ## Changelog
+- 2026-08-11 — Built `netlify/functions/lookup.js` (`/api/lookup`): server-side roster match
+  returning only id/name/grade/section, verified against the live feed. Reuses the frontend
+  normalize modules (hence explicit `.js` extensions). `resolveParent()` is host-agnostic so
+  the move off Netlify is a ~20-line rewrite. `rosterApiUrl` is runtime config, so repointing
+  needs no rebuild. Still blank/unset, so untested in the cloud.
 - 2026-08-11 — Proved in-browser that the roster feed is CORS-blocked (`Failed to fetch`), then
   made it usable in dev via a Vite proxy at `/roster` plus per-source `csvUrls`. Added the
   gitignored `config.local.json` override so local work can target real data without breaking
