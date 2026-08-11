@@ -3,3 +3,7 @@ dist
 .env
 .env.local
 *.log
+
+# Real roster pulled for local testing only. Contains student PII —
+# must never be committed or deployed.
+public/local-roster/
