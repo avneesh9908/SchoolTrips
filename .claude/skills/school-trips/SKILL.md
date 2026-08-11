@@ -340,6 +340,25 @@ Two gitignored pieces make this work without ever committing PII or breaking the
 **The proxy is dev-only** — `npm run build` emits static files with no proxy — and it hands
 the *entire* roster to the browser. Never present it as the production pattern.
 
+## Staff role — sees every grade
+A signed-in email on the staff list gets `role: 'admin'`: scope over `ALL_GRADE_IDS`, a
+**grade picker** (all 14, including Senior KG) instead of a child picker, a "Staff" chip in
+the top bar, and `RequireStudent` waives its child requirement since staff have no child row.
+`canAccessGrade` passes for every grade.
+
+**The list lives in `ADMIN_EMAILS` on the server, never in `config.json`.** The client config
+is public, and while a typed email is the only credential, publishing the staff list would
+hand out the exact addresses that unlock every grade. `config.adminEmails` +
+`isAdminEmailLocally()` exist only for the demo/no-server path — do not promote them.
+
+Staff are matched **before the roster is loaded**, so they need no student row.
+`sheetsAdapter.lookup` returns `{role, students}`; the no-server fallback returns the same
+shape, and `AuthContext` also accepts a bare array for `mockAdapter`.
+
+Verified: staff see 14 grade cards and can open `/trip/g12` directly; a parent on the same
+build still gets "Not your child's grade". Staff currently see **trip pages only** — there is
+no roster or student-list view, deliberately, since that would put PII back in the browser.
+
 ## The roster lookup function — the production answer
 `netlify/functions/lookup.js`, served at **`/api/lookup`** (POST `{kind, value}`).
 
@@ -454,6 +473,8 @@ Raised in `docs/DATA-HANDOVER.md`; none answered yet. Do not assume any of these
 - `legacy/trip-explorer.html` is frozen reference. Do not edit it.
 
 ## Changelog
+- 2026-08-11 — Added the staff role: server-side `ADMIN_EMAILS`, all-grades scope, grade
+  picker, Staff chip. Verified staff reach any grade and parents still cannot.
 - 2026-08-11 — Built `netlify/functions/lookup.js` (`/api/lookup`): server-side roster match
   returning only id/name/grade/section, verified against the live feed. Reuses the frontend
   normalize modules (hence explicit `.js` extensions). `resolveParent()` is host-agnostic so
