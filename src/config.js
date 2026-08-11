@@ -42,28 +42,40 @@ function merge(base, override) {
   return out
 }
 
+async function readJson(name) {
+  try {
+    const res = await fetch(name, { cache: 'no-store' })
+    if (!res.ok) return null
+    const text = await res.text()
+    // A missing file under the SPA fallback comes back as index.html.
+    if (text.trimStart().startsWith('<')) return null
+    return JSON.parse(text)
+  } catch (err) {
+    console.warn(`[config] could not read ${name}:`, err.message)
+    return null
+  }
+}
+
 /**
  * Reads public/config.json at startup so the spreadsheet pointer can be changed
  * by editing one deployed file, instead of rebuilding the bundle. Values in
  * .env stay as the fallback, so an existing setup keeps working untouched.
  *
+ * public/config.local.json then overrides it, and is gitignored. That is how a
+ * developer points at real data locally without editing the committed file —
+ * which auto-deploys, so a local-only path in there would ship a broken site.
+ *
  * Must resolve before the app renders — adapters read config() synchronously.
  */
 export async function loadConfig() {
-  try {
-    const res = await fetch('config.json', { cache: 'no-store' })
-    if (res.ok) {
-      const text = await res.text()
-      // A missing file under the SPA fallback comes back as index.html.
-      if (!text.trimStart().startsWith('<')) {
-        current = merge(FROM_ENV, JSON.parse(text))
-        return current
-      }
-    }
-  } catch (err) {
-    console.warn('[config] could not read config.json, falling back to .env:', err.message)
+  const base = await readJson('config.json')
+  current = base ? merge(FROM_ENV, base) : FROM_ENV
+
+  const local = await readJson('config.local.json')
+  if (local) {
+    current = merge(current, local)
+    console.info('[config] config.local.json applied — local overrides are active.')
   }
-  current = FROM_ENV
   return current
 }
 
