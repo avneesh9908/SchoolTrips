@@ -19,6 +19,9 @@
   "_gids": "Only needed if a tab has been renamed — a gid survives renames and wins over the tab name.",
   "gids": {},
 
+  "_rosterApiUrl": "Server-side login lookup. Set to /api/lookup on Netlify. When set, the roster never reaches the browser - only the signed-in parent's own children do. Leave blank and login falls back to matching a client-side roster (demo data only).",
+  "rosterApiUrl": "",
+
   "_driveApiKey": "Required for folderId, and for turning a folder link in the Documents tab into one card per file.",
   "driveApiKey": "",
 

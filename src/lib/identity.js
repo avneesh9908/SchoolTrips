@@ -1,4 +1,4 @@
-import { normalizePhone } from './phone'
+import { normalizePhone } from './phone.js'
 
 export function normalizeEmail(raw) {
   return String(raw ?? '').trim().toLowerCase()

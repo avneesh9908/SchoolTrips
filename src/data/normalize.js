@@ -1,6 +1,8 @@
-import { pick, collectAll } from './csv'
-import { normalizeGradeId } from '../lib/grades'
-import { normalizePhone } from '../lib/phone'
+// Explicit .js extensions so these modules are importable by plain Node too —
+// the Netlify function reuses them, and Node ESM will not guess the extension.
+import { pick, collectAll } from './csv.js'
+import { normalizeGradeId } from '../lib/grades.js'
+import { normalizePhone } from '../lib/phone.js'
 
 /**
  * Every sheet row passes through here on its way into the app. Column names are

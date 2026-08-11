@@ -205,6 +205,41 @@ export const sheetsAdapter = {
   id: 'sheets',
   label: 'Google Sheets (public CSV)',
 
+  /**
+   * Resolves a login. With `rosterApiUrl` set this happens server-side and the
+   * roster never enters the browser — the only safe arrangement for a feed
+   * carrying addresses and dates of birth. Without it, falls back to matching a
+   * client-side roster, which is fine for demo data and wrong for real data.
+   */
+  async lookup({ kind, value }) {
+    const { rosterApiUrl } = config()
+    if (!rosterApiUrl) {
+      const roster = await this.fetchStudents()
+      return roster.filter((s) =>
+        kind === 'email' ? s.emails.includes(value) : s.phones.includes(value)
+      )
+    }
+
+    const res = await fetch(rosterApiUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ kind, value }),
+    })
+    if (res.status === 404) return []
+    if (!res.ok) {
+      const detail = await res.json().catch(() => ({}))
+      throw new Error(detail.error || `Sign-in service returned HTTP ${res.status}.`)
+    }
+    const data = await res.json()
+    // The server sends only id/name/grade/section; fill the shape the app expects.
+    return (data.students || []).map((s) => ({
+      ...s,
+      parentName: data.parentName || '',
+      emails: [],
+      phones: [],
+    }))
+  },
+
   async fetchStudents() {
     return (await loadSheet('students')).map(toStudent)
   },

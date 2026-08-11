@@ -25,6 +25,12 @@ const FROM_ENV = {
   driveApiKey: ENV.VITE_GOOGLE_API_KEY || '',
   driveApiBase: ENV.VITE_DRIVE_API_BASE || 'https://www.googleapis.com/drive/v3',
   apiBaseUrl: ENV.VITE_API_BASE_URL || '',
+  /**
+   * Server-side roster lookup. When set, login goes through it and the roster
+   * never reaches the browser. Trip content still comes from Sheets, which is
+   * fine — it carries no personal data.
+   */
+  rosterApiUrl: ENV.VITE_ROSTER_API_URL || '',
 }
 
 let current = null
