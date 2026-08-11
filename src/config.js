@@ -14,6 +14,8 @@ function envMap(prefix) {
 const FROM_ENV = {
   dataSource: ENV.VITE_DATA_SOURCE || 'mock',
   csvBase: ENV.VITE_SHEET_CSV_BASE || '',
+  /** Per-source CSV URL, beating csvBase. Keyed by source name. */
+  csvUrls: {},
   folderId: ENV.VITE_DRIVE_FOLDER_ID || '',
   sheetId: ENV.VITE_SHEET_ID || '',
   settingsTab: ENV.VITE_SETTINGS_TAB || 'Settings',

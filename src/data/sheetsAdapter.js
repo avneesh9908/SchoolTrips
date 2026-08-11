@@ -138,7 +138,10 @@ async function loadFolderMap() {
 }
 
 function localUrl(name) {
-  const { csvBase } = config()
+  const { csvBase, csvUrls } = config()
+  // A per-source URL wins, so one source can come from a proxied live feed
+  // while the rest stay on local files.
+  if (csvUrls && csvUrls[name]) return csvUrls[name]
   return csvBase ? `${csvBase.replace(/\/$/, '')}/${name}.csv` : null
 }
 
