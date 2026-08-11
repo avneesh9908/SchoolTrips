@@ -29,14 +29,10 @@ docs/ARCHITECTURE.md   three diagrams + the reasoning; docs/diagrams/*.svg are
                       hand-written, self-contained, no build step
 docs/WHERE-TO-CONNECT.md the one-field answer: public/config.json → sheetId
 docs/CONNECT-SHEET.md step-by-step: upload the workbook, share it, paste the link
-scripts/             generate_sample_data.py (xlsx + split workbooks + CSVs),
-                      generate_sample_deck.py (dummy orientation deck),
-                      generate_setup_deck.py (setup guide for management)
-sample-data/         Trip Data.xlsx (Settings + 8 source tabs) + a dummy deck.pptx
+scripts/             generate_template.py (empty workbooks), generate_setup_deck.py
+sample-data/         EMPTY template workbook + the setup-guide deck for management
 sample-data/split/   the master-links-to-separate-sheets layout: Trip Master.xlsx
                       (Settings only) plus one workbook per source
-public/sample-sheets/ the same dummy data as CSV, served by Vite for the offline demo
-                      (no settings.csv — the index tab is meaningless in local mode)
 public/config.json    the live pointer; there is deliberately no committed .env
 legacy/               original single-file prototype (reference only)
 src/
@@ -44,8 +40,8 @@ src/
   App.jsx             routes + footer
   auth/               AuthContext, RequireAuth / RequireStudent
   components/         Icon, Section, DocCard, TopBar, States
-  data/               index (adapter pick), mockAdapter, sheetsAdapter,
-                      apiAdapter, csv, normalize, useTrip, mock/rows
+  data/               index (adapter pick), sheetsAdapter, apiAdapter, csv,
+                      normalize, useTrip
   lib/                grades, phone, docPreview
   pages/              Login, ChildPicker, TripPage
   styles/             tokens.css, global.css
@@ -123,30 +119,23 @@ flat rows into the object `TripPage` renders. Full contract in `docs/SHEET-SCHEM
 `Guidelines` is one tab holding four list types discriminated by a `Type` column
 (`Safety` / `Do` / `Dont` / `Carry`) — deliberately, so the school manages one sheet.
 
-### The dummy dataset and the local-CSV mode
-`scripts/generate_sample_data.py` is the **single source of truth** for the dummy data and
-emits both artefacts — edit the `SHEETS` dict and re-run, never hand-edit the outputs:
-- `sample-data/Trip Data.xlsx` — 8 tabs, styled headers, frozen top row, and a **validation
-  dropdown on every `Grade` column** (the cheapest guard against the silent row-drop).
-  Uploading it to Drive and saving as Google Sheets reproduces the tabs exactly.
-- `public/sample-sheets/*.csv` — the same rows, served by Vite.
+### No dummy data — real sources only
+All invented content was deleted on 2026-08-11: the demo roster and trip CSVs, `mockAdapter`
+and `mock/rows.js`, the fake Drive listing fixture, and the fabricated orientation deck.
+**There is no mock adapter and no demo mode**; `dataSource` defaults to `sheets` and
+`ADAPTERS` holds only `sheets` and `api`. `isMock()` is gone.
 
-`public/sample-drive/files.json` is the matching fixture for Drive folder listing — setting
-`driveApiBase` to `/sample-drive` serves it regardless of query, which is how folder expansion
-was tested without a Google account. The CSV fixtures carry `DEMO_FOLDER_ID` where the
-workbook carries `REPLACE_WITH_YOUR_FOLDER_ID`, so the offline demo resolves; that swap
-happens in `write_csvs()`.
+`scripts/generate_template.py` (replacing `generate_sample_data.py`) emits an **empty**
+workbook — headers, widths, freeze pane and validation dropdowns on `Grade`, `Type` and
+`Status`, no rows except the fixed `Settings` keys. Do not add example rows back: shipping
+them is how invented trips would reach parents.
 
-Setting `VITE_SHEET_CSV_BASE=/sample-sheets` (or `csvBase` in config.json) makes the **real
-sheets adapter** read those files: same `parseCsv`, same `normalize`, same `assembleTrip`. This is how the CSV pipeline
-got tested without a Google account, and it is the current `.env` default. Moving to a real
-sheet is only swapping that one line for `VITE_SHEET_ID` + gids.
+**Current honest state:** login works against the real roster, but **no trip-content source
+exists**, so every grade renders "Nothing published yet". That is correct behaviour, not a
+bug — do not "fix" it by reintroducing sample data. It resolves when the school creates and
+shares a trip spreadsheet and its link goes into `sheetId`.
 
-The dummy data deliberately exercises the tolerances rather than hiding them: grades written
-as `Grade 7`, `9`, `VII` and `Class 5`; a phone as `+91 98765 43210`; one row with an empty
-`FatherEmail`; a multi-line quoted `Overview`; Grade 9 left `Pending` with most tabs empty;
-`Media` empty entirely. The `Documents` tab ships `REPLACE_WITH_YOUR_…` placeholder ids on
-purpose — they render as fallback tiles, which is what an unshared document also looks like.
+`folderId` is deliberately blank; see the warning about the school's real folder below.
 
 ### Header and value tolerance — do not weaken this
 The school owns the sheets and renames things without warning, so:
@@ -322,6 +311,15 @@ would capture the pre-config values.
 and folder rows stay a single link card. A folder that errors is also left as a link, so the
 section never breaks.
 
+## Config layering — `''` vs `null`
+Three layers, each overriding the last: `.env` → `public/config.json` → `public/config.local.json`.
+
+In `merge()`, **`''` means "not set here, fall through"** — which is what lets a mostly empty
+`config.json` defer to `.env`. **`null` means "explicitly clear"**. Without `null` an override
+could set a value but never unset one, so a local override could not switch off a URL that
+`config.json` had switched on. That was a real bug: `"rosterApiUrl": ""` was silently ignored
+and the app kept POSTing to `/api/lookup`, which does not exist under plain `vite`.
+
 ## Local development against the real roster
 Two gitignored pieces make this work without ever committing PII or breaking the deploy:
 - **`public/config.local.json`** merges on top of `config.json` (see `loadConfig`). Needed
@@ -473,6 +471,11 @@ Raised in `docs/DATA-HANDOVER.md`; none answered yet. Do not assume any of these
 - `legacy/trip-explorer.html` is frozen reference. Do not edit it.
 
 ## Changelog
+- 2026-08-11 — **Erased all dummy data.** Deleted the demo CSVs, `mockAdapter`, `mock/rows.js`,
+  the Drive fixture and the fabricated deck; `generate_template.py` now emits an empty workbook.
+  `dataSource` defaults to `sheets`, `folderId` cleared. Fixed `merge()` so `null` explicitly
+  clears a value. Trip content now legitimately has no source — grades read "Nothing published
+  yet" until the school's sheet exists.
 - 2026-08-11 — Added the staff role: server-side `ADMIN_EMAILS`, all-grades scope, grade
   picker, Staff chip. Verified staff reach any grade and parents still cannot.
 - 2026-08-11 — Built `netlify/functions/lookup.js` (`/api/lookup`): server-side roster match
