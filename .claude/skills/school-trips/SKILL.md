@@ -322,6 +322,33 @@ would capture the pre-config values.
 and folder rows stay a single link card. A folder that errors is also left as a link, so the
 section never breaks.
 
+## The real roster feed — needs a backend, cannot be used from the browser
+The school publishes its roster at `.../CSVDATA/StudentData.csv` (an HTTP IP that 302s to an
+HTTPS host). Checked 2026-08-11; only row 1 was fetched, never the records.
+
+- **No `Access-Control-Allow-Origin` header**, so a browser `fetch()` from the site is blocked
+  outright. Not something code can work around — the server must send CORS, or a server must
+  fetch it.
+- **No authentication at all**: ~1.1 MB downloadable by anyone with the URL.
+- Columns go far beyond what the app needs: `BirthDate`, `BloodGroup`, `StreetNo`,
+  `Address1-3`, `City`, `StudentNameAsPerAadharCard`, `ImagePath`. Pulling this into a
+  parent's browser would expose every child's **home address** to any parent with devtools.
+- Therefore this feed makes the **`api` adapter mandatory**: a server fetches it, matches the
+  credential, and returns only that parent's children with only the needed fields. Never wire
+  it to `fetchStudents()` in the browser, even if CORS is later added.
+- Do not commit the URL or any of its data to this repo.
+
+### What its columns taught us (both were real bugs, now fixed)
+- `Senior KG` normalized to `''` and every such row was **silently dropped**. `normalizeGradeId`
+  now tests senior before the generic kindergarten branch, and `sk` is a real grade in `GRADES`.
+- `ParentsEmailID` / `FathersMobileNo` / `MothersMobileNo` matched no alias, so credentials came
+  out blank and **nobody could log in**. `toStudent` now uses `collectAll` and returns
+  `emails: []` / `phones: []`, so any one of a family's credentials works — which is also how
+  mothers get access. `parentName` replaced `fatherName`.
+- `StudentEmailID` and `EmergencyContactNo` are excluded on purpose: a child's own address is
+  not a parent credential, and an emergency contact is often a neighbour. `pick`/`collectAll`
+  match whole normalized header names, so `StudentEmailID` can never collide with `Email`.
+
 ## The school's real Drive folder — do NOT publish it
 `drive.google.com/drive/folders/1kBYDyPs-2nAW-l2sEf7Czz5RaevzrxgQ` — "Educational trips
 (25-26)". Inspected read-only via the user's own Chrome session on 2026-08-10, because it is
@@ -381,6 +408,11 @@ Raised in `docs/DATA-HANDOVER.md`; none answered yet. Do not assume any of these
 - `legacy/trip-explorer.html` is frozen reference. Do not edit it.
 
 ## Changelog
+- 2026-08-11 — Checked the school's real roster CSV feed: public, unauthenticated, **no CORS**,
+  and carrying addresses/DOB/blood group/Aadhaar names. Concluded it makes the `api` adapter
+  mandatory. Fixed the two bugs its columns exposed — `Senior KG` being silently dropped, and
+  `ParentsEmailID`/`FathersMobileNo`/`MothersMobileNo` matching no alias — and moved students to
+  `emails[]`/`phones[]` so either parent can log in.
 - 2026-08-10 — Inspected the school's real Drive folder read-only via the user's Chrome.
   Found it is "Shared with me" (not theirs), contains a trust deed, vendor SLAs and police
   correspondence, matches none of the eight source names, and has no student roster. Recorded
