@@ -1,5 +1,6 @@
 export const GRADES = [
-  { id: 'jk', label: 'JK', full: 'Junior Kindergarten', color: '#FF6B5B', icon: 'map' },
+  { id: 'jk', label: 'JK', full: 'Junior KG', color: '#FF6B5B', icon: 'map' },
+  { id: 'sk', label: 'SK', full: 'Senior KG', color: '#2E6F95', icon: 'pencil' },
   { id: 'g1', label: 'G1', full: 'Grade 1', color: '#FFB100', icon: 'compass' },
   { id: 'g2', label: 'G2', full: 'Grade 2', color: '#4CAF6D', icon: 'camera' },
   { id: 'g3', label: 'G3', full: 'Grade 3', color: '#2AA8DE', icon: 'backpack' },
@@ -25,6 +26,9 @@ export function normalizeGradeId(raw) {
   if (raw === null || raw === undefined) return ''
   const s = String(raw).trim().toLowerCase()
   if (!s) return ''
+  // Senior must be tested before the generic kindergarten check, or "Senior KG"
+  // falls through to jk. Getting this wrong silently drops a whole year group.
+  if (s === 'sk' || (s.includes('senior') && (s.includes('kg') || s.includes('kinder')))) return 'sk'
   if (s === 'jk' || s.includes('junior') || s.includes('kinder')) return 'jk'
   const roman = { i: 1, ii: 2, iii: 3, iv: 4, v: 5, vi: 6, vii: 7, viii: 8, ix: 9, x: 10, xi: 11, xii: 12 }
   const bare = s.replace(/grade|class|std\.?|standard|-|_/g, '').trim()

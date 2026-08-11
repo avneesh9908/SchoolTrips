@@ -69,8 +69,22 @@ export function csvToObjects(text) {
 /** Reads the first header alias that is actually present. */
 export function pick(row, ...aliases) {
   for (const a of aliases) {
-    const k = a.toLowerCase().replace(/[^a-z0-9]/g, '')
+    const k = normalizeKey(a)
     if (row[k] !== undefined && row[k] !== '') return row[k]
   }
   return ''
+}
+
+/**
+ * Reads *every* alias present, de-duplicated. Real rosters carry more than one
+ * way to reach a family — a father's mobile and a mother's mobile — and any of
+ * them should work as a login.
+ */
+export function collectAll(row, ...aliases) {
+  const out = []
+  for (const a of aliases) {
+    const v = row[normalizeKey(a)]
+    if (v !== undefined && v !== '' && !out.includes(v)) out.push(v)
+  }
+  return out
 }

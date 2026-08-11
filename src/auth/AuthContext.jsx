@@ -38,7 +38,7 @@ export function AuthProvider({ children }) {
     setSession({
       via,
       identifier,
-      parentName: displayName || valid[0].fatherName,
+      parentName: displayName || valid[0].parentName,
       students: valid,
       grades: [...new Set(valid.map((s) => s.grade))],
       activeStudentId: valid.length === 1 ? valid[0].id : null,
@@ -67,8 +67,8 @@ export function AuthProvider({ children }) {
         const roster = await adapter.fetchStudents()
         students =
           kind === 'email'
-            ? roster.filter((s) => s.fatherEmail && s.fatherEmail === value)
-            : roster.filter((s) => s.fatherPhone && s.fatherPhone === value)
+            ? roster.filter((s) => s.emails.includes(value))
+            : roster.filter((s) => s.phones.includes(value))
       }
       startSession(students, { via: kind, identifier: value })
     } finally {
@@ -87,7 +87,7 @@ export function AuthProvider({ children }) {
       const adapter = getAdapter()
       const students = adapter.lookup
         ? await adapter.lookup({ kind: 'email', value })
-        : (await adapter.fetchStudents()).filter((s) => s.fatherEmail && s.fatherEmail === value)
+        : (await adapter.fetchStudents()).filter((s) => s.emails.includes(value))
 
       if (students.length === 0) {
         throw new Error(

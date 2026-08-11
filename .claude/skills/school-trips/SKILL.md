@@ -322,6 +322,32 @@ would capture the pre-config values.
 and folder rows stay a single link card. A folder that errors is also left as a link, so the
 section never breaks.
 
+## The school's real Drive folder — do NOT publish it
+`drive.google.com/drive/folders/1kBYDyPs-2nAW-l2sEf7Czz5RaevzrxgQ` — "Educational trips
+(25-26)". Inspected read-only via the user's own Chrome session on 2026-08-10, because it is
+private to anonymous requests (`302 → ServiceLogin`, confirmed three ways).
+
+**It is the wrong source, and making it public would be a serious disclosure.**
+- Breadcrumb reads **Shared with me** — the user does not own it; the school does. They may
+  not have authority to change its sharing at all.
+- It holds `BOARD RESOLUTIONS 2025-26 TRUST DEED.pdf`, `Service Order` (a vendor Service
+  Level Agreement), a `Vendor details` folder, police correspondence (`Letter to Police`,
+  `Police station PYP…`, `SS Police station…`), and internal cost sheets (`Nature camp cost
+  calculation sheet`). "Anyone with the link → Viewer" would publish the trust deed and
+  vendor contracts to the open internet, irreversibly.
+- **Not one of its ~22 items matches the eight source names**, so folder mode resolves to
+  nothing regardless.
+- **There is no student roster anywhere in it** — no parent could log in even if it were
+  readable. This is the single biggest gap.
+- Real trip content does exist (`Educational trips 2025-26`, `SS edu trips`,
+  `Edu trips JS updated.pdf`, `Adventure-and-Community-Sattal-1.pdf`) but as dense internal
+  planning grids, not the flat per-grade rows `normalize.js` expects.
+
+Correct path: a **separate, school-owned folder holding only parent-safe data**, built from
+`sample-data/Trip Data.xlsx`, curated out of the internal sheets by a human. The curation step
+is a feature — it is what keeps trust deeds off the public internet. Never propose pointing
+`folderId` at the internal folder.
+
 ## Open with management — unsettled, blocks decisions
 Raised in `docs/DATA-HANDOVER.md`; none answered yet. Do not assume any of these.
 - **Privacy of the `Students` tab.** Direct-from-Sheets makes every family's name, email and
@@ -355,6 +381,10 @@ Raised in `docs/DATA-HANDOVER.md`; none answered yet. Do not assume any of these
 - `legacy/trip-explorer.html` is frozen reference. Do not edit it.
 
 ## Changelog
+- 2026-08-10 — Inspected the school's real Drive folder read-only via the user's Chrome.
+  Found it is "Shared with me" (not theirs), contains a trust deed, vendor SLAs and police
+  correspondence, matches none of the eight source names, and has no student roster. Recorded
+  it as **must not be published**; recommended a separate parent-safe folder instead.
 - 2026-08-10 — Added `netlify.toml` in the project root and `public/_redirects` to support both Git-based and direct drag-and-drop Netlify deployments. Set build command to `npm run build`, publish directory to `dist`, and set up SPA redirect rules to handle React Router client-side routing.
 - 2026-08-07 — Cleanup pass: deleted dead `maskPhone`, `isValidPhone`, `isFolderUrl`;
   un-exported `parseCsv` and `isValidEmail`; stopped generating the never-read

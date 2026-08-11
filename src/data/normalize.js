@@ -1,4 +1,4 @@
-import { pick } from './csv'
+import { pick, collectAll } from './csv'
 import { normalizeGradeId } from '../lib/grades'
 import { normalizePhone } from '../lib/phone'
 
@@ -8,16 +8,39 @@ import { normalizePhone } from '../lib/phone'
  * school owns those sheets and renames columns without telling anyone.
  */
 
+/**
+ * A student may be reachable by several credentials — a parent email, a
+ * father's mobile, a mother's mobile — and any one of them should let that
+ * parent in. Hence lists rather than single fields; it is also what lets
+ * mothers log in with their own number.
+ *
+ * A student's OWN email is deliberately not collected: it is not a parent
+ * credential. `pick`/`collectAll` match whole normalized header names, so a
+ * column called `StudentEmailID` can never be mistaken for `Email`.
+ *
+ * An emergency contact is also excluded on purpose — it is often a neighbour or
+ * relative, and should not grant access to a child's trip details.
+ */
 export function toStudent(row, i) {
-  const grade = normalizeGradeId(pick(row, 'grade', 'class', 'standard'))
+  const emails = collectAll(row,
+    'parentsemailid', 'parentsemail', 'parentemail', 'parentsemailaddress',
+    'fatheremail', 'motheremail', 'guardianemail', 'email',
+  ).map((e) => e.trim().toLowerCase())
+
+  const phones = collectAll(row,
+    'fathersmobileno', 'fathermobileno', 'fathersmobile', 'fatherphone',
+    'mothersmobileno', 'mothermobileno', 'mothersmobile', 'motherphone',
+    'parentphone', 'parentsmobileno', 'guardianphone', 'mobile', 'phone', 'contact',
+  ).map(normalizePhone).filter((p) => p.length === 10)
+
   return {
-    id: pick(row, 'studentid', 'id', 'admissionno', 'rollno') || `s${i}`,
+    id: pick(row, 'studentid', 'fskid', 'id', 'admissionno', 'rollno') || `s${i}`,
     name: pick(row, 'studentname', 'name', 'student'),
-    grade,
+    grade: normalizeGradeId(pick(row, 'grade', 'class', 'standard')),
     section: pick(row, 'section', 'division'),
-    fatherName: pick(row, 'fathername', 'father', 'guardianname', 'parentname'),
-    fatherPhone: normalizePhone(pick(row, 'fatherphone', 'phone', 'mobile', 'contact', 'parentphone')),
-    fatherEmail: pick(row, 'fatheremail', 'email', 'parentemail').toLowerCase(),
+    parentName: pick(row, 'fathername', 'father', 'mothername', 'guardianname', 'parentname'),
+    emails: [...new Set(emails)],
+    phones: [...new Set(phones)],
   }
 }
 

@@ -13,6 +13,7 @@ const PATHS = {
   flag: <><path d="M5 21V4" /><path d="M5 5h13l-3 4 3 4H5" /></>,
   kite: <><path d="M12 3l7 8-7 10-7-10 7-8z" /><path d="M12 13v8" /></>,
   star: <path d="M12 3l2.7 6 6.3.6-4.8 4.2 1.5 6.2L12 16.9 6.3 20l1.5-6.2L3 9.6 9.3 9z" />,
+  pencil: <><path d="M4 20h4l10-10a2.83 2.83 0 0 0-4-4L4 16v4z" /><path d="M13.5 6.5l4 4" /></>,
 
   // section glyphs
   overview: <><path d="M4 19V6a2 2 0 0 1 2-2h9l5 5v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z" /><path d="M14 4v5h5" /></>,
