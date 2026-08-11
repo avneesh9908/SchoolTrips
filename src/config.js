@@ -31,6 +31,13 @@ const FROM_ENV = {
    * fine — it carries no personal data.
    */
   rosterApiUrl: ENV.VITE_ROSTER_API_URL || '',
+  /**
+   * Staff who may see every grade. Used ONLY on the fallback path — with a
+   * server configured, ADMIN_EMAILS in its environment decides, because this
+   * file is public and publishing the list would hand out the exact addresses
+   * that unlock every grade.
+   */
+  adminEmails: [],
 }
 
 let current = null

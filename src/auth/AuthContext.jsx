@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useCallback, useMemo, useEffect } from 'react'
 import { getAdapter } from '../data'
 import { classifyIdentifier, normalizeEmail } from '../lib/identity'
+import { ALL_GRADE_IDS, isAdminEmailLocally, nameFromEmail } from './roles.js'
 
 const AuthContext = createContext(null)
 const STORAGE_KEY = 'schoolTrips.session'
@@ -31,11 +32,26 @@ export function AuthProvider({ children }) {
    * here and nowhere else — no screen ever takes a grade from the URL or from
    * user input.
    */
-  const startSession = useCallback((students, { via, identifier, displayName }) => {
+  const startSession = useCallback((students, { via, identifier, displayName, role }) => {
+    // Staff have no child row; their scope is every grade.
+    if (role === 'admin') {
+      setSession({
+        role: 'admin',
+        via,
+        identifier,
+        parentName: displayName || nameFromEmail(identifier),
+        students: [],
+        grades: ALL_GRADE_IDS,
+        activeStudentId: null,
+      })
+      return
+    }
+
     const valid = students.filter((s) => s.grade)
     if (valid.length === 0) throw new Error(NO_MATCH)
 
     setSession({
+      role: 'parent',
       via,
       identifier,
       parentName: displayName || valid[0].parentName,
@@ -60,9 +76,20 @@ export function AuthProvider({ children }) {
     setBusy(true)
     try {
       const adapter = getAdapter()
+
+      // Fallback path (demo data, or no rosterApiUrl) — the server is the
+      // authority whenever there is one.
+      if (kind === 'email' && !adapter.lookup && isAdminEmailLocally(value)) {
+        startSession([], { via: kind, identifier: value, role: 'admin' })
+        return
+      }
+
       let students
+      let role
       if (adapter.lookup) {
-        students = await adapter.lookup({ kind, value })
+        const result = await adapter.lookup({ kind, value })
+        students = Array.isArray(result) ? result : result.students
+        role = Array.isArray(result) ? undefined : result.role
       } else {
         const roster = await adapter.fetchStudents()
         students =
@@ -70,7 +97,7 @@ export function AuthProvider({ children }) {
             ? roster.filter((s) => s.emails.includes(value))
             : roster.filter((s) => s.phones.includes(value))
       }
-      startSession(students, { via: kind, identifier: value })
+      startSession(students, { via: kind, identifier: value, role })
     } finally {
       setBusy(false)
     }
@@ -116,6 +143,7 @@ export function AuthProvider({ children }) {
       logout,
       selectStudent,
       isAuthenticated: !!session,
+      isAdmin: session?.role === 'admin',
       students: session?.students || [],
       activeStudent,
       /** The single grade this session may read. Null until a child is chosen. */

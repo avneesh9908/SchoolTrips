@@ -22,6 +22,9 @@
   "_rosterApiUrl": "Server-side login lookup. Set to /api/lookup on Netlify. When set, the roster never reaches the browser - only the signed-in parent's own children do. Leave blank and login falls back to matching a client-side roster (demo data only).",
   "rosterApiUrl": "",
 
+  "_adminEmails": "Staff who see every grade. Only used when rosterApiUrl is blank (demo/local). In production set ADMIN_EMAILS in the server environment instead - this file is public, and listing staff here tells anyone which address unlocks all grades.",
+  "adminEmails": [],
+
   "_driveApiKey": "Required for folderId, and for turning a folder link in the Documents tab into one card per file.",
   "driveApiKey": "",
 

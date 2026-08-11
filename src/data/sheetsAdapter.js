@@ -2,6 +2,7 @@ import { config } from '../config'
 import { csvToObjects, normalizeKey, pick } from './csv'
 import { parseSheetRef, csvExportUrl } from '../lib/sheetUrl'
 import { listFolder, folderIdOf } from '../lib/drive'
+import { isAdminEmailLocally } from '../auth/roles.js'
 import {
   toStudent, toTrip, toItineraryRow, toDocument,
   toGuideline, toReminder, toTravelLeg, toMedia,
@@ -214,10 +215,16 @@ export const sheetsAdapter = {
   async lookup({ kind, value }) {
     const { rosterApiUrl } = config()
     if (!rosterApiUrl) {
+      if (kind === 'email' && isAdminEmailLocally(value)) {
+        return { role: 'admin', students: [] }
+      }
       const roster = await this.fetchStudents()
-      return roster.filter((s) =>
-        kind === 'email' ? s.emails.includes(value) : s.phones.includes(value)
-      )
+      return {
+        role: 'parent',
+        students: roster.filter((s) =>
+          kind === 'email' ? s.emails.includes(value) : s.phones.includes(value)
+        ),
+      }
     }
 
     const res = await fetch(rosterApiUrl, {
@@ -225,19 +232,22 @@ export const sheetsAdapter = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ kind, value }),
     })
-    if (res.status === 404) return []
+    if (res.status === 404) return { role: 'parent', students: [] }
     if (!res.ok) {
       const detail = await res.json().catch(() => ({}))
       throw new Error(detail.error || `Sign-in service returned HTTP ${res.status}.`)
     }
     const data = await res.json()
-    // The server sends only id/name/grade/section; fill the shape the app expects.
-    return (data.students || []).map((s) => ({
-      ...s,
-      parentName: data.parentName || '',
-      emails: [],
-      phones: [],
-    }))
+    return {
+      role: data.role || 'parent',
+      // The server sends only id/name/grade/section; fill the shape the app expects.
+      students: (data.students || []).map((s) => ({
+        ...s,
+        parentName: data.parentName || '',
+        emails: [],
+        phones: [],
+      })),
+    }
   },
 
   async fetchStudents() {

@@ -22,6 +22,31 @@ import { classifyIdentifier } from '../../src/lib/identity.js'
 const ROSTER_URL = process.env.ROSTER_CSV_URL
 const CACHE_MS = 5 * 60 * 1000
 
+/**
+ * Staff who may see every grade, not just their own child's.
+ *
+ * Deliberately a server environment variable rather than config.json: the
+ * client config is public, and while a typed email is the only credential,
+ * publishing the admin list would tell anyone exactly which address to type to
+ * get full access.
+ */
+const ADMIN_EMAILS = new Set(
+  (process.env.ADMIN_EMAILS || '')
+    .split(',')
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean)
+)
+
+/** "vardan.kabra" -> "Vardan Kabra", just for the greeting. */
+function nameFromEmail(email) {
+  return email
+    .split('@')[0]
+    .split(/[._-]+/)
+    .filter(Boolean)
+    .map((p) => p.charAt(0).toUpperCase() + p.slice(1))
+    .join(' ')
+}
+
 let cache = { at: 0, students: null }
 
 async function loadRoster() {
@@ -45,6 +70,14 @@ export async function resolveParent(rawIdentifier) {
     return { status: 400, body: { error: 'Enter a valid email address or 10-digit mobile number.' } }
   }
 
+  // Staff are checked before the roster is even loaded — they have no child row.
+  if (kind === 'email' && ADMIN_EMAILS.has(value)) {
+    return {
+      status: 200,
+      body: { role: 'admin', parentName: nameFromEmail(value), students: [] },
+    }
+  }
+
   const roster = await loadRoster()
   const matches = roster.filter((s) =>
     s.grade && (kind === 'email' ? s.emails.includes(value) : s.phones.includes(value))
@@ -59,6 +92,7 @@ export async function resolveParent(rawIdentifier) {
   return {
     status: 200,
     body: {
+      role: 'parent',
       parentName: matches[0].parentName,
       // Deliberately minimal: no emails, phones, addresses, DOB or blood group
       // ever cross this boundary.

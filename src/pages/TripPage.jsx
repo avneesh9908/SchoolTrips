@@ -9,7 +9,7 @@ import { Loading, ErrorState, EmptyState } from '../components/States'
 export default function TripPage() {
   const { gradeId } = useParams()
   const navigate = useNavigate()
-  const { canAccessGrade, students, activeStudent } = useAuth()
+  const { canAccessGrade, students, activeStudent, isAdmin } = useAuth()
 
   const allowed = canAccessGrade(gradeId)
   const { status, trip, error, retry } = useTrip(gradeId, { enabled: allowed })
@@ -29,9 +29,9 @@ export default function TripPage() {
 
   return (
     <>
-      {students.length > 1 && (
+      {(isAdmin || students.length > 1) && (
         <button className="backbtn" onClick={() => navigate('/children')}>
-          ← All children
+          ← {isAdmin ? 'All grades' : 'All children'}
         </button>
       )}
 

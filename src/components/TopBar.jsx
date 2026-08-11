@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 
 export function TopBar() {
-  const { isAuthenticated, session, students, activeStudent, selectStudent, logout } = useAuth()
+  const { isAuthenticated, isAdmin, session, students, activeStudent, selectStudent, logout } = useAuth()
   const navigate = useNavigate()
 
   const signOut = () => {
@@ -24,6 +24,7 @@ export function TopBar() {
 
       {isAuthenticated && (
         <div className="topbar-right">
+          {isAdmin && <span className="staff-chip">Staff</span>}
           <span className="who">
             {activeStudent ? (
               <>
@@ -33,7 +34,10 @@ export function TopBar() {
               <>Signed in as <strong>{session.parentName || 'Parent'}</strong></>
             )}
           </span>
-          {students.length > 1 && activeStudent && (
+          {isAdmin && (
+            <button className="linkbtn" onClick={() => navigate('/children')}>All grades</button>
+          )}
+          {!isAdmin && students.length > 1 && activeStudent && (
             <button className="linkbtn" onClick={switchChild}>Switch child</button>
           )}
           <button className="linkbtn" onClick={signOut}>Sign out</button>
