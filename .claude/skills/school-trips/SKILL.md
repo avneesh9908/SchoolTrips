@@ -322,13 +322,32 @@ would capture the pre-config values.
 and folder rows stay a single link card. A folder that errors is also left as a link, so the
 section never breaks.
 
+## Local development against the real roster
+Two gitignored pieces make this work without ever committing PII or breaking the deploy:
+- **`public/config.local.json`** merges on top of `config.json` (see `loadConfig`). Needed
+  because `config.json` is committed and Netlify auto-deploys, so pointing *it* at a local
+  path ships a broken site — and reverting it each time silently sent local testing back to
+  demo data. Logs `[config] config.local.json applied` when active.
+- **`public/local-roster/`** holds a column-reduced copy of the roster (19 PII columns
+  stripped) for offline work.
+- **The Vite dev proxy** `/roster → nucleus.fountainheadschools.org/CSVDATA` (vite.config.js)
+  re-serves the live feed same-origin, which is the only way a browser can read it.
+  `csvUrls: { students: "/roster/StudentData.csv" }` points one source at it while the rest
+  stay local. **Restart the dev server after touching vite.config.js.**
+
+`csvUrls` (per-source URL) beats `csvBase` in `localUrl`.
+
+**The proxy is dev-only** — `npm run build` emits static files with no proxy — and it hands
+the *entire* roster to the browser. Never present it as the production pattern.
+
 ## The real roster feed — needs a backend, cannot be used from the browser
 The school publishes its roster at `.../CSVDATA/StudentData.csv` (an HTTP IP that 302s to an
 HTTPS host). Checked 2026-08-11; only row 1 was fetched, never the records.
 
-- **No `Access-Control-Allow-Origin` header**, so a browser `fetch()` from the site is blocked
-  outright. Not something code can work around — the server must send CORS, or a server must
-  fetch it.
+- **No `Access-Control-Allow-Origin` header.** Confirmed in the browser, not just by curl: a
+  direct `fetch()` fails with `TypeError — Failed to fetch`. Not something code can work
+  around — either the server sends CORS, or a server-side hop fetches it (see the dev proxy
+  above).
 - **No authentication at all**: ~1.1 MB downloadable by anyone with the URL.
 - Columns go far beyond what the app needs: `BirthDate`, `BloodGroup`, `StreetNo`,
   `Address1-3`, `City`, `StudentNameAsPerAadharCard`, `ImagePath`. Pulling this into a
@@ -408,6 +427,10 @@ Raised in `docs/DATA-HANDOVER.md`; none answered yet. Do not assume any of these
 - `legacy/trip-explorer.html` is frozen reference. Do not edit it.
 
 ## Changelog
+- 2026-08-11 — Proved in-browser that the roster feed is CORS-blocked (`Failed to fetch`), then
+  made it usable in dev via a Vite proxy at `/roster` plus per-source `csvUrls`. Added the
+  gitignored `config.local.json` override so local work can target real data without breaking
+  the auto-deployed committed config.
 - 2026-08-11 — Checked the school's real roster CSV feed: public, unauthenticated, **no CORS**,
   and carrying addresses/DOB/blood group/Aadhaar names. Concluded it makes the `api` adapter
   mandatory. Fixed the two bugs its columns exposed — `Senior KG` being silently dropped, and
