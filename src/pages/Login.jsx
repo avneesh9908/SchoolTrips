@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { googleSignInEnabled } from '../auth/googleSignIn'
 import { GoogleButton } from '../components/GoogleButton'
-import { isMock } from '../data'
 
 export default function Login() {
   const [identifier, setIdentifier] = useState('')
@@ -11,7 +10,6 @@ export default function Login() {
   const { login, loginWithGoogle, busy } = useAuth()
   const navigate = useNavigate()
   const googleEnabled = googleSignInEnabled()
-  const sampleData = isMock()
 
   const submit = async (e) => {
     e.preventDefault()
@@ -73,15 +71,6 @@ export default function Login() {
             {busy ? 'Checking…' : 'Continue'}
           </button>
         </form>
-
-        {sampleData && (
-          <p className="hint">
-            Sample data. Email: <code>rakesh.mehta@example.com</code> (two children, Grades 7
-            and 9) or <code>nilesh.shah@example.com</code> (one child, Grade 7). Mobile:{' '}
-            <code>9876543210</code>. Diya Patel's father has no email on the sheet, so only
-            the mobile <code>9900112233</code> reaches that row.
-          </p>
-        )}
       </div>
     </div>
   )

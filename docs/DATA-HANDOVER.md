@@ -9,8 +9,8 @@ the data, not for developers.
 
 We need **one Google Drive folder** containing:
 
-1. **One Google Sheet** called `Trip Data`, with **8 tabs** (exact names below). This is the
-   only thing the website reads.
+1. **One Google Sheet** called `Trip Data`, with the tabs listed below. Start from the empty
+   template we have supplied — it already has the right tab names and dropdowns.
 2. **One sub-folder per grade** holding that grade's documents — orientation decks, the
    itinerary, posters, photos.
 
@@ -22,6 +22,12 @@ Then we need three things sent to us: the **spreadsheet link**, and answers to t
 > invisible to parents.** The folder is just where files live; the sheet is the index.
 
 ---
+
+
+> **Please create a new folder for this.** Do not reuse the existing "Educational trips
+> (25-26)" folder: it contains the trust deed, vendor service agreements and police
+> correspondence, and everything in the folder we connect has to be readable by anyone with
+> the link. Only parent-facing trip content belongs in the new one.
 
 ## 1. Folder structure
 
@@ -87,19 +93,18 @@ follows it. Nothing on our side needs to change.
 Controls who can log in and what they see. One row per student.
 
 ```
-StudentId | StudentName | Grade | Section | FatherName | FatherEmail | FatherPhone
+StudentID | StudentName | Grade | Section | ParentName | ParentsEmailID | FathersMobileNo | MothersMobileNo
 ```
 
-| Example | | | | | | |
-|---|---|---|---|---|---|---|
-| S7001 | Aarav Mehta | Grade 7 | A | Rakesh Mehta | rakesh@example.com | 9876543210 |
-| S7002 | Isha Mehta | Grade 9 | B | Rakesh Mehta | rakesh@example.com | 9876543210 |
+**You do not need to fill this in.** The roster already comes from the school's own student
+system, and the website reads it from there. This tab documents how access is decided, so you
+know why a particular parent can or cannot sign in.
 
 **How access works.** A parent signs in with their email address *or* mobile number. A
 student row is reachable by **whichever of those two columns is filled in**:
 
 - Email filled → that parent can sign in with that email.
-- Phone filled → that parent can sign in with that mobile.
+- Either mobile filled → **either parent** can sign in with their own number.
 - **Both blank → that child is invisible to everyone.** This is the number-one cause of
   "my parent can't log in."
 

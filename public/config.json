@@ -1,35 +1,34 @@
 {
-  "_readme": "Repoint the site by editing this file on the server and refreshing — no rebuild. Blank values fall back to .env.",
+  "_readme": "Live pointer, read at page load. Edit on the server and refresh — no rebuild needed. There is no demo data any more; anything blank here simply has no source yet.",
 
   "dataSource": "sheets",
 
-  "_folderId": "Drive folder share link. The app lists it and matches spreadsheets to sources BY FILE NAME (Students, Trips, Itinerary, Documents, Guidelines, Reminders, Travel, Media). Requires driveApiKey.",
-  "_folderId_status": "SET BUT INERT. Two things still needed: (1) share the folder Anyone with the link -> Viewer, it is currently private; (2) supply driveApiKey. Also clear csvBase below.",
-  "folderId": "https://drive.google.com/drive/folders/1kBYDyPs-2nAW-l2sEf7Czz5RaevzrxgQ",
+  "_rosterApiUrl": "Server-side login lookup. /api/lookup is the Netlify function. Requires ROSTER_CSV_URL — and ADMIN_EMAILS for staff — in the SERVER environment.",
+  "rosterApiUrl": "/api/lookup",
 
-  "_sheetId": "Alternative to folderId: the link of one spreadsheet holding all the tabs. Used when folderId is blank or a file is missing from it.",
+  "_sheetId": "Share link of the spreadsheet holding the trip content tabs (Trips, Itinerary, Documents, Guidelines, Reminders, Travel, Media). Build it from sample-data/Trip Data.xlsx. Until this is set, every grade reads 'Nothing published yet'.",
   "sheetId": "",
 
-  "_csvBase": "Local demo data. MUST be cleared before folderId or sheetId is used at all.",
-  "csvBase": "/sample-sheets",
+  "_folderId": "Alternative to sheetId: a Drive folder whose spreadsheets are matched BY FILE NAME. Needs driveApiKey. Deliberately blank — the school's existing 'Educational trips (25-26)' folder must NOT be used: it holds a trust deed, vendor agreements and police correspondence, and would have to be made public.",
+  "folderId": "",
 
-  "_settingsTab": "Tab in the master sheet holding per-source link overrides. Blank links mean 'use the tab of the same name'.",
+  "_csvBase": "Local CSV files instead of Google, for development only. Blank in production.",
+  "csvBase": "",
+
+  "_settingsTab": "Tab in the trip spreadsheet holding per-source link overrides. Blank links mean 'use the tab of the same name'.",
   "settingsTab": "Settings",
 
   "_gids": "Only needed if a tab has been renamed — a gid survives renames and wins over the tab name.",
   "gids": {},
 
-  "_rosterApiUrl": "Server-side login lookup. Set to /api/lookup on Netlify. When set, the roster never reaches the browser - only the signed-in parent's own children do. Leave blank and login falls back to matching a client-side roster (demo data only).",
-  "rosterApiUrl": "",
-
-  "_adminEmails": "Staff who see every grade. Only used when rosterApiUrl is blank (demo/local). In production set ADMIN_EMAILS in the server environment instead - this file is public, and listing staff here tells anyone which address unlocks all grades.",
-  "adminEmails": [],
-
   "_driveApiKey": "Required for folderId, and for turning a folder link in the Documents tab into one card per file.",
   "driveApiKey": "",
 
-  "_driveApiBase": "Leave blank for Google. Set to /sample-drive to demo folder expansion offline.",
+  "_driveApiBase": "Leave blank for Google.",
   "driveApiBase": "",
+
+  "_adminEmails": "Leave empty. Staff are configured via ADMIN_EMAILS in the server environment — this file is public, and listing staff here would tell anyone which address unlocks every grade.",
+  "adminEmails": [],
 
   "googleClientId": ""
 }

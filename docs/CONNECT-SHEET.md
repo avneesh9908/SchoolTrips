@@ -11,25 +11,25 @@ refresh, done. Everything below is one-time setup.
 
 ---
 
-Three modes, same code path. You can move along this list at your own pace.
+Two modes, same code path.
 
-| Mode | `.env` | Needs Google? |
+| Mode | `config.json` | Needs Google? |
 |---|---|---|
-| Sample data | `VITE_DATA_SOURCE=mock` | no |
-| **Local CSVs (current default)** | `VITE_DATA_SOURCE=sheets` + `VITE_SHEET_CSV_BASE=/sample-sheets` | no |
-| Real Google Sheet | `VITE_DATA_SOURCE=sheets` + `VITE_SHEET_ID=…` | yes |
+| Local CSV files | `csvBase` set to a path | no |
+| **Real Google Sheet** | `sheetId` set to the share link | yes |
 
-The middle mode runs the *real* Sheets adapter — same CSV parser, same column
-matching, same assembly — just reading files from `public/sample-sheets/` instead of
-Google. So if the app works locally, the only thing left to get wrong is the sheet's
-sharing setting.
+There is no demo mode. Anything unconfigured has no source, and the app says
+"Nothing published yet" rather than inventing content.
 
 ---
 
 ## Step 1 — create the spreadsheet
 
 1. Open [drive.google.com](https://drive.google.com) and make a folder, e.g. **School Trips**.
-2. Drag **`sample-data/Trip Data.xlsx`** into it.
+   Make it a **new** folder — not the existing "Educational trips" folder, which holds a
+   trust deed and vendor agreements and must not be made public.
+2. Drag **`sample-data/Trip Data.xlsx`** into it. It ships empty: headers, formatting and
+   validation dropdowns only, so nothing invented can reach parents.
 3. Right-click the uploaded file → **Open with → Google Sheets**.
 4. **File → Save as Google Sheets.** You now have a real spreadsheet with all 8 tabs,
    header formatting, and a dropdown on every `Grade` column.
@@ -77,7 +77,7 @@ on a deployed site takes effect on the next refresh, with **no rebuild and no re
 
 Two fields. Paste the link straight in — the id is parsed out of it.
 
-Clearing `csvBase` is what switches it off the local fixtures and onto Google.
+`csvBase` must be empty for `sheetId` to be used at all.
 
 `gids` stays available for the rename case above, but you should not normally need it.
 `.env` still works as the fallback for anything left blank here, which is handy for local
@@ -103,7 +103,10 @@ A link with a `#gid=` addresses that exact tab; without one, the app looks for a
 after the key in the linked file. Only the eight known keys are read; other rows are ignored,
 so you can keep notes in there.
 
-Sign in with `rakesh.mehta@example.com`. If the Grade 7 trip appears, you're connected.
+Sign in as a real parent from the school roster. If their grade's trip page shows the
+content you put in the sheet, you're connected. Before the sheet exists, a correct login
+still lands on "Nothing published yet" — that means auth works and trip content does not
+have a source yet.
 
 ### If the tabs are separate spreadsheet files
 
@@ -118,18 +121,11 @@ A per-sheet file id takes precedence over `VITE_SHEET_ID`.
 
 ## Step 5 — add the documents
 
-`sample-data/Grade 7 - Parent Orientation deck.pptx` is a dummy orientation deck matching
-the sample trip.
+Upload the school's real orientation decks, posters and itineraries to the grade folders,
+share each **Anyone with the link → Viewer**, and paste their links into the `Documents` tab.
 
-1. Upload it to the grade's folder in Drive.
-2. **Open with → Google Slides**, then **File → Save as Google Slides**.
-3. Share that file **Anyone with the link → Viewer** (this is a *separate* step from
-   sharing the spreadsheet).
-4. Copy its link into `Documents!C2`, replacing `REPLACE_WITH_YOUR_DECK_ID`.
-
-The five `REPLACE_WITH_YOUR_…` placeholders in the `Documents` tab are intentional — they
-render as fallback tiles until you swap in real links, which is exactly what a
-not-yet-shared document looks like.
+A document that is not shared publicly still opens for anyone who has access — it just shows
+a plain labelled tile instead of a thumbnail.
 
 ---
 

@@ -56,11 +56,17 @@ ignored. Alias columns are listed where more than one name works.
 Every tab except **Students** has a `Grade` column, and rows are filtered by it.
 
 ## Grade column
-Accepts `7`, `Grade 7`, `grade-7`, `Class 7`, `VII`, and `JK` / `Junior Kindergarten`.
-Anything it cannot read is treated as no grade, and the row is dropped — so a typo makes a
-row silently vanish. Grades outside JK and 1–12 are not supported.
+Accepts `7`, `Grade 7`, `grade-7`, `Class 7`, `VII`, plus `JK` / `Junior KG` and
+`SK` / `Senior KG`. Anything it cannot read is treated as no grade, and the row is dropped —
+so a typo makes a row silently vanish. Only JK, SK and Grades 1–12 are supported.
 
 ---
+
+
+> **In practice the roster is not a sheet.** The school publishes it as a CSV feed, which the
+> `/api/lookup` function reads server-side. The `Students` tab below documents the shape and is
+> what a sheet-based roster would need; the live feed's own columns
+> (`ParentsEmailID`, `FathersMobileNo`, `MothersMobileNo`, …) are already recognised.
 
 ## 1. Students
 Drives login and access control. One row per student.
@@ -72,8 +78,9 @@ Drives login and access control. One row per student.
 | `Grade` | **yes** | See above. A student with no readable grade cannot be reached at all. |
 | `Section` | no | Alias: `Division` |
 | `FatherName` | no | Aliases: `Father`, `GuardianName`, `ParentName`. Shown as the signed-in name. |
-| `FatherEmail` | one of the two | Aliases: `Email`, `ParentEmail`. **A login credential.** |
-| `FatherPhone` | one of the two | Aliases: `Phone`, `Mobile`, `Contact`. **A login credential.** |
+| `ParentsEmailID` | one of the two | Aliases: `ParentEmail`, `FatherEmail`, `MotherEmail`, `Email`. **A login credential.** |
+| `FathersMobileNo` | one of the two | Aliases: `FatherPhone`, `Mobile`, `Phone`. **A login credential.** |
+| `MothersMobileNo` | no | Also accepted as a login credential, so either parent can sign in. |
 
 ### Who gets access
 A row is reachable by **whichever of the two credentials it has filled in**:

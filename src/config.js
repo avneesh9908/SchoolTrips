@@ -12,7 +12,7 @@ function envMap(prefix) {
 }
 
 const FROM_ENV = {
-  dataSource: ENV.VITE_DATA_SOURCE || 'mock',
+  dataSource: ENV.VITE_DATA_SOURCE || 'sheets',
   csvBase: ENV.VITE_SHEET_CSV_BASE || '',
   /** Per-source CSV URL, beating csvBase. Keyed by source name. */
   csvUrls: {},
@@ -42,10 +42,21 @@ const FROM_ENV = {
 
 let current = null
 
+/**
+ * `''` means "not set here, use the layer below" — which is what lets a mostly
+ * empty config.json fall through to .env. `null` is the explicit opposite:
+ * "clear whatever the layer below said". Without that, an override could set a
+ * value but never unset one, so a local override could not turn off a URL that
+ * config.json had switched on.
+ */
 function merge(base, override) {
   const out = { ...base }
   for (const [k, v] of Object.entries(override || {})) {
-    if (v === null || v === undefined || v === '') continue
+    if (v === undefined || v === '') continue
+    if (v === null) {
+      out[k] = Array.isArray(base[k]) ? [] : typeof base[k] === 'object' && base[k] ? {} : ''
+      continue
+    }
     if (typeof v === 'object' && !Array.isArray(v)) {
       const inner = { ...(base[k] || {}) }
       for (const [ik, iv] of Object.entries(v)) if (iv !== '' && iv != null) inner[ik] = String(iv)
