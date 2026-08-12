@@ -29,9 +29,9 @@ export default function TripPage() {
 
   return (
     <>
-      {(isAdmin || students.length > 1) && (
+      {(isAdmin || students.length > 0) && (
         <button className="backbtn" onClick={() => navigate('/children')}>
-          ← {isAdmin ? 'All grades' : 'All children'}
+          ← {isAdmin ? 'All grades' : students.length > 1 ? 'All children' : 'Back'}
         </button>
       )}
 

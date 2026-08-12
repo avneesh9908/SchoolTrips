@@ -49,6 +49,27 @@ Neither is committed. The roster feed is unauthenticated, so its URL does not be
 public repo, and publishing the staff list would reveal exactly which addresses unlock all
 grades.
 
+`ADMIN_EMAILS` is a comma-separated list, matched case-insensitively:
+
+```
+ADMIN_EMAILS=first.last@example.org,second.person@example.org
+```
+
+For local work with `netlify dev`, the same two variables go in a gitignored `.env` at the
+project root. The deployed site never reads that file — Netlify's own environment variables
+are the only thing that counts in production.
+
+## Parent flow
+
+Sign in → the parent's own child (or children) appears as a card → tap the card → the full
+grade page: overview, documents, itinerary, safety guidelines, do's and don'ts, travel,
+reminders, photos and videos, communication, packing list.
+
+Trip content is **common to a whole grade** — every Grade 4 family sees the same itinerary and
+the same photos. The only personal thing on either screen is the child's own name, so no parent
+ever sees another family's child. The card step is shown even when a parent has just one child,
+so the name they are entitled to is always confirmed before grade content opens.
+
 ## Configuration
 
 `public/config.json` is read at page load, so pointers can change on a deployed site with no

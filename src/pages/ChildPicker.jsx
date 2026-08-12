@@ -1,4 +1,3 @@
-import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { GRADES, gradeById } from '../lib/grades'
@@ -8,24 +7,18 @@ export default function ChildPicker() {
   const { students, selectStudent, session, isAdmin } = useAuth()
   const navigate = useNavigate()
 
-  const only = !isAdmin && students.length === 1 ? students[0] : null
-
-  // A parent with a single child never needs to make a choice.
-  useEffect(() => {
-    if (only) {
-      selectStudent(only.id)
-      navigate(`/trip/${only.grade}`, { replace: true })
-    }
-  }, [only, selectStudent, navigate])
-
-  if (only) return null
-
   if (isAdmin) return <GradePicker name={session?.parentName} navigate={navigate} />
 
   const open = (student) => {
     selectStudent(student.id)
     navigate(`/trip/${student.grade}`)
   }
+
+  // Shown even for a single child: the card is the parent's confirmation that
+  // this is the one student they are entitled to, before any grade content
+  // opens. Trip content is common to the whole grade — the child's name is the
+  // only personal thing on either screen.
+  const one = students.length === 1
 
   return (
     <>
@@ -34,8 +27,10 @@ export default function ChildPicker() {
         <div className="hero-blob b2" />
         <h2 className="display">Welcome{session?.parentName ? `, ${session.parentName}` : ''}</h2>
         <p>
-          You have {students.length} children registered. Choose one to see their trip plan —
-          itinerary, safety guidelines, packing list, travel details and orientation documents.
+          {one
+            ? 'Tap your child below to see their trip plan — itinerary, safety guidelines, packing list, travel details, photos and orientation documents.'
+            : `You have ${students.length} children registered. Choose one to see their trip plan —
+               itinerary, safety guidelines, packing list, travel details, photos and orientation documents.`}
         </p>
       </div>
 
