@@ -51,7 +51,7 @@ src/
 | Path | Guard | Renders |
 |---|---|---|
 | `/login` | none | email-or-mobile entry, plus Google button when configured |
-| `/children` | `RequireAuth` | child picker; **auto-redirects when the parent has one child** |
+| `/children` | `RequireAuth` | child picker — **always shown, even for a single child** |
 | `/trip/:gradeId` | `RequireStudent` | the trip page |
 | `*` | — | redirect to `/children` |
 
@@ -338,11 +338,30 @@ Two gitignored pieces make this work without ever committing PII or breaking the
 **The proxy is dev-only** — `npm run build` emits static files with no proxy — and it hands
 the *entire* roster to the browser. Never present it as the production pattern.
 
+## The parent flow — one card, then everything
+Login → **the child card is always rendered**, one child or several (the single-child
+auto-redirect was removed on 2026-08-12 at the user's request) → tap it → the grade page with
+every section: overview, documents, itinerary, safety, do's/don'ts, travel, reminders, media,
+communication, packing list.
+
+**Trip content is grade-common by design** — every Grade 4 family sees the same itinerary and
+the same photos. The child's **name is the only personal value on either screen**
+(`activeStudent.name`, one pill on the trip hero); no screen ever lists another family's child,
+and the server returns only the caller's own children. When someone asks "can a parent see
+other students", that is the answer. Keep it true: do not add a roster, class list or
+attendance view to the parent side.
+
 ## Staff role — sees every grade
 A signed-in email on the staff list gets `role: 'admin'`: scope over `ALL_GRADE_IDS`, a
 **grade picker** (all 14, including Senior KG) instead of a child picker, a "Staff" chip in
 the top bar, and `RequireStudent` waives its child requirement since staff have no child row.
 `canAccessGrade` passes for every grade.
+
+Three named staff were designated on 2026-08-12 (one `@protego.services`, one
+`@fountainheadschools.org`, one `@fsksurat.in`). **The addresses themselves are written only
+into the gitignored `.env` and must be set by hand in Netlify's environment** — this repo is
+public, so they are deliberately absent from every committed file, including this one. Matching
+is case-insensitive; `Vardan.Kabra@…` was verified to work.
 
 **The list lives in `ADMIN_EMAILS` on the server, never in `config.json`.** The client config
 is public, and while a typed email is the only credential, publishing the staff list would
@@ -438,6 +457,40 @@ Correct path: a **separate, school-owned folder holding only parent-safe data**,
 is a feature — it is what keeps trust deeds off the public internet. Never propose pointing
 `folderId` at the internal folder.
 
+## Real trip content — where it actually lives (found 2026-08-12)
+Inside the internal folder, `Educational trips (25-26) › Senior School details`
+(`1imYgZn8K8qrLFmZX18qK1eq27MJHe7mt`) is the **first genuinely parent-facing trip material
+found**. It is senior school only — there is nothing for Grade 4 or any junior/middle grade
+there, which is why the Grade 4 demo landed on an empty page. A junior/middle equivalent has
+not been located.
+
+`PPT-For parent Orientation/` holds one Google Slides **parent orientation deck per grade and
+batch** — the real trips, all December 2025:
+
+| Grade | Destination | Batches |
+|---|---|---|
+| 7 | Abhaneri–Ranthambore (B1) / Jaipur–Ranthambore (B2) | B1 6–13 Dec, sections Acuity, Acumen, Cognizance; B2 8–13 Dec, Idea, Insight… |
+| 8 | Pachmarhi–Jabalpur | 7–13 Dec, Ardour/Exuberance/Rhapsody… |
+| 9 | Jim Corbett | 7–14 Dec, all sections together |
+| 10 | Rishikesh | B1 5–12 Dec (Apotheosis, Harbinger…), B2 6–14 Dec |
+| 12 | Manali | B1 5–14 Dec, B2 6–14 Dec |
+
+G7 B1 deck: `docs.google.com/presentation/d/1aLt74Pl7Il7gr3imlgqOwwI8Z0Bq8eed49DTbEmL2Ek`.
+Grade folders (`Grade 7` = `1sMVq7sSCmYD-pgB-30umoMroO_c6OA8n`) add consent forms (docx+pdf),
+train charts (`Surat to Jaipur -6 Dec`, `Jaipur to Surat - 12 Dec`, `Sawai Madhopur to…`),
+insurance, and a `Govt docs` subfolder. Sibling folders: `PPT-For students`, `Posters`,
+`ppt before trip- synopses`, `SS trips Photos/videos (2025-26)`.
+
+**Still not shareable as a folder**: the same level holds `Purchase approval`, `Trip Approval`,
+`Update to Vendors`, teacher-assignment and student-feedback response sheets, and the grade
+folders contain **student name lists** (`G7 Students list`, `Final students list for…`). Curate
+per file; never point `folderId` at it.
+
+**Blocker hit:** the Chrome extension is permitted on `drive.google.com` but **denied on
+`docs.google.com`** — folder listings, file names and thumbnails are readable, document
+contents are not. So itinerary/guidelines/packing text cannot be extracted until that
+permission is granted, or the content is pasted in.
+
 ## Open with management — unsettled, blocks decisions
 Raised in `docs/DATA-HANDOVER.md`; none answered yet. Do not assume any of these.
 - **Privacy of the `Students` tab.** Direct-from-Sheets makes every family's name, email and
@@ -471,6 +524,19 @@ Raised in `docs/DATA-HANDOVER.md`; none answered yet. Do not assume any of these
 - `legacy/trip-explorer.html` is frozen reference. Do not edit it.
 
 ## Changelog
+- 2026-08-12 — Explored `Senior School details` in the school's Drive (user-supplied link) and
+  found the first real parent-facing trip content: per-grade/batch parent orientation decks for
+  Grades 7, 8, 9, 10 and 12, December 2025, plus consent forms and train charts. **Nothing for
+  Grade 4 or any junior/middle grade.** Confirmed the extension cannot read `docs.google.com`,
+  so document text is still unavailable. Also noted the leftover fabricated G5/G7/G9 trip CSVs
+  surviving in the gitignored `public/local-roster/` — placeholder doc ids, `example.edu`
+  contacts, zero media rows, and unreachable by the app.
+- 2026-08-12 — Removed the single-child auto-redirect so **every** parent gets the card-then-tap
+  flow; trip page now always offers a back link. Designated three staff addresses, written to the
+  gitignored `.env` (and mirrored into `config.local.json` for the no-server dev path) — never
+  committed, still requires setting `ADMIN_EMAILS` in Netlify. Verified in-browser: a Grade 4
+  parent sees one card with only their own child's name, `/trip/g5` still blocked, two of the
+  three staff addresses reach all 14 grade cards. Build clean. **Nothing pushed to GitHub.**
 - 2026-08-11 — **Erased all dummy data.** Deleted the demo CSVs, `mockAdapter`, `mock/rows.js`,
   the Drive fixture and the fabricated deck; `generate_template.py` now emits an empty workbook.
   `dataSource` defaults to `sheets`, `folderId` cleared. Fixed `merge()` so `null` explicitly
