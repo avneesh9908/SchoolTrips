@@ -1,27 +1,24 @@
 {
-  "_readme": "Live pointer, read at page load. Edit on the server and refresh — no rebuild needed. There is no demo data any more; anything blank here simply has no source yet.",
+  "_readme": "Live pointer, read at page load. Edit on the server and refresh — no rebuild needed. There are only two sources: the roster behind rosterApiUrl for login, and the one spreadsheet in sheetId for everything a parent reads.",
 
   "dataSource": "sheets",
 
-  "_rosterApiUrl": "Server-side login lookup. /api/lookup is the Netlify function. Requires ROSTER_CSV_URL — and ADMIN_EMAILS for staff — in the SERVER environment.",
+  "_rosterApiUrl": "SOURCE 1 — login. /api/lookup is the Netlify function. Requires ROSTER_CSV_URL — and ADMIN_EMAILS for staff — in the SERVER environment.",
   "rosterApiUrl": "/api/lookup",
 
-  "_sheetId": "Share link of the spreadsheet holding the trip content tabs (Trips, Itinerary, Documents, Guidelines, Reminders, Travel, Media). Build it from sample-data/Trip Data.xlsx. Until this is set, every grade reads 'Nothing published yet'.",
+  "_sheetId": "SOURCE 2 — everything else. Share link of the single spreadsheet holding the trip content. Needs 'Anyone with the link → Viewer'. Leave blank if you are using publishedId instead.",
   "sheetId": "",
 
-  "_folderId": "Alternative to sheetId: a Drive folder whose spreadsheets are matched BY FILE NAME. Needs driveApiKey. Deliberately blank — the school's existing 'Educational trips (25-26)' folder must NOT be used: it holds a trust deed, vendor agreements and police correspondence, and would have to be made public.",
-  "folderId": "",
+  "_publishedId": "SOURCE 2, the private-document route. Paste the File → Share → Publish to web link (it contains /d/e/2PACX-…). The spreadsheet itself stays Restricted; only this read-only snapshot is public. Wins over sheetId. Tabs are addressed by gid here, not by name, so put each tab's gid in 'gids' — with none set, the first tab is served.",
+  "publishedId": "https://docs.google.com/spreadsheets/d/e/2PACX-1vQe1y7vXOyfuh-41MzC0BW46YVOtM9iaJgu_UyIwvROdBKAQO-vMKVOPFtdEP-hUZ7tPYgvc9znxFK0/pubhtml",
 
   "_csvBase": "Local CSV files instead of Google, for development only. Blank in production.",
   "csvBase": "",
 
-  "_settingsTab": "Tab in the trip spreadsheet holding per-source link overrides. Blank links mean 'use the tab of the same name'.",
-  "settingsTab": "Settings",
-
   "_gids": "Only needed if a tab has been renamed — a gid survives renames and wins over the tab name.",
   "gids": {},
 
-  "_driveApiKey": "Required for folderId, and for turning a folder link in the Documents tab into one card per file.",
+  "_driveApiKey": "Optional. Turns a Drive FOLDER link inside a Documents row into one card per file. Not a content source on its own.",
   "driveApiKey": "",
 
   "_driveApiBase": "Leave blank for Google.",
@@ -30,5 +27,6 @@
   "_adminEmails": "Leave empty. Staff are configured via ADMIN_EMAILS in the server environment — this file is public, and listing staff here would tell anyone which address unlocks every grade.",
   "adminEmails": [],
 
+  "_googleClientId": "OAuth 2.0 Web client id. When set, the login page shows Google Sign-In and One Tap signs a returning parent in with no typing.",
   "googleClientId": ""
 }

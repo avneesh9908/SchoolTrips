@@ -13,6 +13,10 @@ export function GoogleButton({ onIdentity, onError, disabled }) {
         if (cancelled || !slot.current) return
         google.accounts.id.initialize({
           client_id: googleClientId(),
+          // Signs a returning parent in without a click. Combined with the One
+          // Tap prompt below this is the whole point: nobody types an address.
+          auto_select: true,
+          cancel_on_tap_outside: false,
           callback: ({ credential }) => {
             try {
               onIdentity(readEmailFromCredential(credential))
@@ -27,6 +31,9 @@ export function GoogleButton({ onIdentity, onError, disabled }) {
           width: 340,
           text: 'signin_with',
         })
+        // The button stays as the fallback for anyone the prompt skips — not
+        // signed in to Google, several accounts, or One Tap dismissed before.
+        google.accounts.id.prompt()
       })
       .catch((err) => { if (!cancelled) setFailed(err.message) })
 

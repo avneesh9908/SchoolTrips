@@ -1,8 +1,8 @@
 import { config } from '../config'
-import { csvToObjects, normalizeKey, pick } from './csv'
-import { parseSheetRef, csvExportUrl } from '../lib/sheetUrl'
-import { listFolder, folderIdOf } from '../lib/drive'
+import { csvToObjects } from './csv'
+import { parseSheetRef, csvExportUrl, parsePublishedRef, publishedCsvUrl } from '../lib/sheetUrl'
 import { isAdminEmailLocally } from '../auth/roles.js'
+import { looksLikeTripApp } from './tripApp'
 import {
   toStudent, toTrip, toItineraryRow, toDocument,
   toGuideline, toReminder, toTravelLeg, toMedia,
@@ -42,102 +42,6 @@ async function fetchCsv(url, label) {
   return text
 }
 
-/**
- * Optional index tab. Management pastes a link per source into it, so a source
- * can live in a different spreadsheet without anyone touching config.json.
- * A missing tab is normal and silently means "use the tabs in this file".
- */
-let indexCache = null
-
-async function loadIndex() {
-  if (indexCache) return indexCache
-
-  const { sheetId, settingsTab } = config()
-  const ref = parseSheetRef(sheetId)
-  if (!ref || !settingsTab) {
-    indexCache = {}
-    return indexCache
-  }
-
-  try {
-    const text = await fetchCsv(csvExportUrl({ id: ref.id, tabName: settingsTab }), settingsTab)
-    const out = {}
-    for (const row of csvToObjects(text)) {
-      const key = normalizeKey(pick(row, 'key', 'name', 'sheet', 'source', 'item'))
-      const link = pick(row, 'link', 'url', 'sheetlink', 'sheeturl')
-      if (key && link && SOURCES.includes(key)) out[key] = link
-    }
-    indexCache = out
-  } catch {
-    indexCache = {}
-  }
-  return indexCache
-}
-
-const SPREADSHEET_MIME = 'application/vnd.google-apps.spreadsheet'
-
-/**
- * Maps the spreadsheets found in a Drive folder onto the eight sources by file
- * name. Exported so the matching can be checked without a network call.
- *
- * Exact name wins. Otherwise a single file whose name *contains* the source
- * word is accepted, so "Grade 7 Students 2026" still resolves. Two candidates
- * is ambiguous and deliberately resolves to nothing rather than guessing.
- */
-export function matchFolderFiles(files) {
-  const sheets = []
-  for (const f of files) {
-    if (f.mimeType && f.mimeType !== SPREADSHEET_MIME) {
-      // An .xlsx that was uploaded but never opened as a Google Sheet cannot be
-      // read by the CSV endpoint — the commonest setup mistake here.
-      console.warn(`[drive] ignoring "${f.label}" — not a Google Sheet. Open it and use File → Save as Google Sheets.`)
-      continue
-    }
-    sheets.push(f)
-  }
-
-  const map = {}
-  for (const source of SOURCES) {
-    const exact = sheets.filter((f) => normalizeKey(f.label) === source)
-    if (exact.length) {
-      map[source] = exact[0].id
-      continue
-    }
-    const partial = sheets.filter((f) => normalizeKey(f.label).includes(source))
-    if (partial.length === 1) map[source] = partial[0].id
-    else if (partial.length > 1) {
-      console.warn(`[drive] "${source}" matches ${partial.length} files (${partial.map((f) => f.label).join(', ')}) — rename so only one matches.`)
-    }
-  }
-  return map
-}
-
-let folderCache = null
-
-async function loadFolderMap() {
-  if (folderCache) return folderCache
-
-  const { folderId, driveApiKey } = config()
-  if (!folderId) {
-    folderCache = {}
-    return folderCache
-  }
-  if (!driveApiKey) {
-    console.warn('[drive] a folder is configured but no driveApiKey is set, so its contents cannot be listed.')
-    folderCache = {}
-    return folderCache
-  }
-
-  try {
-    const id = folderIdOf(folderId) || folderId
-    folderCache = matchFolderFiles(await listFolder(id))
-  } catch (err) {
-    console.warn('[drive] could not read the folder:', err.message)
-    folderCache = {}
-  }
-  return folderCache
-}
-
 function localUrl(name) {
   const { csvBase, csvUrls } = config()
   // A per-source URL wins, so one source can come from a proxied live feed
@@ -147,37 +51,35 @@ function localUrl(name) {
 }
 
 /**
- * Resolution order, most specific first:
- *   1. local CSV fixtures
- *   2. a link the school pasted into the index tab
- *   3. a per-source id in config
- *   4. a spreadsheet discovered in the Drive folder, matched by file name
- *   5. the master spreadsheet, tab addressed by name
+ * There are exactly two sources in this app: the roster behind /api/lookup for
+ * login, and ONE spreadsheet for everything a parent reads. Tabs inside that
+ * spreadsheet are addressed by name.
  *
- * Returns a list — the first entry is tried, and the rest are fallbacks.
+ * The old per-source spreadsheet ids, the Settings index tab and Drive-folder
+ * discovery were removed on 2026-08-12 — five ways to point at content meant
+ * five ways for it to go quietly missing.
+ *
+ * Returns a list: the first entry is tried, the rest are fallbacks.
  */
 async function urlsFor(name) {
   const local = localUrl(name)
   if (local) return [local]
 
-  const { sheetId, sheetIds, gids } = config()
-  const tabName = TAB_NAMES[name]
+  const { sheetId, publishedId, gids } = config()
 
-  const index = await loadIndex()
-  const fromIndex = index[name] && parseSheetRef(index[name])
-  if (fromIndex) return withFallback(fromIndex.id, fromIndex.gid, tabName)
-
-  const own = sheetIds[name] && parseSheetRef(sheetIds[name])
-  if (own) return withFallback(own.id, own.gid, tabName)
-
-  const folder = await loadFolderMap()
-  if (folder[name]) return withFallback(folder[name], null, tabName)
+  // A published snapshot wins: choosing it is a deliberate decision to keep the
+  // document itself Restricted, so it must not silently fall back to gviz —
+  // that would 401 and read as "the sheet is broken".
+  const published = parsePublishedRef(publishedId)
+  if (published) {
+    return [publishedCsvUrl({ id: published.id, gid: gids[name] || published.gid })]
+  }
 
   const master = parseSheetRef(sheetId)
   if (!master) {
-    throw new Error('No spreadsheet configured. Paste a spreadsheet or Drive folder link into config.json.')
+    throw new Error('No spreadsheet configured. Paste the trip spreadsheet link into config.json.')
   }
-  return withFallback(master.id, gids[name], tabName)
+  return withFallback(master.id, gids[name], TAB_NAMES[name])
 }
 
 /**
@@ -266,8 +168,16 @@ export const sheetsAdapter = {
       return []
     }
 
+    // The school's own "Trip app" sheet is one flat tab, not eight. Detected by
+    // its headers rather than by a config flag, so pointing at either shape
+    // just works.
+    const first = get('trips')
+    if (looksLikeTripApp(first)) {
+      return { flat: first }
+    }
+
     return {
-      trips: get('trips').map(toTrip),
+      trips: first.map(toTrip),
       itinerary: get('itinerary').map(toItineraryRow),
       documents: get('documents').map(toDocument),
       guidelines: get('guidelines').map(toGuideline),

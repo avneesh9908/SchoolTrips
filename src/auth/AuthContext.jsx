@@ -61,6 +61,32 @@ export function AuthProvider({ children }) {
     })
   }, [])
 
+  /**
+   * The one place a credential becomes {students, role}. Both the typed box and
+   * Google Sign-In go through it, so the two paths cannot drift — an adapter
+   * returning the `{role, students}` shape used to be mishandled on the Google
+   * path only, which crashed the sign-in and lost staff access.
+   */
+  const resolveIdentity = useCallback(async ({ kind, value }) => {
+    const adapter = getAdapter()
+
+    if (adapter.lookup) {
+      const result = await adapter.lookup({ kind, value })
+      // A bare array is the older adapter shape.
+      return Array.isArray(result)
+        ? { students: result, role: undefined }
+        : { students: result.students || [], role: result.role }
+    }
+
+    const roster = await adapter.fetchStudents()
+    return {
+      students: roster.filter((s) =>
+        kind === 'email' ? s.emails.includes(value) : s.phones.includes(value)
+      ),
+      role: undefined,
+    }
+  }, [])
+
   /** Email or mobile, typed into the one login box. */
   const login = useCallback(async (raw) => {
     const { kind, value, valid } = classifyIdentifier(raw)
@@ -84,50 +110,45 @@ export function AuthProvider({ children }) {
         return
       }
 
-      let students
-      let role
-      if (adapter.lookup) {
-        const result = await adapter.lookup({ kind, value })
-        students = Array.isArray(result) ? result : result.students
-        role = Array.isArray(result) ? undefined : result.role
-      } else {
-        const roster = await adapter.fetchStudents()
-        students =
-          kind === 'email'
-            ? roster.filter((s) => s.emails.includes(value))
-            : roster.filter((s) => s.phones.includes(value))
-      }
+      const { students, role } = await resolveIdentity({ kind, value })
       startSession(students, { via: kind, identifier: value, role })
     } finally {
       setBusy(false)
     }
-  }, [startSession])
+  }, [startSession, resolveIdentity])
 
   /**
    * Google has already proved the address, so this skips the typed path — but
-   * access still depends on that same address appearing in the sheet.
+   * access still depends on that same address being on the school's records.
    */
   const loginWithGoogle = useCallback(async ({ email, name }) => {
     const value = normalizeEmail(email)
     setBusy(true)
     try {
       const adapter = getAdapter()
-      const students = adapter.lookup
-        ? await adapter.lookup({ kind: 'email', value })
-        : (await adapter.fetchStudents()).filter((s) => s.emails.includes(value))
+      if (!adapter.lookup && isAdminEmailLocally(value)) {
+        startSession([], { via: 'google', identifier: value, displayName: name, role: 'admin' })
+        return
+      }
 
-      if (students.length === 0) {
+      const { students, role } = await resolveIdentity({ kind: 'email', value })
+      if (role !== 'admin' && students.length === 0) {
         throw new Error(
           `${value} is not on the school's records. Please sign in with the email address the school has on file, or contact the office.`
         )
       }
-      startSession(students, { via: 'google', identifier: value, displayName: name })
+      startSession(students, { via: 'google', identifier: value, displayName: name, role })
     } finally {
       setBusy(false)
     }
-  }, [startSession])
+  }, [startSession, resolveIdentity])
 
-  const logout = useCallback(() => setSession(null), [])
+  const logout = useCallback(() => {
+    // Otherwise One Tap silently signs the same account straight back in and
+    // the parent cannot switch to another Google account.
+    window.google?.accounts?.id?.disableAutoSelect()
+    setSession(null)
+  }, [])
 
   const selectStudent = useCallback((studentId) => {
     setSession((s) => (s ? { ...s, activeStudentId: studentId } : s))

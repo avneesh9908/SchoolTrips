@@ -43,14 +43,53 @@ body {
 .hero-blob.b1 { width: 220px; height: 220px; right: -50px; top: -60px; }
 .hero-blob.b2 { width: 120px; height: 120px; right: 120px; bottom: -60px; background: rgba(255, 255, 255, 0.25); }
 
-.detail-hero {
-  border-radius: var(--r-detail); overflow: hidden; margin-bottom: 24px;
-  position: relative; color: #fff;
+/* ---------- trip header: name, batch, dates, child ---------- */
+.trip-hero {
+  border-radius: var(--r-detail); overflow: hidden; margin-bottom: 22px;
+  position: relative; color: #fff; isolation: isolate;
 }
-.detail-hero .banner { padding: 36px 34px; }
-.detail-hero h2 { font-size: 32px; margin: 10px 0 6px; font-weight: 800; }
-.detail-hero .dates { font-size: 14px; opacity: 0.92; margin: 0; }
-.detail-hero .cover { width: 100%; height: 240px; object-fit: cover; display: block; }
+.th-photo {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  object-fit: cover; z-index: -2;
+}
+/* The photo is behind text, so it needs a scrim rather than a hope: the grade
+   colour is reused as the tint so the header still reads as that grade's. */
+.trip-hero.has-photo::after {
+  content: ''; position: absolute; inset: 0; z-index: -1;
+  background: linear-gradient(100deg, rgba(20, 28, 38, 0.86) 0%, rgba(20, 28, 38, 0.62) 52%, rgba(20, 28, 38, 0.25) 100%);
+}
+.trip-hero.has-photo { min-height: 300px; display: flex; align-items: flex-end; }
+
+.th-body { padding: 34px; width: 100%; }
+.th-eyebrow { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.th-title {
+  font-size: 34px; line-height: 1.15; margin: 0; font-weight: 800;
+  text-wrap: balance;
+}
+.trip-hero.has-photo .th-title { text-shadow: 0 2px 14px rgba(0, 0, 0, 0.35); }
+
+.th-facts {
+  display: flex; flex-wrap: wrap; gap: 10px; margin: 18px 0 0;
+}
+.th-fact {
+  background: rgba(255, 255, 255, 0.16); border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: var(--r-tile); padding: 9px 14px; backdrop-filter: blur(3px);
+}
+.th-fact dt {
+  font-size: 9.5px; font-weight: 800; text-transform: uppercase;
+  letter-spacing: 0.09em; opacity: 0.8; margin-bottom: 3px;
+}
+.th-fact dd { margin: 0; font-size: 14px; font-weight: 700; }
+
+/* Credit for the destination photo — it is Wikipedia's, not the school's. */
+.th-credit {
+  position: absolute; right: 12px; bottom: 10px; z-index: 1;
+  font-size: 10px; font-weight: 600; letter-spacing: 0.02em;
+  color: rgba(255, 255, 255, 0.72); text-decoration: none;
+  background: rgba(0, 0, 0, 0.28); padding: 3px 8px; border-radius: var(--r-pill);
+}
+.th-credit:hover { color: #fff; text-decoration: underline; }
+
 .pill {
   display: inline-block; background: rgba(255, 255, 255, 0.25);
   padding: 5px 13px; border-radius: var(--r-pill);
@@ -92,7 +131,9 @@ ul.plain li { font-size: 13.5px; line-height: 1.75; margin-bottom: 6px; }
   display: block; font-size: 10px; text-transform: uppercase; color: var(--muted);
   letter-spacing: 0.05em; margin-bottom: 3px; font-weight: 700;
 }
-.ticket-notes { margin: 10px 0 0; font-size: 13px; }
+/* Travel arrives as prose typed into one cell, so its line breaks are the
+   formatting — collapsing them runs the whole journey into one paragraph. */
+.ticket-notes { margin: 8px 0 0; font-size: 13.5px; line-height: 1.7; white-space: pre-wrap; }
 .leg-title { font-size: 12px; font-weight: 700; margin: 14px 0 8px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
 .leg-title:first-child { margin-top: 0; }
 
@@ -142,16 +183,100 @@ ul.plain li { font-size: 13.5px; line-height: 1.75; margin-bottom: 6px; }
   text-transform: uppercase; letter-spacing: 0.04em; margin-top: 5px;
 }
 
-.photo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+.pending-note {
+  margin: 12px 0 0; font-size: 12px; line-height: 1.6; color: var(--muted);
+  border-left: 3px solid var(--line); padding-left: 10px;
+}
+
+/* The sheet names a file but carries no link. Shown, and visibly not clickable. */
+.doc-card.is-pending { border-style: dashed; cursor: default; }
+.doc-card.is-pending:hover { border-color: var(--line); transform: none; }
+.doc-card.is-pending .doc-fallback { background: var(--bg); color: var(--muted); }
+.doc-card.is-pending .doc-label { color: var(--muted); }
+
+.photo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: 14px; }
 .photo-item {
   border-radius: var(--r-tile); overflow: hidden; background: var(--bg);
   border: 1px solid var(--line); display: block; text-decoration: none; color: var(--ink);
+  position: relative; transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease;
 }
-.photo-item img { width: 100%; height: 120px; object-fit: cover; display: block; }
-.photo-item .cap { font-size: 11.5px; color: var(--muted); padding: 7px 9px; font-weight: 600; }
+.photo-item:hover, .photo-item:focus-visible {
+  transform: translateY(-3px); border-color: #d9d0ba;
+  box-shadow: 0 10px 22px rgba(34, 48, 63, 0.13);
+}
+.photo-item img {
+  width: 100%; aspect-ratio: 4 / 3; height: auto; object-fit: cover; display: block;
+  background: var(--line);
+}
+.photo-item .cap {
+  font-size: 11.5px; color: var(--muted); padding: 8px 10px; font-weight: 600;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
 .photo-item .thumb {
-  height: 120px; display: flex; align-items: center; justify-content: center;
-  background: var(--violet-bg); color: var(--violet); font-weight: 700; font-size: 13px;
+  aspect-ratio: 4 / 3; display: flex; align-items: center; justify-content: center;
+  background: var(--violet-bg); color: var(--violet);
+}
+.photo-item .thumb .play {
+  width: 42px; height: 42px; border-radius: 50%; background: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 15px; padding-left: 3px; box-shadow: 0 3px 10px rgba(34, 48, 63, 0.18);
+}
+
+.batch-note {
+  margin: 0 0 12px; font-size: 12.5px; color: var(--muted); line-height: 1.6;
+}
+.batch-note strong { color: var(--ink); }
+.batch-row {
+  display: flex; gap: 12px; align-items: flex-start;
+  padding: 11px 0; border-bottom: 1px solid var(--line);
+}
+.batch-row:last-child { border-bottom: none; padding-bottom: 0; }
+.batch-row:first-child { padding-top: 0; }
+.batch-tag {
+  flex: 0 0 auto; font-size: 10.5px; font-weight: 800; text-transform: uppercase;
+  letter-spacing: 0.05em; padding: 4px 9px; border-radius: var(--r-pill);
+  background: var(--violet-bg); color: var(--violet);
+}
+.batch-headline { font-size: 14px; font-weight: 700; }
+.batch-detail {
+  font-size: 13px; color: var(--muted); margin-top: 3px;
+  white-space: pre-wrap; line-height: 1.6;
+}
+
+/* ---------- trip tabs ---------- */
+.tabbar {
+  display: flex; gap: 8px; margin-bottom: 18px; padding: 5px;
+  background: var(--card); border: 1px solid var(--line); border-radius: var(--r-pill);
+  overflow-x: auto; scrollbar-width: none;
+  position: sticky; top: 10px; z-index: 5;
+}
+.tabbar::-webkit-scrollbar { display: none; }
+.tab {
+  display: inline-flex; align-items: center; gap: 7px; flex: 0 0 auto;
+  padding: 9px 15px; border-radius: var(--r-pill); cursor: pointer;
+  background: transparent; border: 1px solid transparent; color: var(--muted);
+  font-family: var(--font-body); font-size: 13px; font-weight: 700;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.tab:hover { background: var(--bg); color: var(--ink); }
+.tab svg { width: 16px; height: 16px; }
+.tab.is-active { color: #fff; }
+.tab.is-active:hover { filter: brightness(0.96); }
+.tab-count {
+  font-size: 10.5px; font-weight: 800; line-height: 1; padding: 3px 6px;
+  border-radius: 20px; background: var(--line); color: var(--muted);
+}
+.tab.is-active .tab-count { background: rgba(255, 255, 255, 0.28); color: #fff; }
+.tab-panel:focus { outline: none; }
+.tab-panel { animation: panel-in 0.18s ease both; }
+
+@keyframes panel-in {
+  from { opacity: 0; transform: translateY(5px); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tab-panel { animation: none; }
+  .photo-item { transition: none; }
 }
 
 /* ---------- login ---------- */
@@ -252,6 +377,14 @@ footer.note { text-align: center; color: var(--muted); font-size: 11.5px; margin
   .two-col, .kv-grid { grid-template-columns: 1fr; }
   .hero { padding: 30px 22px; }
   .hero h2 { font-size: 27px; }
-  .detail-hero .banner { padding: 26px 22px; }
-  .detail-hero h2 { font-size: 25px; }
+  .th-body { padding: 24px 20px; }
+  .th-title { font-size: 26px; }
+  .trip-hero.has-photo { min-height: 250px; }
+  .th-facts { gap: 8px; margin-top: 14px; }
+  .th-fact { padding: 8px 12px; flex: 1 1 44%; }
+  /* The bar scrolls sideways rather than wrapping, so the row of tabs still
+     reads as one control on a phone. */
+  .tabbar { top: 0; border-radius: var(--r-card); margin-left: -2px; margin-right: -2px; }
+  .tab { padding: 9px 13px; font-size: 12.5px; }
+  .photo-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
 }

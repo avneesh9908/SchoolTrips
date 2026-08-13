@@ -42,7 +42,7 @@ src/
   components/         Icon, Section, DocCard, TopBar, States
   data/               index (adapter pick), sheetsAdapter, apiAdapter, csv,
                       normalize, useTrip
-  lib/                grades, phone, docPreview
+  lib/                grades, phone, docPreview, destinationPhoto
   pages/              Login, ChildPicker, TripPage
   styles/             tokens.css, global.css
 ```
@@ -72,7 +72,25 @@ One login box takes **either an email address or a mobile number**;
   Verified: `/trip/g5` as a G7 parent shows "Not your child's grade" and issues no request.
 - Session lives in `sessionStorage`, keyed `schoolTrips.session`; ends with the tab.
 
-### Google Sign-In (optional)
+### Google Sign-In — the no-typing path
+Reworked 2026-08-12 so a parent never types anything. `GoogleButton` initialises GIS with
+`auto_select: true` and calls `google.accounts.id.prompt()`, so **One Tap signs a returning
+parent in with no click at all**; the rendered button stays as the fallback for anyone the
+prompt skips (not signed in to Google, several accounts, previously dismissed). `logout` calls
+`disableAutoSelect()` — without it One Tap re-signs the same account instantly and nobody can
+switch.
+
+Both credential paths now go through one `resolveIdentity({kind, value})` in `AuthContext`.
+Before that, `loginWithGoogle` treated the adapter's `{role, students}` object as an array:
+`students.length` was `undefined`, the empty check never fired, and `startSession` crashed on
+`students.filter` — so **Google sign-in was broken for the whole server path, and staff signing
+in with Google lost admin**. Keep the two paths sharing that resolver.
+
+**Still needs a client id.** `googleClientId` is blank in `config.local.json`, so the button is
+hidden and none of the above has run against real Google. Local origin to authorise:
+`http://localhost:5180`.
+
+### Google Sign-In (configuration)
 Set `VITE_GOOGLE_CLIENT_ID` and the login page renders a Google button above the typed box;
 blank and it is hidden entirely. `googleSignIn.js` lazy-loads Google Identity Services once,
 and `loginWithGoogle` matches the returned address against `FatherEmail` — access still
@@ -99,18 +117,109 @@ someone proposes going live on the sheets adapter.
 | id | Source | Notes |
 |---|---|---|
 | `mock` | `src/data/mock/rows.js` | default; ~250ms simulated latency; UI shows a "Sample data" tag |
-| `sheets` | `gviz/tq?tqx=out:csv` per tab, **or local CSVs when `VITE_SHEET_CSV_BASE` is set** | tolerates missing optional tabs via `Promise.allSettled`; detects Google's sign-in HTML returned with a 200 |
+| `sheets` | `gviz/tq?tqx=out:csv` per tab, **or local CSVs when `VITE_SHEET_CSV_BASE` is set** | tolerates missing optional tabs via `Promise.allSettled`; detects Google's sign-in HTML (see below) |
+
+**A private sheet answers `401` with an HTML sign-in page**, measured 2026-08-12 against the
+Grade 7 vendor sheet — not the 200-with-HTML that was assumed. `fetchCsv` catches it either
+way: `!res.ok` throws "Check the spreadsheet is shared publicly", and the `<` sniff catches the
+200 case. Both messages are right; the fix is always "Anyone with the link → Viewer".
+`curl -s -o /dev/null -w "%{http_code}" "<gviz url>"` is the fastest way to tell a sharing
+problem from a schema problem.
 | `api` | your backend | contract documented at the top of `apiAdapter.js`; exposes `lookup()`, which `AuthContext` prefers when present |
 
 Adapters expose `fetchStudents()` and `fetchTripSets(gradeId)`. An adapter may also expose
 `lookup({kind, value})`; when present `AuthContext` delegates the whole credential match to
 it instead of filtering a roster client-side. Only `apiAdapter` does today.
 
-### Eight sheets, flat and per-grade
-Tab names are the address and live in `TAB_NAMES` (`sheetsAdapter.js`), plus `settingsTab`
-(default `Settings`) in `config.js`. **File names are never read** — only tab names and the
-links between sheets. Keep those two facts distinct when explaining this; conflating them is
-the most likely way someone loses data silently.
+### The content sheet is "Trip app", and it stays Restricted
+`docs.google.com/spreadsheets/d/1PCCOY90IM_6sgdx8fOH5kgxyHtkYN8tfIsUc5n_TIT4` — owned by
+Falguni Jariwala, six named editors, **General access: Restricted**. Measured 2026-08-12: gviz
+CSV → 401, `export?format=csv` → 401, published URL → 404. Editor access granted to a person
+does nothing for the app, which fetches anonymously.
+
+The user chose **Publish to web** over link-sharing (2026-08-12), so the document itself must
+stay Restricted — do not propose "Anyone with the link" again as the fix.
+
+`publishedId` in config takes the `File → Share → Publish to web` link. Its id is the long
+`2PACX-…` in `/spreadsheets/d/e/<id>/pub` and **cannot be derived from the file id**, which is
+why it is a separate value. `parsePublishedRef` deliberately returns `null` for a normal `/d/<id>/edit`
+link so a mis-paste fails loudly instead of building a broken URL, and `urlsFor` never falls
+back from a published id to gviz — that fallback would 401 and look like a broken sheet.
+
+**Published tabs are addressed by gid only** — there is no `sheet=` parameter on `/pub`. Put
+each tab's gid in `gids`; with none set Google serves the first tab, which is correct for a
+single-tab workbook. Choose **Entire document** when publishing, or other tabs stay unreachable.
+
+### The school's real schema — ONE flat tab, not eight
+`src/data/tripApp.js` reads the "Trip app" sheet, whose columns are:
+
+`Grades | Destination | Dates | Starting Text | Parent Orientation | Student Orientation |
+Itinerary (nucleus) (link) | Travel details | Safety`
+
+One **row-group per grade, one row per batch**. `looksLikeTripApp(rows)` picks the shape from
+its headers — never a config flag — and `useTrip` routes to `assembleTripApp` instead of
+`assembleTrip`. The eight-tab schema still works for the other shape.
+
+- **The Grades cell is merged**, so CSV carries it only on the group's first row.
+  `groupByGrade` carries it forward; without that every batch after the first silently vanishes.
+- The `Dates` cell holds the batch dates on line 1 and its sections below. Line 1 goes in the
+  hero, the rest into a **Batches and sections** block — that block is how a parent knows which
+  batch their child is in.
+- `Travel details` is prose per batch, not structured legs: it renders as one block per batch
+  with `white-space: pre-wrap`, and the Train/Departure grid is hidden when those fields are
+  empty rather than printing a row of em dashes.
+- Verified against a CSV transcribed from the real sheet: G7 → title, both batch date lines,
+  full starting text, both travel blocks with line breaks intact.
+
+**CONFIRMED against the live published sheet, 2026-08-12: smart chips destroy every link.**
+`0 of 22` filled link cells carried a URL — all exported as display text ("Pics for trips",
+"safety-guidelines-poster"). **Nothing in the app can be opened**, and no code change can recover
+it: the URL is simply absent from the export. The school must paste plain URLs or use
+`=HYPERLINK("url","label")`. What the app can do — and now does — is show the file's name and say
+the link is missing (see pending cards below).
+
+**Reversed 2026-08-12 at the user's request ("I want all things sheet here"):** dropping chip
+cells hid Orientation, Itinerary, Photos and Guidelines completely — Grade 7 showed only Overview
+and Travel, and a parent could not tell an orientation deck existed at all. `documentsFrom` now
+emits a **pending card** for a chip cell: `{label: <the chip's own name>, url: '', pending: true}`.
+`DocCard` renders `pending` as a dashed, non-clickable `<div>` (never an `<a>` — there is nothing
+to open) with the meta "<category> · link not added yet", and its icon comes from `PENDING_KIND`
+since no URL means no readable kind. One `PendingNote` per panel, not per section or per card,
+explains it and points at the grade coordinator. The `console.warn` listing the exact cells to fix
+is unchanged.
+
+For the three **text** columns this is gated by `fileNamesOnly`: only a leftover chip slug
+(`looksLikeFileName`) becomes a card there, because prose in those cells is guidance to print, not
+a lost link.
+
+The full published column list (13): `Grades | Destination | Dates | Starting Text | Parent
+Orientation | Student Orientation | Itinerary (nucleus) (link) | Travel details | Safety
+guidelines | Do/Dont's | Things to carry | Pic folder (link) | last years pic for adding in page`.
+Safety, do's/don'ts and packing are **posters, not text**, so they map to document cards, and
+`assembleTripApp` returns empty `safety`/`dos`/`donts`/`carry` arrays.
+
+**An unreadable grade cell ends the group, it does not inherit.** The sheet's last row is `MlC`
+(Manali). Carrying the previous grade forward filed it under Grade 11, which would have shown
+one group's trip to another group's parents. A non-empty unreadable cell now clears the current
+grade and warns.
+
+Live state per grade: g7 Jaipur-Abhaneri-Ranthambore (2 batches, 2 travel blocks), g8
+Jabalpur-Panchmarhi (2/2), g10 Jodhpur & Jaisalmer (2 batches, no travel), g9 and g11 hold only
+the shared boilerplate `Starting Text`, g12 has no row at all.
+
+### Two sources, and only two
+**Login → the roster behind `rosterApiUrl`. Everything else → one spreadsheet in `sheetId`.**
+Set by the user on 2026-08-12; the per-source `sheetIds`, the `Settings` index tab and
+Drive-folder discovery were deleted that day. Five ways to point at content meant five ways for
+it to go quietly missing. Do not reintroduce a second content source without being asked.
+
+`expandFolderDocuments` survives — a Drive **folder link inside a Documents row** still becomes
+one card per file when `driveApiKey` is set. That is content enrichment inside the one sheet,
+not a source of its own.
+
+Tab names are the address and live in `TAB_NAMES` (`sheetsAdapter.js`). **File names are never
+read** — only tab names. A renamed tab silently empties that section; `gids` is the escape
+hatch, since a gid survives renames.
 
 `Students`, `Trips`, `Itinerary`, `Documents`, `Guidelines`, `Reminders`, `Travel`, `Media`.
 Every tab except Students carries a `Grade` column. `assembleTrip(gradeId, sets)` folds the
@@ -165,6 +274,81 @@ non-public file degrades gracefully and still opens on click.
 the link → Viewer". The five sample Grade-7 documents are private, so they all render the
 fallback tile locally. External images are not blocked in general (a Google favicon loads
 fine) — it is specifically the private Drive files that 403. Do not chase this as a bug.
+
+## Cards vs text — the school's rule for the trip page
+Set 2026-08-12 and it drives the whole layout. **Four columns are files → clickable cards**
+(`DocCard`, opens in a new tab): Parent Orientation, Student Orientation, Pic folder,
+Itinerary (nucleus). **Five are text → printed on the page**, so a parent never opens a
+document to read them: Header Text, Travel details, Safety guidelines, Do/Dont's, Things to
+carry.
+
+**Page order, revised 2026-08-12: header (with a destination photo) → tabs → panel.** The photo
+rail between hero and tabs was removed at the user's request and photos are a tab named
+**Photos** again, so the tabs are **Overview · Photos · Orientation · Itinerary · Travel ·
+Guidelines**.
+
+`PhotosPanel` renders a `photo-grid` of `PhotoTile`s when the sheet holds image URLs, plus a
+`DocCard` block for album folder links; with neither, `buildTabs` never creates the tab.
+`PhotoTile` swaps to a typed tile on `onError`, since a Drive image that is not link-shared 403s
+and would otherwise leave a white gap.
+
+### The trip header — name, batch, dates, child, in that order
+`TripHero` in `TripPage.jsx`, ordered as the user specified: grade pill → **trip name** →
+**Batch** → **Dates** → **Travelling** (child · section). The three facts are a `th-facts`
+definition list with a small uppercase label each, not a row of bare pills — "Batch 2" alone does
+not tell a parent it is their child's batch. `heroBatch` says `Batch 1` only when
+`trip.batchMatched`; otherwise it says "All N batches", because naming one batch would be wrong
+when the page is showing every batch. `heroDates` strips the "Batch 1:" prefix already shown
+beside it.
+
+**The hero photo is of the destination, from Wikipedia — never presented as the school's photo.**
+`lib/destinationPhoto.js` splits the Destination cell (`Jaipur-Abhaneri-Ranthambore` → three
+candidates), searches each via the action API
+(`generator=search&prop=pageimages&piprop=thumbnail&pithumbsize=1600&origin=*`) and takes the
+first hit; results are cached per destination and a failure resolves to `null` so the hero just
+stays the grade colour. The action API is used over the REST summary endpoint because summary
+thumbnails are only 330px and search tolerates the school's spelling (`Panchmarhi` → Pachmarhi).
+It sends `Access-Control-Allow-Origin: *`, so no key and no proxy. A sheet `coverImage` always
+wins, and when the Wikipedia image is used a `th-credit` link names the page. Keep the credit —
+without it an illustrative stock photo reads as a picture of this trip.
+
+The photo is **not** `loading="lazy"`: it is the hero, above the fold, and lazy images never load
+at all while the preview pane is hidden, which also makes the tile fallbacks unverifiable there.
+
+`Do/Dont's` is one column holding both sides, so it renders as a **single list**, not the
+eight-tab schema's Do/Don't pair — hence the extra `doDonts` field alongside the legacy
+`dos`/`donts`.
+
+The card/text split is decided **per cell, not per column**: a URL in a text column still becomes
+a card (a "Posters" block), and text in a link column is ignored. That is what lets the sheet be
+half-converted from chips to URLs without the page breaking either way.
+
+`GuidelinesPanel` keeps **one section per guideline type** — Safety guidelines / Do's and don'ts /
+Things to carry — each holding its text lines *and* its poster card, instead of pooling every
+poster into one "Posters" block. "Things to carry" must stay findable under that name whichever
+form the school used.
+
+`looksLikeFileName()` drops a leftover chip name from a text column — a single
+hyphen-or-underscore token with no spaces, like `safety-guidelines-poster`. Printing it as a
+safety guideline read like a broken attachment. Real guidance is a sentence and has spaces.
+Verified: with the live sheet those three columns now yield nothing at all rather than three
+slugs, and with a fixture carrying real URLs and text all six tabs render correctly.
+
+## The trip page is tabbed
+Rebuilt 2026-08-12: hero, then a **sticky pill tab bar**, then one panel. Tabs are
+**Overview · Photos · Orientation · Itinerary · Travel · Guidelines**, where Overview folds in
+reminders and coordinator contact, and Guidelines folds in safety, do's/don'ts and things to
+carry — six tabs instead of ten stacked sections.
+
+`buildTabs(trip)` derives the list **from the data**, so a tab with nothing behind it is never
+rendered: today's Grade 7 shows only Overview / Travel / Documents. Counts sit in a pill on each
+tab. Keep this — declaring the tabs statically would put empty shelves in front of parents
+while the school is still filling the sheet.
+
+Proper `tablist` semantics: `aria-selected`, `aria-controls`, roving `tabIndex`, and Left/Right
+moving both selection and focus. The bar scrolls sideways on mobile rather than wrapping, and
+the panel fade respects `prefers-reduced-motion`. Photo tiles are `aspect-ratio: 4/3` with a
+hover lift; videos get a round play badge instead of a broken `<img>`.
 
 ## Design system
 Carried over from the prototype, now in `src/styles/tokens.css`.
@@ -237,8 +421,6 @@ Observations, not a to-do list — do not act without a request.
   Drive fixture. The `gviz/tq` URL shape, **tab-addressing by `sheet=` name**, the `Settings`
   index lookup, the sign-in-HTML detection, and the real `files.list` call with an API key are
   all unproven in the wild. URL construction is unit-checked; the round trip is not.
-- The `Settings` tab ships with every link blank, so the index path resolves to `{}` and has
-  never actually redirected a source.
 - **Trip history is undecided.** Today a new trip overwrites the old rows and nothing is
   kept. Adding a year/season column later means migrating a sheet the school has already
   filled — raised with them in `DATA-HANDOVER.md §4b`, unanswered.
@@ -273,35 +455,20 @@ folder and let it discover everything. What shipped instead, and the reasoning:
    bare id (`parseSheetRef` in `src/lib/sheetUrl.js`). Cost of this: **renaming a tab silently
    empties that section**, since the name is the address. A `gid` still wins when supplied,
    because a gid survives renames — that is the documented escape hatch, keep it.
-5. **An optional `Settings` tab** (`Key | Link | Notes`) lets the school point any one source
-   at a different spreadsheet by pasting a link, with nobody touching `config.json`. Blank
-   links mean "use the tab of the same name in this file" — the normal case. Only the eight
-   known keys are read; a missing tab is normal and resolves to `{}`. Cached per session in
-   `indexCache`.
+5. **Everything else was deleted on 2026-08-12** at the user's instruction — the `Settings`
+   index tab (`loadIndex`/`indexCache`), the per-source `sheetIds`, and `folderId` folder
+   discovery (`loadFolderMap`/`matchFolderFiles`). One spreadsheet, addressed by tab name.
 
-6. **A Drive folder link can be the whole configuration** (`folderId`). `loadFolderMap` lists
-   it and `matchFolderFiles` maps spreadsheets onto sources **by file name** — exact match
-   first, then a *unique* substring match (`Grade 7 Itinerary 2026` → itinerary). Two
-   candidates is ambiguous and yields **nothing**, with a console warning naming both; never
-   change this to guess. Non-spreadsheet mime types are skipped, which catches the very
-   common "uploaded the .xlsx but never converted it" mistake. Requires `driveApiKey`.
-
-**This reverses the usual rule**: with `sheetId` file names are irrelevant and only tab names
-matter; with `folderId` file names become the address. Always state which mode is in play
-before answering a naming question.
-
-Resolution order in `urlsFor`: csvBase → `Settings` tab → `sheetIds` → folder → master
-`sheetId`. `urlsFor` returns a **list**; `withFallback` appends a `gid=0` URL so a dedicated
-file whose tab is still `Sheet1` resolves. `loadSheet` walks the list and rethrows the last
-error only if all fail.
+Resolution order in `urlsFor` is now just: **csvBase (dev) → the `sheetId` spreadsheet**.
+`urlsFor` returns a **list**; `withFallback` appends a `gid=0` URL so a file whose tab is still
+`Sheet1` resolves. `loadSheet` walks the list and rethrows the last error only if all fail.
 
 `csvExportUrl` builds its query **by hand, not with `URLSearchParams`**, which would encode
 the colon in `out:csv` as `%3A`. Do not "tidy" that back.
 
 **A folder can never replace the spreadsheet** — itinerary, safety points, packing list and
 travel legs are structured rows; a folder yields filenames only, with no grade, label,
-category or order. Fully folder-driven would need filename conventions the school will break.
-Do not revisit this without new information.
+category or order. This is why folder mode went rather than becoming the primary source.
 
 Because adapters now read `config()` synchronously, `src/data/index.js` exports **`getAdapter()`
 / `isMock()` / `isServerEnforced()` as functions**, not constants — resolving at import time
@@ -314,11 +481,42 @@ section never breaks.
 ## Config layering — `''` vs `null`
 Three layers, each overriding the last: `.env` → `public/config.json` → `public/config.local.json`.
 
+**`readJson` must resolve against `import.meta.env.BASE_URL`, never relatively.** Fixed
+2026-08-12: a relative `fetch('config.json')` from `/trip/g7` asks for `/trip/config.json`, which
+the SPA fallback answers with index.html, so *every* pointer read as unset and the page said
+"Nothing published yet". `/children` worked, which is why this was mistaken for a config race —
+refreshing or bookmarking a trip page always failed.
+
 In `merge()`, **`''` means "not set here, fall through"** — which is what lets a mostly empty
 `config.json` defer to `.env`. **`null` means "explicitly clear"**. Without `null` an override
 could set a value but never unset one, so a local override could not switch off a URL that
 `config.json` had switched on. That was a real bug: `"rosterApiUrl": ""` was silently ignored
 and the app kept POSTing to `/api/lookup`, which does not exist under plain `vite`.
+
+## The public/ directory ships — a real PII leak happened here
+**2026-08-12: `netlify deploy --dir=dist` published `public/local-roster/students.csv` — 2,619
+students with names, grades, sections, parent emails and both parents' mobile numbers — to the
+open internet, plus `config.local.json`.** Vite copies *everything* in `public/` into `dist`;
+`.gitignore` governs git, not the bundle. Gitignoring a file is **not** protection from
+deployment. That is the lesson; assume nothing in `public/` is private.
+
+Second-order effect, worth remembering: the deployed `config.local.json` also *overrode* the
+live config — it clears `rosterApiUrl` — so for ~3 hours the production site bypassed
+`/api/lookup` entirely and matched logins against the client-side roster instead.
+
+Guard in place: `stripLocalOnlyFiles()` in `vite.config.js` deletes `local-roster/` and
+`config.local.json` from `dist` on every build, Netlify's included. **Do not remove it, and add
+to `LOCAL_ONLY` any new local-only file put in `public/`.**
+
+Remediation, in case it is ever needed again: the live URL is fixed by rebuilding and
+redeploying, but **Netlify keeps every past deploy at `https://<deploy-id>--<site>.netlify.app`,
+serving the old snapshot forever** — the affected deploy must be deleted with
+`netlify api deleteDeploy --data '{"deploy_id":"…"}'`. One deploy leaked; it was deleted and all
+16 were swept clean.
+
+**Check bodies, not status codes**, when verifying this: the SPA rule `/* → /index.html 200`
+means a deleted file still answers `200`, just with HTML. A status-only check reads as "still
+leaking" when it is fixed, and would read as "fine" for a file that never existed.
 
 ## Local development against the real roster
 Two gitignored pieces make this work without ever committing PII or breaking the deploy:
@@ -400,8 +598,17 @@ lives in `config.json`, read at runtime — repointing after a host move needs n
 Trip content still comes from Sheets directly; it carries no personal data, so there is no
 reason to route it through a server.
 
-**Not yet done:** `rosterApiUrl` ships blank, and `ROSTER_CSV_URL` has never been set on
-Netlify, so the deployed site has not exercised this. Untested end-to-end in the cloud.
+**Live since 2026-08-12.** The site is **`fountainheadschooltrips.netlify.app`** (site id
+`01b3470b-efd1-4c26-b69b-9d871e9099de`, auto-deploying from the GitHub repo). Before that day
+`ROSTER_CSV_URL` was unset, and the function's 502 branch surfaced in the UI as
+**"Could not reach the school roster right now."** — that message means *the server variable is
+missing*, not that the feed is down. Both `ROSTER_CSV_URL` and `ADMIN_EMAILS` are now set via
+`netlify env:set` (all contexts) and the site redeployed.
+
+Verified against production: a real parent email returns 200 with exactly
+`{id, name, grade, section}`, a staff address returns `{role:'admin', students:[]}`, an unknown
+address returns 404, and the browser flow reaches the child card. **Env changes need a redeploy
+to take effect** — setting the variable alone does nothing to a running site.
 
 ## The real roster feed — needs a backend, cannot be used from the browser
 The school publishes its roster at `.../CSVDATA/StudentData.csv` (an HTTP IP that 302s to an
@@ -491,6 +698,18 @@ per file; never point `folderId` at it.
 contents are not. So itinerary/guidelines/packing text cannot be extracted until that
 permission is granted, or the content is pasted in.
 
+### The local Grade 7 demo — the only login with content
+`public/local-roster/` (gitignored) now holds **real** Grade 7 Batch 1 content curated from the
+Drive folder — trip title, dates, batch/section note, the parent orientation deck link, and two
+travel legs. The fabricated G5/G7/G9 rows that survived the purge were cleared out of
+`itinerary/guidelines/reminders/media.csv` at the same time; those four are header-only because
+their content is locked inside decks on `docs.google.com`.
+
+`config.local.json` sets `csvBase: "/local-roster"`, so all eight sources read from there.
+Demo login: **`p.aadhyan.khunt@fsksurat.in`** → Aadhyan Khunt, Grade 7, Section Cognizance →
+hero, overview, one document card, two travel legs. Verified 2026-08-12, no console errors.
+**Local only — never deployed, and no invented content anywhere in it.**
+
 ## Open with management — unsettled, blocks decisions
 Raised in `docs/DATA-HANDOVER.md`; none answered yet. Do not assume any of these.
 - **Privacy of the `Students` tab.** Direct-from-Sheets makes every family's name, email and
@@ -524,6 +743,76 @@ Raised in `docs/DATA-HANDOVER.md`; none answered yet. Do not assume any of these
 - `legacy/trip-explorer.html` is frozen reference. Do not edit it.
 
 ## Changelog
+- 2026-08-12 — **Every sheet column now reaches the page.** Chip cells become pending cards
+  (dashed, unclickable, "link not added yet") instead of being dropped, so Grade 7 went from
+  Overview + Travel to all six tabs: Overview / Photos 2 / Orientation 2 / Itinerary 1 / Travel 1 /
+  Guidelines 3, verified against the live published sheet with every card's label and meta read out
+  of the DOM. Guidelines split into one section per type. **Fixed a real bug found while
+  verifying:** `config.json` was fetched relatively, so any load of `/trip/:grade` read no config
+  at all and showed "Nothing published yet" — previously misdiagnosed as an HMR race. Build clean.
+- 2026-08-12 — Redesigned the trip header to the user's order (name → batch → dates → child) as
+  labelled facts, put a **Wikipedia destination photo** behind it with a credit link
+  (`lib/destinationPhoto.js`), and moved photos back into a **Photos tab**, deleting the rail and
+  its CSS. Verified live Grade 7: header order, Hawa Mahal photo at 1920×1440, "Jaipur · photo from
+  Wikipedia" credit, and tabs Overview / Photos(3) / Travel with the Photos grid + album card —
+  the Photos tab exercised with throwaway media rows that were removed again. Build clean.
+- 2026-08-12 — Moved photos out of the tabs into a `PhotoStrip` rail directly under the header
+  (header → photos → tabs → detail), per the user's layout. Added `PhotoTile` with an onError
+  fallback and deleted the superseded `PhotosPanel`. Verified all three strip states and the DOM
+  order against fixtures, then confirmed the live sheet still renders clean with no strip (it has
+  no photo URLs yet).
+- 2026-08-12 — Redesigned the trip page around the school's cards-vs-text rule: orientation,
+  photos and itinerary became `DocCard` grids under Photos / Orientation / Itinerary tabs, while
+  header text, travel, safety, do's/don'ts and packing print as text. Split per cell so a
+  half-converted sheet works, and added `looksLikeFileName` so leftover chip slugs are not shown
+  as guidance. Verified all six tabs against a fixture with real links, then confirmed the live
+  sheet renders clean.
+- 2026-08-12 — **The app now reads the school's real sheet.** Published link wired into
+  `config.local.json`; Grade 7 renders live (title, both batch date lines, full starting text,
+  both travel blocks). Confirmed 0/22 link cells survived as URLs — smart chips — and made the
+  loss reportable per grade. Mapped all 13 columns. Fixed the carry-forward bug that filed the
+  `MlC` row under Grade 11.
+- 2026-08-12 — Built `tripApp.js` for the school's actual one-tab schema (merged grade cells,
+  one row per batch, prose travel), detected by headers so both schemas work. Added the Batches
+  and sections block and fixed travel to keep its line breaks. Rendered Grade 7 end to end from
+  a transcription of the real sheet. Flagged the smart-chip risk: chips export without URLs.
+- 2026-08-12 — **PII leak and fix.** Deploying `dist` published the local roster copy (2,619
+  students) and `config.local.json` publicly for ~3 hours; the latter also silently disabled
+  `/api/lookup` on production. Added `stripLocalOnlyFiles()` to `vite.config.js`, redeployed,
+  deleted the one leaking deploy and swept all 16. Recorded that `public/` ships regardless of
+  `.gitignore`, and that deploy permalinks outlive a fix.
+- 2026-08-12 — Added `publishedId` so the content sheet can stay Restricted: `parsePublishedRef`
+  / `publishedCsvUrl` handle the `/d/e/2PACX-…/pub` shape, and it wins over `sheetId` with no
+  fallback to gviz. Unit-checked the parsing, including that a normal edit link is rejected.
+  Identified the real content sheet ("Trip app") and measured its 401s. Waiting on the published
+  link before the layout work can be finished.
+- 2026-08-12 — **Collapsed to two sources.** Deleted the `Settings` index tab, per-source
+  `sheetIds` and `folderId` folder discovery; `urlsFor` is now csvBase → `sheetId`. Rewrote
+  `config.json` around the two pointers. Moved Photos to the first tab. Still waiting on the
+  school's single content spreadsheet — the remaining asks (Orientation / Student orientation /
+  Itinerary tabs, full text rendered in the page instead of links out to Drive) need its columns
+  before they can be built.
+- 2026-08-12 — Rebuilt the trip page as six data-derived tabs with a sticky pill bar, keyboard
+  support and reworked photo tiles. Verified all six render (temporarily, with throwaway rows
+  that were removed again), that empty tabs stay hidden, and that mobile scrolls the bar without
+  overflowing the page. **Watch out:** rewriting several files in `public/` at once while the
+  page reloads can make the `config.local.json` fetch lose the race, and the app then reports
+  "No spreadsheet configured" for every source — reload before believing it.
+- 2026-08-12 — Made Google the no-typing sign-in path: One Tap with `auto_select`, the button as
+  fallback, `disableAutoSelect()` on logout. Fixed the real bug this exposed — `loginWithGoogle`
+  mishandled the `{role, students}` adapter shape, crashing sign-in and dropping staff role; both
+  paths now share `resolveIdentity`. Verified the typed parent and staff logins still work. **Not
+  pushed, per instruction**; still blocked on an OAuth client id.
+- 2026-08-12 — **Deployed site now authenticates real parents.** Set `ROSTER_CSV_URL` and
+  `ADMIN_EMAILS` on Netlify via the CLI and redeployed; verified parent/staff/unknown against
+  production. Note the extension is blocked on `app.netlify.com`, so the CLI (`netlify login`
+  → `link --id` → `env:set`) is the way to touch site settings from here. Trip content is
+  still unpublished online — the Grade 7 rows remain local-only.
+- 2026-08-12 — Built the first working demo on **real** content: Grade 7 Batch 1 rows curated
+  from the Drive folder into the gitignored `local-roster` CSVs, `csvBase` pointed at them, and
+  the leftover fabricated rows cleared. `p.aadhyan.khunt@fsksurat.in` now renders a populated
+  trip page. Itinerary, guidelines and packing stay empty — that text lives in decks the
+  extension cannot read.
 - 2026-08-12 — Explored `Senior School details` in the school's Drive (user-supplied link) and
   found the first real parent-facing trip content: per-grade/batch parent orientation decks for
   Grades 7, 8, 9, 10 and 12, December 2025, plus consent forms and train charts. **Nothing for

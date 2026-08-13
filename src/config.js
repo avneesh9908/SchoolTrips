@@ -16,11 +16,16 @@ const FROM_ENV = {
   csvBase: ENV.VITE_SHEET_CSV_BASE || '',
   /** Per-source CSV URL, beating csvBase. Keyed by source name. */
   csvUrls: {},
-  folderId: ENV.VITE_DRIVE_FOLDER_ID || '',
+  /** The ONE spreadsheet holding everything a parent reads. */
   sheetId: ENV.VITE_SHEET_ID || '',
-  settingsTab: ENV.VITE_SETTINGS_TAB || 'Settings',
+  /**
+   * A "Publish to web" link for that same spreadsheet. Set this and the sheet
+   * itself can stay Restricted — only the published snapshot is readable. Wins
+   * over sheetId.
+   */
+  publishedId: ENV.VITE_PUBLISHED_SHEET_URL || '',
+  /** Only needed when a tab has been renamed — a gid survives renames. */
   gids: envMap('VITE_GID_'),
-  sheetIds: envMap('VITE_SHEET_ID_'),
   googleClientId: ENV.VITE_GOOGLE_CLIENT_ID || '',
   driveApiKey: ENV.VITE_GOOGLE_API_KEY || '',
   driveApiBase: ENV.VITE_DRIVE_API_BASE || 'https://www.googleapis.com/drive/v3',
@@ -68,9 +73,16 @@ function merge(base, override) {
   return out
 }
 
+/**
+ * Resolved against the app's base, never relative: a relative "config.json"
+ * fetched from `/trip/g7` asks for `/trip/config.json`, which the SPA fallback
+ * answers with index.html. Every pointer then read as unset, so refreshing or
+ * bookmarking a trip page showed "Nothing published yet" while `/children`
+ * worked — the symptom that looked like a config race.
+ */
 async function readJson(name) {
   try {
-    const res = await fetch(name, { cache: 'no-store' })
+    const res = await fetch(`${import.meta.env.BASE_URL}${name}`, { cache: 'no-store' })
     if (!res.ok) return null
     const text = await res.text()
     // A missing file under the SPA fallback comes back as index.html.

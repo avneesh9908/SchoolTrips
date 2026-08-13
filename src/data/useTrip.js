@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { getAdapter, isServerEnforced } from './index'
 import { assembleTrip } from './normalize'
+import { assembleTripApp } from './tripApp'
 import { expandFolderDocuments } from '../lib/drive'
 
 /**
@@ -10,7 +11,7 @@ import { expandFolderDocuments } from '../lib/drive'
  * authorised. With mock/sheets the whole set arrives and we slice it here —
  * which is why the caller must check `canAccessGrade` before mounting this.
  */
-export function useTrip(gradeId, { enabled = true } = {}) {
+export function useTrip(gradeId, { enabled = true, section = '' } = {}) {
   const [state, setState] = useState({ status: 'idle', trip: null, error: null })
   const [attempt, setAttempt] = useState(0)
 
@@ -24,7 +25,12 @@ export function useTrip(gradeId, { enabled = true } = {}) {
       .fetchTripSets(gradeId)
       .then(async (sets) => {
         if (cancelled) return
-        const trip = isServerEnforced() && sets.trip ? sets.trip : assembleTrip(gradeId, sets)
+        const trip =
+          isServerEnforced() && sets.trip
+            ? sets.trip
+            : sets.flat
+              ? assembleTripApp(gradeId, sets.flat, { section })
+              : assembleTrip(gradeId, sets)
         if (!trip) return { status: 'ready', trip: null, error: null }
 
         // A Documents row may point at a whole folder; turn it into one card
@@ -39,7 +45,7 @@ export function useTrip(gradeId, { enabled = true } = {}) {
       })
 
     return () => { cancelled = true }
-  }, [gradeId, enabled, attempt])
+  }, [gradeId, enabled, section, attempt])
 
   return { ...state, retry: () => setAttempt((n) => n + 1) }
 }

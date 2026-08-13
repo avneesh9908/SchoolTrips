@@ -10,3 +10,6 @@ public/local-roster/
 
 # Local-only config override (points at real data during development).
 public/config.local.json
+
+# Local Netlify folder
+.netlify
