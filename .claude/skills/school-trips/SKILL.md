@@ -743,6 +743,13 @@ Raised in `docs/DATA-HANDOVER.md`; none answered yet. Do not assume any of these
 - `legacy/trip-explorer.html` is frozen reference. Do not edit it.
 
 ## Changelog
+- 2026-08-12 — **Pushed to GitHub and live.** `9c2e260` on `main` carried everything uncommitted
+  from the last several sessions (the `dist` PII guard, `publishedId`, `tripApp.js`, Google One
+  Tap, the header/tabs redesign) and Netlify auto-deployed it. `publishedId` is now set in the
+  **committed** `config.json`, so production reads the school's published sheet — the first deploy
+  with real trip content. Verified on the live site: the pointer is served, `/local-roster/…` and
+  `/config.local.json` return index.html rather than their contents, and `/api/lookup` still 404s
+  an unknown address.
 - 2026-08-12 — **Every sheet column now reaches the page.** Chip cells become pending cards
   (dashed, unclickable, "link not added yet") instead of being dropped, so Grade 7 went from
   Overview + Travel to all six tabs: Overview / Photos 2 / Orientation 2 / Itinerary 1 / Travel 1 /
