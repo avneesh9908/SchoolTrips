@@ -117,7 +117,7 @@ someone proposes going live on the sheets adapter.
 | id | Source | Notes |
 |---|---|---|
 | `mock` | `src/data/mock/rows.js` | default; ~250ms simulated latency; UI shows a "Sample data" tag |
-| `sheets` | `gviz/tq?tqx=out:csv` per tab, **or local CSVs when `VITE_SHEET_CSV_BASE` is set** | tolerates missing optional tabs via `Promise.allSettled`; detects Google's sign-in HTML (see below) |
+| `sheets` | **`pub?output=xlsx` when a `publishedId` is set** (the only export keeping chip links), else `gviz/tq?tqx=out:csv` per tab, **or local CSVs when `VITE_SHEET_CSV_BASE` is set** | tolerates missing optional tabs via `Promise.allSettled`; detects Google's sign-in HTML; the workbook read falls back to CSV on any failure (see below) |
 
 **A private sheet answers `401` with an HTML sign-in page**, measured 2026-08-12 against the
 Grade 7 vendor sheet — not the 200-with-HTML that was assumed. `fetchCsv` catches it either
@@ -171,12 +171,57 @@ its headers — never a config flag — and `useTrip` routes to `assembleTripApp
 - Verified against a CSV transcribed from the real sheet: G7 → title, both batch date lines,
   full starting text, both travel blocks with line breaks intact.
 
-**CONFIRMED against the live published sheet, 2026-08-12: smart chips destroy every link.**
-`0 of 22` filled link cells carried a URL — all exported as display text ("Pics for trips",
-"safety-guidelines-poster"). **Nothing in the app can be opened**, and no code change can recover
-it: the URL is simply absent from the export. The school must paste plain URLs or use
-`=HYPERLINK("url","label")`. What the app can do — and now does — is show the file's name and say
-the link is missing (see pending cards below).
+### SOLVED 2026-08-13: the chip links are in the WORKBOOK export
+**The long-standing "nothing can recover a chip's URL" conclusion was wrong, and is corrected
+here.** It was true of the CSV and only of the CSV.
+
+| Export of the same published sheet | Chip URLs |
+|---|---|
+| `…/pub?output=csv` | **0** — display text only ("Pics for trips", "safety-guidelines-poster") |
+| `…/pubhtml` | **0** — the only `href` in the page is Google's favicon |
+| **`…/pub?output=xlsx`** | **22** — every one, in `xl/worksheets/_rels/sheet1.xml.rels` |
+
+A `.xlsx` is a ZIP of XML: the worksheet lists `<hyperlink ref="L3" r:id="rId7"/>` and the rels
+file resolves `rId7` to the Drive URL. `src/lib/xlsx.js` reads it with **no dependency** —
+`DecompressionStream('deflate-raw')` inflates, `DOMParser` parses — and `src/data/xlsxSheet.js`
+turns a worksheet into the same row objects `csvToObjects` produces plus a `LINKS` map of
+cell → URL. `sheetsAdapter.loadSheet` reads the workbook whenever the source is a published
+document and **falls back to the CSV on any failure**, so an old browser or a withdrawn publish
+costs the links and nothing else. Verified by deleting `window.DecompressionStream`: the page
+still rendered, with the pending cards back.
+
+`LINKS` (`'__links'`) lives on the row and `normalizeRow` passes it through **unnormalized on
+purpose** — normalized it would become `links` and could collide with a real column. Anything
+that iterates a row's entries must skip it; `groupByGrade`'s empty-row check does, or an object
+value makes every blank row look filled.
+
+The workbook is fetched **once per page load** (`loadWorkbook` caches by URL) — the seven trip
+sources share one download, confirmed as a single request in the browser.
+
+**Chip links are resolved for the FILE columns only — never for the three text columns.** Set by
+the user on 2026-08-13, immediately after seeing all of them resolve: Safety, Do/Don't's and
+Things to carry are meant to be **read on the page**, so turning their poster chips into working
+links makes those tabs look finished while the text a parent actually needs is still missing.
+`documentsFrom` takes `chipLinks`, passed `false` for `TEXT_COLUMNS`, and those cells stay
+dashed pending cards with the raw slug as the label. Do not "fix" this by switching it on.
+
+Result on the live sheet: Grade 7's **Documents tab (2 orientation decks + the itinerary) and
+Photos tab (both Drive folders) are real links**, and the hero's "View itinerary" button appears
+because the itinerary finally has a URL. The Safety and Things to carry tabs stay pending by
+design. `readableName` (slug → "Safety guidelines poster") therefore only affects a chip that
+does resolve.
+
+**The next blocker is sharing, not export.** Of the 18 distinct files linked from the sheet,
+**3 answer 200 and 15 redirect to `accounts.google.com/ServiceLogin`** (measured 2026-08-13) — a
+parent clicking those gets a sign-in or request-access page. Open: the G7 B1 parent deck, one G7
+B2 deck, and the `Grade 7-Rajasthan` folder. Everything else, including the **G7 pic folder and
+the itinerary doc**, is private. The school must set each to "Anyone with the link → Viewer".
+This is the same shape as the thumbnail finding below, and it is now the only thing between a
+parent and the files.
+
+**Historical (2026-08-12), kept because it explains the pending-card design:** the CSV read
+showed `0 of 22` filled link cells carrying a URL, and the conclusion drawn was that nothing in
+the app could be opened. That was right about the CSV and wrong as a general statement.
 
 **Reversed 2026-08-12 at the user's request ("I want all things sheet here"):** dropping chip
 cells hid Orientation, Itinerary, Photos and Guidelines completely — Grade 7 showed only Overview
@@ -239,10 +284,12 @@ workbook — headers, widths, freeze pane and validation dropdowns on `Grade`, `
 `Status`, no rows except the fixed `Settings` keys. Do not add example rows back: shipping
 them is how invented trips would reach parents.
 
-**Current honest state:** login works against the real roster, but **no trip-content source
-exists**, so every grade renders "Nothing published yet". That is correct behaviour, not a
-bug — do not "fix" it by reintroducing sample data. It resolves when the school creates and
-shares a trip spreadsheet and its link goes into `sheetId`.
+**Current state (corrected 2026-08-13):** login works against the real roster, and the school's
+published "Trip app" sheet **is** the content source — `publishedId` is set in the committed
+`config.json`, and grades 7, 8, 9 and 10 render real content with working document and photo
+links. Grades with no row still read "Nothing published yet", which is correct behaviour, not a
+bug — do not "fix" it by reintroducing sample data. (The paragraph that used to sit here said no
+content source existed; that was true before 2026-08-12.)
 
 `folderId` is deliberately blank; see the warning about the school's real folder below.
 
@@ -282,21 +329,21 @@ Itinerary (nucleus). **Five are text → printed on the page**, so a parent neve
 document to read them: Header Text, Travel details, Safety guidelines, Do/Dont's, Things to
 carry.
 
-**Page order, revised 2026-08-12: header (with a destination photo) → tabs → panel.** The photo
-rail between hero and tabs was removed at the user's request and photos are a tab named
-**Photos** again, so the tabs are **Overview · Photos · Orientation · Itinerary · Travel ·
-Guidelines**.
+**Page order, revised 2026-08-13: header (with a destination photo) → fact bar → sticky section
+nav → the sections.** Photos are a section named **Photos** at the end, reached from the hero's
+"View photos" button.
 
-`PhotosPanel` renders a `photo-grid` of `PhotoTile`s when the sheet holds image URLs, plus a
-`DocCard` block for album folder links; with neither, `buildTabs` never creates the tab.
+`PhotosSection` renders a `photo-masonry` of `PhotoTile`s when the sheet holds image URLs, plus a
+`DocCard` block for album folder links; with neither, `buildSections` never creates the section.
 `PhotoTile` swaps to a typed tile on `onError`, since a Drive image that is not link-shared 403s
 and would otherwise leave a white gap.
 
 ### The trip header — name, batch, dates, child, in that order
-`TripHero` in `TripPage.jsx`, ordered as the user specified: grade pill → **trip name** →
-**Batch** → **Dates** → **Travelling** (child · section). The three facts are a `th-facts`
-definition list with a small uppercase label each, not a row of bare pills — "Batch 2" alone does
-not tell a parent it is their child's batch. `heroBatch` says `Batch 1` only when
+`TripHero` + `FactBar` in `TripPage.jsx`, ordered as the user specified: grade pill → **trip name**
+→ batch date lines → then **Batch**, **Dates**, **Travelling** (child · section) as the three white
+`fact` cards that overlap the bottom of the hero. Each carries a small uppercase label rather than
+being a bare pill — "Batch 2" alone does not tell a parent it is their child's batch.
+`heroBatch` says `Batch 1` only when
 `trip.batchMatched`; otherwise it says "All N batches", because naming one batch would be wrong
 when the page is showing every batch. `heroDates` strips the "Batch 1:" prefix already shown
 beside it.
@@ -323,10 +370,44 @@ The card/text split is decided **per cell, not per column**: a URL in a text col
 a card (a "Posters" block), and text in a link column is ignored. That is what lets the sheet be
 half-converted from chips to URLs without the page breaking either way.
 
-`GuidelinesPanel` keeps **one section per guideline type** — Safety guidelines / Do's and don'ts /
-Things to carry — each holding its text lines *and* its poster card, instead of pooling every
-poster into one "Posters" block. "Things to carry" must stay findable under that name whichever
-form the school used.
+**Text is what the school wants on the page, not links — a pending card is the fallback, never
+the goal.** Asked 2026-08-12 for guideline *text* rather than poster links. Nothing can be
+extracted from the sheet's chips: they carry no URL to follow, and the posters behind them are
+images in Drive, so even with a link there is no text to read without OCR. The only route is
+**text typed into the three columns**, which the app already prints — `sample-data/grade-7-guidelines-to-paste.md`
+holds the exact blocks to paste, lifted from `legacy/trip-explorer.html` (the school's own
+prototype content: 11 safety points, 2 do's, 2 don'ts, 13 packing items, matching the live trip's
+train and dates). It is a year old, so the school must confirm it before it reaches parents.
+
+The one Do/Dont's column splits into the **two-column Do / Don't layout** when lines start
+`Do:` / `Don't:`; unprefixed lines stay a single list, so a school that just types sentences is
+still right. The prefix convention is documented in the paste file — it is the only thing telling
+the two sides apart in a single-column sheet.
+
+### The guideline text exists ONLY in the local fixture — read this before "fixing" it
+`public/local-roster/trip-app.csv` (gitignored) is the published sheet with Grade 7's three chip
+cells replaced by that text, wired up via `csvUrls.trips` in `config.local.json`. **The live
+sheet has never had guideline text**: its Safety / Do-Dont's / Things-to-carry cells hold poster
+chips, re-checked 2026-08-13.
+
+This is a trap, and it caught this session. Removing the `csvUrls.trips` line to read the live
+workbook made the Safety and Things-to-carry tabs lose their text and fall back to poster cards,
+which reads as "the app deleted my text and replaced it with links". It did not — the sheet
+those two tabs were now being read from simply has no text in them. **Check which source
+`csvUrls.trips` points at before believing text has gone missing.**
+
+Since 2026-08-13 the fixture carries **both**: the guideline text *and* real pasted URLs in the
+five file columns (taken from the workbook's hyperlinks), so local work demonstrates the finished
+state — text on the page for Safety and Things to carry, working cards for Documents and Photos.
+A bare URL has no name, so those cards label from the column ("Parent orientation — Batch 1")
+rather than the chip's own file name; production, reading the workbook, keeps the chip names.
+Verified with it: 11 safety points, 2+2 Do/Don't, a 13-item packing checklist, 3 document links
+and 2 photo folder links, no pending cards anywhere.
+
+Each guideline type keeps **its own place, with its text lines *and* its poster card together**,
+instead of pooling every poster into one "Posters" block: safety and do's/don'ts in the Safety
+section, packing in its own **Things to carry** section (since 2026-08-13 — `GuidelinesPanel` is
+gone). "Things to carry" must stay findable under that name whichever form the school used.
 
 `looksLikeFileName()` drops a leftover chip name from a text column — a single
 hyphen-or-underscore token with no spaces, like `safety-guidelines-poster`. Printing it as a
@@ -334,34 +415,196 @@ safety guideline read like a broken attachment. Real guidance is a sentence and 
 Verified: with the live sheet those three columns now yield nothing at all rather than three
 slugs, and with a fixture carrying real URLs and text all six tabs render correctly.
 
-## The trip page is tabbed
-Rebuilt 2026-08-12: hero, then a **sticky pill tab bar**, then one panel. Tabs are
-**Overview · Photos · Orientation · Itinerary · Travel · Guidelines**, where Overview folds in
-reminders and coordinator contact, and Guidelines folds in safety, do's/don'ts and things to
-carry — six tabs instead of ten stacked sections.
+## The trip page is TABS again — one panel at a time
+**Reverted 2026-08-13 at the user's request** ("after click on tabs any tab dont scroll, I want
+to switch on the tab look like different pages"). It had been one scrolling page with a
+scroll-spy for part of that day; before that it was tabs. It is tabs now, and clicking a tab
+**must never scroll the page** — only the panel swaps.
 
-`buildTabs(trip)` derives the list **from the data**, so a tab with nothing behind it is never
-rendered: today's Grade 7 shows only Overview / Travel / Documents. Counts sit in a pill on each
-tab. Keep this — declaring the tabs statically would put empty shelves in front of parents
-while the school is still filling the sheet.
+- `TripPage` owns the tab state, not `TripBody`, because the hero's "View photos" button has to
+  reach it. State is held **by section id, never by index**: the tab list is derived from the
+  data, so a remembered index lands on a different tab in another grade. `active` is derived —
+  `sections.some(s => s.id === chosen) ? chosen : sections[0]?.id` — so a tab that does not exist
+  in the newly opened grade silently falls back to the first instead of rendering nothing.
+  Verified: choosing "Things to carry" on g7 then opening g9 lands on Overview.
+- Only the active panel is mounted, keyed on the tab id so the `fade-in` replays per switch.
+- `useActiveSection` (the scroll listener) is **deleted**. Do not reintroduce it.
+- `openTab()` — the hero button only — sets the tab *and* scrolls the nav to the top, since the
+  tab bar sits under a 520px hero and a change 600px below the fold reads as a dead button. That
+  is the one place scrolling is correct.
+- `revealTab()` scrolls the **strip**, never the page. `.secnav-inner` is a horizontal scroller
+  with its scrollbar hidden, so on a phone the selected tab can sit off the right edge with
+  nothing on screen looking selected — `focus({preventScroll: true})` alone suppresses that
+  correction too. Found by review and fixed; verified at 375px that End moves the strip to
+  `scrollLeft 314` while `window.scrollY` stays 0.
+- Roving `tabIndex`, `role=tablist/tab/tabpanel`, `aria-selected/controls/labelledby`, and
+  Arrow/Home/End with wrap-around.
 
-Proper `tablist` semantics: `aria-selected`, `aria-controls`, roving `tabIndex`, and Left/Right
-moving both selection and focus. The bar scrolls sideways on mobile rather than wrapping, and
-the panel fade respects `prefers-reduced-motion`. Photo tiles are `aspect-ratio: 4/3` with a
-hover lift; videos get a round play badge instead of a broken `<img>`.
+`buildSections(trip, student, photo)` derives the list **from the data** — same rule as the old
+`buildTabs`, and it must stay that way. A section with nothing behind it is never rendered, so a
+half-filled sheet reads as a finished page rather than a row of empty shelves. Order:
+**Overview · Student · Documents · Itinerary · Safety · Travel · Reminders · Things to carry ·
+Photos**. **Overview leads** (moved ahead of Student on 2026-08-13, user's choice) because it
+carries the sheet's Header Text — the school's opening word to parents — and the first tab is the
+one that opens. Each entry carries the `id` the tab selects, and `Section` renders that id — a
+section that bypasses `Section` drops out of the tab bar silently.
 
-## Design system
-Carried over from the prototype, now in `src/styles/tokens.css`.
+New section pieces, all fed from the existing trip object:
+- **Student details** — a `kv-list` of only the facts that exist (name, grade, section, batch, trip,
+  dates). Absent for staff, who have no child row.
+- **Safety** as the design's numbered accordion. `splitGuideline()` opens a line only when it names
+  its measure first ("Adult supervision: a ratio of…"); a line that is one plain sentence renders as
+  a `div`, not a button, so nothing pretends to expand. The regex demands whitespace after the
+  separator and no digits in the head, which is what stops it splitting "a ratio of 1:12". The
+  school's live text is all plain sentences, so **the expanding path is currently unexercised**.
+- **Do / Don't** as the two coloured panels; **Things to carry** as a tappable checklist with an
+  "N of M packed" aside (local state only, nothing is stored).
+- **Travel** as a card per batch; the train/departure route strip appears only when those fields
+  exist, so the school's prose-only cells stay prose.
+- **Reminders** as day/month cards — `splitDate()` peels a leading day number, and anything it
+  cannot parse stays one line. Coordinator phone/email become `tel:`/`mailto:` links.
+- **Photos** as a CSS-columns masonry; `PhotoTile` still swaps to a typed tile on `onError`, and
+  videos get a round play badge instead of a broken `<img>`.
+- The hero's **View photos** button scrolls to the Photos section and **View itinerary** appears
+  only when an itinerary document has a real URL — with today's chip-only sheet it is correctly absent.
+
+`DocCard` now matches the design: 44px tinted icon square, 18px title, coloured action line. The
+Drive thumbnail is still shown when it loads, so the preview capability was not dropped.
+
+## Design system — the "School Trips Portal" navy/amber kit (2026-08-13, current)
+The white/coral kit below was itself replaced the same day by the design the user supplied at
+`claude.ai/design/p/e7a8d8f0-3527-4ab7-91a4-1b9de8cb47aa` ("School Trips Portal", file
+`School Trips Portal.dc.html`). **Read that file with `DesignSync get_file` — it is the
+reference, not a screenshot**; `list_files` on the project id from the URL, then `get_file`.
+Everything lives in `src/styles/tokens.css`.
 ```
---bg #FCF8ED  --ink #22303F  --muted #767066  --card #FFFFFF  --line #ECE6D6
+--bg #FAFBFD  --card #FFF  --ink #0F172A  --body #475069  --muted #5A6478  --soft #8A93A6
+--line #E9ECF3  --line-2 #E6E9F0  --rule #EDF0F6  --wash #F4F6FC  --warm #F0F3FD
+--navy #1B2560 (buttons, headings on colour)  --accent/--link #2B3A8F (active nav, CTAs)
+--green #157F4B (safety, "Do")  --amber #E08707 (eyebrows, "Don't", avatar)
 ```
-Baloo 2 display / Inter body. Radii 26/22/18/14/11/20px. Section badges are coloured per
-key in `Section.jsx`'s `SECTION_COLOR`. Grade colours and icons live on `GRADES` in
-`lib/grades.js` — **icons are now a property of each grade, not positional** as they were
-in the prototype, so reordering grades no longer reshuffles them.
-Sole breakpoint `max-width:720px`. Light theme only.
+**Two families:** Plus Jakarta Sans for everything, and **Instrument Serif** (`--font-display`,
+weight 400) for the display headings only — login headline, dashboard title, trip hero title,
+overview title. Everything else is 700, not 800, with gentler tracking (-0.01 to -0.02em).
+Radii 24/22/20/18/16/15/13, hairline `#E9ECF3` borders, long cool shadows
+(`0 22px 48px -22px rgba(19,28,62,.34)`), and a 4px lift on card hover.
 
-## Verified working
+Signature pieces: the **"ST" monogram** (36–40px, 11–12px radius, navy gradient) as the brand
+mark in the top bar, login art panel, auth card and footer; the **circular amber monogram
+avatar** beside the signed-in name; `--r-hero: 0` because the trip hero is now **full-bleed**
+(`margin: -34px calc(-1 * var(--shell-pad)) 0`), running edge to edge under the sticky bar.
+`Section.jsx` takes an optional **`eyebrow`** (small uppercase line above the heading) plus
+`tone` — `safety` turns it green, `carry` amber. Grade colours and icons still live on `GRADES`
+in `lib/grades.js` — **icons are a property of each grade, not positional** — and now paint the
+pick card's gradient head (`grade.color → #1B2560`) with the icon over it. Breakpoints
+1080 (photo masonry 3→2), 900 (login split stacks), 720 (mobile). Light theme only.
+
+**No photograph is ever invented for a grade or a trip.** The design's cards carry Unsplash
+imagery; the real cards carry the grade's colour gradient and its icon instead. The one stock
+image kept is the login art panel (`ART` in `Login.jsx`) — decorative, generic, with the gradient
+behind it if it fails to load. The hero photo remains the credited Wikipedia destination photo.
+
+The dashboard head (`DashHead` in `ChildPicker.jsx`) is the design's breadcrumb + serif title +
+lede + account card; the old gradient `.welcome` banner and the `.pick-foot`/`.pick-icon` card
+internals are gone. `initials()` is exported from `TopBar.jsx` and reused there.
+
+**The design's search box and notification bell were deliberately not built** — neither has
+anything behind it, and a search field that does nothing is worse than no search field.
+
+### Superseded: the white/coral kit (earlier on 2026-08-13)
+`claude.ai/design/p/f7ca652f-d89f-4e2e-a83d-8feca92f8187` ("Grade 7 trip interface", file
+`Trip Explorer.dc.html`) — cream/coral, Plus Jakarta Sans only, weight 800 headings, radii
+28/26/24/22/18/16. Kept here only so a reference to "the coral kit" resolves. Do not restore it.
+
+**The page runs the full width of the window** (changed 2026-08-13 at the user's request — the
+design's 1160px centred column left two ~380px empty margins on a 1920px screen). `--shell-w: 100%`
+and `--shell-pad` (40px, 18px on mobile) are the only two values controlling it, and `.shell`, the
+top bar, the section nav and the footer all read them, so the gutters stay aligned. The section nav
+bleeds edge-to-edge with `margin: 26px calc(-1 * var(--shell-pad)) 0`. Grids are `auto-fit`, so they
+add columns rather than stretch — **`.kv-list` must stay `auto-fit`**: pinned at two columns it put
+860px of dead space between each label and its value at full width.
+
+`--header-h: 66px` is the measured height of the sticky top bar and the `top:` of the sticky
+section nav. It was briefly 67px after the navy redesign, which left a 1px strip; measured back
+to 66 (`topbarBottom === navTop === 66`). Both bars are `position: sticky` and translucent with `backdrop-filter`, so if the
+header's padding or font size changes, **re-measure it** — a stale value leaves a strip of content
+visible in the gap.
+
+`App.jsx` owns the frame: sticky `TopBar`, `<main class="page"><div class="shell">`, then the
+site footer. `/login` renders **bare** — no top bar, no footer — because the split-screen art panel
+carries its own brand mark; that is why `App` reads `useLocation()`.
+
+The login screen is the design's two-up split: a gradient art panel (headline, lede, four pills)
+beside the white sign-in card. **The design shows Google only; the typed email/mobile field stays**,
+because no OAuth client id has ever been set and typing is the only path that works today.
+
+## The Header Text column, and where it renders
+`Header Text` / `Starting Text` reaches the app as `trip.overview` (aliases in
+`OVERVIEW_ALIASES`, `tripApp.js`). `splitHeader()` in `TripPage.jsx` cuts it at the first
+newline: the headline ("A Journey Beyond the Classroom") renders as `.overview-lead`, the
+paragraphs as `.overview-text`, **both inside the Overview tab**. A first line over 200
+characters is not treated as a headline — the whole cell renders as body text — so a school that
+types one long paragraph is still right.
+
+It briefly sat on the hero photo instead (2026-08-13). The user moved it into Overview and put
+Overview first. **Do not put it back on the hero**; the hero carries the trip name and dates only.
+
+## Grades are named, never coded, on screen
+"Grade 7", not "G7". `gradeById(id).full` is the only thing a parent should read — in the top
+bar, the student-details row, the hero eyebrow, the picker cards and the "Not your child's grade"
+message. `g.label` ("G7") survives **only** as the small code pill on a picker card's colour
+head, where it is a badge rather than a sentence. `student.grade.toUpperCase()` was the old
+pattern; it is gone, and it should not come back.
+
+## Verified working — the navy "School Trips Portal" conversion (2026-08-13)
+Exercised on the dev server at 1440×900 and 375×812 against the local Grade 7 fixture:
+- login → child card → Grade 7: full-bleed hero (`left 0`, width = viewport, `top === 66`,
+  i.e. flush under the sticky bar), Wikipedia Jaipur photo at 1920px with its credit chip, back
+  pill inside the hero, Confirmed pill, serif title, batch line, fact cards, 7 nav entries
+- sticky pair stays flush after a programmatic scroll (`navTop === topbarBottom === 66`, gap 0),
+  the target heading lands at 130px, and scroll-spy moved the highlight to Safety
+- every section in the new language: hairline student grid, serif overview beside the photo,
+  dashed pending doc cards, numbered safety rows, green/amber Do–Don't panels, prose travel card,
+  packing checklist ("0 of 13 packed"), pending album cards
+- a staff address → 14 grade cards with the gradient head, code pill and grade icon
+- 375px: **zero horizontal overflow** on trip page and login; the only elements past the viewport
+  edge are the section-nav buttons inside their own scroller, which is intended
+- `npm run build` clean; no app console errors (the one error in the log came from a test snippet
+  calling `getComputedStyle(null)`, not the app)
+- **Screenshots worked this session** — the preview pane composited frames, unlike the earlier
+  redesign. Smooth `scrollIntoView` still does not move the page there; scroll with
+  `behavior: 'instant'` and dispatch a `scroll` event to check the spy.
+
+`RemindersSection` could not be exercised from data: `tripApp.js` always returns
+`reminders: []`, and both local trip fixtures are the one-tab shape. Its new day/month timeline
+was verified instead by serving the built CSS with hand-written markup from `public/`, then
+**deleting both files immediately** — nothing may be left in `public/`, it ships.
+
+## Verified working — the coral redesign, earlier on 2026-08-13
+Exercised on the dev server at 1280×800 and 375×812, reading the local Grade 7 fixture:
+- parent login → child card → Grade 7 trip: hero photo (Wikipedia Jaipur, 1920×1440, credit
+  present), 3 fact cards, and all 9 nav entries down to Photos
+- section nav: click scrolls the heading to 130px, i.e. 18px clear of the sticky bars, and
+  `navTop === topbarBottom === 66` so there is no gap between them; the highlight follows the scroll
+- packing checklist toggles and the aside counted "2 of 13 packed"
+- Grade 8 as staff → 2 travel cards, 4 sections, no Student section (staff have no child row)
+- Grade 12 (no rows) → hero plus "Nothing published yet", no nav and no fact bar
+- `/trip/g5` as a Grade 7 parent → still blocked, and **no fetch was issued** (checked by wrapping
+  `window.fetch`)
+- 375px: zero horizontal overflow on the trip page *and* on login, nav scrolls sideways, every grid
+  collapses to one column. The login grid needed `minmax(min(430px, 100%), 1fr)` — a bare
+  `minmax(430px, 1fr)` overflowed a phone.
+- `npm run build` clean, no console errors on any screen
+- **full-width pass at 1920×960:** content spans 40 → 1880, the brand starts at 40 and Sign out ends
+  at 1880, the footer aligns to both, the section nav bleeds 0 → viewport, and `.kv-list` reflows to
+  four 411px columns. Mobile re-checked afterwards: 18px gutters, nav still full-bleed, no overflow.
+
+**Screenshots were impossible** — the preview pane was never displayed, so the browser composited no
+frames: `computer{screenshot}` timed out every time, smooth `scrollIntoView` never moved the page
+(instant scrolling did), and `IntersectionObserver` never fired at all. Verify layout there through
+`read_page` and measured `getBoundingClientRect()` values, not pictures.
+
+## Verified working (earlier, pre-redesign)
 Exercised in the browser on the dev server, sample data:
 - two-child login by **email** (`rakesh.mehta@example.com`) → picker → G7 trip
 - one-child login by **email** (`nilesh.shah@example.com`) → picker auto-skipped
@@ -555,11 +798,23 @@ A signed-in email on the staff list gets `role: 'admin'`: scope over `ALL_GRADE_
 the top bar, and `RequireStudent` waives its child requirement since staff have no child row.
 `canAccessGrade` passes for every grade.
 
-Three named staff were designated on 2026-08-12 (one `@protego.services`, one
-`@fountainheadschools.org`, one `@fsksurat.in`). **The addresses themselves are written only
-into the gitignored `.env` and must be set by hand in Netlify's environment** — this repo is
-public, so they are deliberately absent from every committed file, including this one. Matching
-is case-insensitive; `Vardan.Kabra@…` was verified to work.
+**Eight named staff as of 2026-08-13** — three `@fountainheadschools.org` and five
+`@fsksurat.in`, two of them role accounts rather than people. This replaced the three designated
+on 2026-08-12: one address moved from `@protego.services` to `@fountainheadschools.org`, and one
+`@fsksurat.in` address dropped out of the list entirely.
+
+**The addresses themselves are written only into the gitignored `.env` (and mirrored into the
+gitignored `public/config.local.json` for the no-server dev path), and must be set by hand in
+Netlify's environment** — this repo is public, so they are deliberately absent from every
+committed file, **including this one**. Never paste the list into the skill, `config.json`, or
+any committed file; record only counts and domains here. Matching is case-insensitive;
+a mixed-case spelling of a staff address was verified to work.
+
+Changing the list is three places, and **the third is the one that matters in production**:
+`.env` (local `netlify dev`), `public/config.local.json` → `adminEmails` (local no-server path),
+and `ADMIN_EMAILS` in Netlify — **which needs a redeploy to take effect**. There is no Netlify
+CLI installed on this machine as of 2026-08-13 (`netlify` is not on PATH), so the production
+step is the user's to do, from the Netlify UI or after `npm i -g netlify-cli` + `netlify login`.
 
 **The list lives in `ADMIN_EMAILS` on the server, never in `config.json`.** The client config
 is public, and while a typed email is the only credential, publishing the staff list would
@@ -743,6 +998,66 @@ Raised in `docs/DATA-HANDOVER.md`; none answered yet. Do not assume any of these
 - `legacy/trip-explorer.html` is frozen reference. Do not edit it.
 
 ## Changelog
+- 2026-08-13 — **Guideline text restored in dev, after removing `csvUrls.trips` had quietly
+  taken it away.** The text only ever lived in the local fixture; the live sheet has poster chips
+  in those three columns, so reading the live workbook made Safety and Things to carry fall back
+  to cards. Put the real URLs into the fixture's five file columns and pointed `csvUrls.trips`
+  back at it, so local work now shows text *and* links together. Nothing in the rendering code
+  changed — production still needs the school to paste the text into the sheet
+  (`sample-data/grade-7-guidelines-to-paste.md`).
+- 2026-08-13 — **Staff list grew from 3 to 8** (3 `@fountainheadschools.org`, 5 `@fsksurat.in`,
+  two of them role accounts). Written to the gitignored `.env` and `config.local.json` only —
+  never to a committed file. Verified locally: two of the new addresses reach all 14 grade cards
+  with the Staff chip, and the dropped `@protego.services` address is now refused. **Production
+  still shows the old three** until `ADMIN_EMAILS` is updated in Netlify and the site redeployed;
+  no CLI on this machine, so that step is the user's.
+- 2026-08-13 — **The sheet's links work.** Discovered the published sheet's **`?output=xlsx`
+  export keeps every smart-chip URL** the CSV drops (22 vs 0), which overturns the standing
+  "no code change can recover it" conclusion. Added a dependency-free workbook reader
+  (`src/lib/xlsx.js` — `DecompressionStream` + `DOMParser`) and `src/data/xlsxSheet.js`, wired
+  `sheetsAdapter` to prefer it for a published document with a CSV fallback proven by deleting
+  `DecompressionStream`. Grade 7 now shows 8 working links (2 decks, itinerary, 3 posters, 2
+  photo folders), then **reverted the two text tabs at the user's request the same day** — Safety
+  and Things to carry keep their pending cards (`chipLinks: false`), because those belong on the
+  page as text; Documents and Photos keep the links. Measured the
+  files themselves: **15 of 18 are still private**, so sharing is now the only blocker. Dev's
+  `csvUrls.trips` override was removed so local work reads the live workbook like production.
+  Build clean, no console errors. **Not pushed.**
+- 2026-08-13 — **Tabs restored, grades named, Header Text into Overview.** Section nav became a
+  real tablist again (one panel mounted, page never scrolls on a tab click, roving tabindex +
+  Arrow/Home/End, tab held by id with a fallback when the grade changes); every parent-facing
+  grade now reads "Grade 7" rather than "G7"; the sheet's Header Text moved onto the page —
+  first to the hero, then, on the user's choice, into an **Overview tab that now leads the tab
+  bar**, headline set apart from its paragraphs. A five-lens review workflow raised 12 findings,
+  11 refuted; the one that survived was real and is fixed — `focus({preventScroll:true})` also
+  suppressed the tab strip's own horizontal scroll, so on a phone the selected tab could sit off
+  the right edge with nothing visibly selected (`revealTab()` now scrolls the strip only).
+  Re-measured the live sheet: **still 0 URLs in 0 cells**, photo columns included. Verified in
+  the browser at 1440 and 375, no console errors on a clean tab, build clean. **Not pushed.**
+- 2026-08-13 — **Converted the UI again, to the "School Trips Portal" design** (`DesignSync`
+  project `e7a8d8f0…`): navy/amber on `#FAFBFD`, Instrument Serif display headings, ST monogram
+  and avatar, full-bleed trip hero, section eyebrows, dashboard breadcrumb head, gradient grade
+  cards, reminders as a dated timeline, green/amber Do–Don't panels. Deliberately skipped the
+  design's non-functional search box and notification bell, and invented no photography.
+  Also made the dev server's port `PORT`-aware (`vite.config.js`) with `autoPort: true` in
+  `.claude/launch.json`, so a second session can run alongside one already on 5180. Verified in
+  the browser at 1440 and 375 — see the verification list above. Build clean. **Not pushed.**
+- 2026-08-13 — **Converted the whole UI to the user's earlier Claude Design mock** (`DesignSync` project
+  `f7ca652f…`, "Grade 7 trip interface"): white/coral Plus Jakarta Sans kit, split-screen login,
+  full-bleed sticky header + site footer, grade/child cards with a colour stripe and icon square,
+  hero + overlapping fact cards, and **tabs replaced by one scrolling page with a sticky
+  underline section nav** (Student · Overview · Documents · Itinerary · Safety · Travel · Reminders ·
+  Things to carry · Photos). Safety became a numbered accordion, packing a checklist, travel a card
+  per batch, photos a masonry. Sections are still derived from the data. Verified in the browser
+  against the local Grade 7 fixture and the live sheet — see the verification list above. Build
+  clean, no console errors. **Not pushed.**
+- 2026-08-12 — Guidelines as **text**, per the user's screenshots of the old prototype. Split the
+  single Do/Dont's column into Do / Don't columns on a `Do:` / `Don't:` prefix, extracted the
+  prototype's real Grade 7 safety/do/don't/packing text into
+  `sample-data/grade-7-guidelines-to-paste.md` for the school to paste into the sheet, and proved
+  the text path end to end with a local fixture (28 items, no cards). **The chips cannot be
+  followed** — no URL in the export, and the posters are images — so the sheet is the only route.
+  Not pushed.
 - 2026-08-12 — **Pushed to GitHub and live.** `9c2e260` on `main` carried everything uncommitted
   from the last several sessions (the `dist` PII guard, `publishedId`, `tripApp.js`, Google One
   Tap, the header/tabs redesign) and Netlify auto-deployed it. `publishedId` is now set in the

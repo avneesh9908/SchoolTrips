@@ -42,10 +42,19 @@ export function normalizeKey(header) {
   return String(header).trim().toLowerCase().replace(/[^a-z0-9]/g, '')
 }
 
+/**
+ * Where a row carries the URLs behind its cells (see `xlsxSheet.js`). It lives
+ * on the row rather than beside it so it survives every rekeying the app does —
+ * which is why `normalizeRow` has to pass it through untouched: normalized, the
+ * key would become "links" and could collide with a real column of that name.
+ */
+export const LINKS = '__links'
+
 /** Rekeys an already-parsed object so it matches what csvToObjects produces. */
 export function normalizeRow(obj) {
   const o = {}
   for (const [k, v] of Object.entries(obj)) {
+    if (k === LINKS) { o[LINKS] = v; continue }
     const key = normalizeKey(k)
     if (key) o[key] = typeof v === 'string' ? v.trim() : v
   }

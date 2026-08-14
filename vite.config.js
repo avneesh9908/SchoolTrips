@@ -32,7 +32,9 @@ function stripLocalOnlyFiles() {
 export default defineConfig({
   plugins: [react(), stripLocalOnlyFiles()],
   server: {
-    port: 5180,
+    // 5180 is the origin registered for Google Sign-In, so it stays the
+    // default; PORT lets a second dev server run alongside the first.
+    port: Number(process.env.PORT) || 5180,
     proxy: {
       /**
        * The school's roster feed sends no CORS headers, so a browser cannot

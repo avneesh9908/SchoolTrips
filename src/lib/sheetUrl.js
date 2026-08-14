@@ -51,6 +51,16 @@ export function publishedCsvUrl({ id, gid }) {
   return `https://docs.google.com/spreadsheets/d/e/${id}/pub?${parts.join('&')}`
 }
 
+/**
+ * The same published snapshot as a workbook. This is the only export that keeps
+ * the school's smart-chip URLs — the CSV drops them — so it is what the trip
+ * content is read from. Whole-document only: there is no per-tab parameter, so
+ * the worksheet is picked by position after download.
+ */
+export function publishedXlsxUrl({ id }) {
+  return `https://docs.google.com/spreadsheets/d/e/${id}/pub?output=xlsx`
+}
+
 const GVIZ = (id) => `https://docs.google.com/spreadsheets/d/${id}/gviz/tq`
 
 /**

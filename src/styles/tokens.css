@@ -1,26 +1,75 @@
 :root {
-  --bg: #fcf8ed;
-  --ink: #22303f;
-  --muted: #767066;
+  /* The "School Trips Portal" kit: cool white page, navy ink, amber accent. */
+  --bg: #fafbfd;
+  --wash: #f4f6fc;
+  --warm: #f0f3fd;
   --card: #ffffff;
-  --line: #ece6d6;
 
-  --green: #4caf6d;
-  --red: #ff6b5b;
-  --amber: #ffb100;
-  --amber-ink: #b5790c;
-  --amber-bg: #fff8e8;
-  --violet: #8c6be0;
-  --violet-bg: #efe8ff;
-  --blue: #2aa8de;
+  --ink: #0f172a;
+  --body: #475069;
+  --muted: #5a6478;
+  --soft: #8a93a6;
+  --faint: #8a93a6;
 
-  --r-hero: 26px;
+  --line: #e9ecf3;
+  --line-2: #e6e9f0;
+  --rule: #edf0f6;
+
+  --navy: #1b2560;
+  --accent: #2b3a8f;
+  --link: #2b3a8f;
+  --link-hover: #1b2560;
+  --link-bg: #f0f3fd;
+
+  --green: #157f4b;
+  --green-bg: #f6fbf8;
+  --green-line: #cfebdc;
+  --green-ink: #0f4b2c;
+
+  --amber: #e08707;
+  --amber-bg: #fff9f0;
+  --amber-line: #f3ddba;
+  --amber-ink: #6b3c02;
+
+  /* Kept for callers that still speak in "red"; the kit says amber for a
+     warning, so both names resolve to the same warm tone. */
+  --red: #e08707;
+  --red-bg: #fff9f0;
+  --red-line: #f3ddba;
+  --red-ink: #6b3c02;
+
+  --teal: #2b3a8f;
+  --teal-bg: #f0f3fd;
+  --teal-ink: #1b2560;
+
+  --blue: #2563c9;
+  --blue-bg: #eef3fd;
+
+  --r-hero: 0px;
+  --r-panel: 24px;
   --r-detail: 22px;
-  --r-card: 18px;
-  --r-tile: 14px;
-  --r-badge: 11px;
-  --r-pill: 20px;
+  --r-card: 22px;
+  --r-tile: 18px;
+  --r-chip: 14px;
+  --r-badge: 13px;
+  --r-pill: 999px;
 
-  --font-display: 'Baloo 2', system-ui, sans-serif;
-  --font-body: 'Inter', system-ui, -apple-system, sans-serif;
+  --shadow-card: 0 22px 48px -22px rgba(19, 28, 62, 0.34);
+  --shadow-hero: 0 18px 44px -34px rgba(19, 28, 62, 0.3);
+
+  /* One family for body, a serif for the display headings the design uses on
+     the hero, the dashboard title and the overview. */
+  --font-display: 'Instrument Serif', Georgia, 'Times New Roman', serif;
+  --font-body: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+
+  /* Measured height of the sticky top bar, and the `top:` of the sticky section
+     nav. Re-measure if the bar's padding or font size changes — a stale value
+     leaves a strip of content visible in the gap. */
+  --header-h: 66px;
+
+  /* The page runs the full width of the window; only this gutter holds it off
+     the edge. Every full-bleed strip (top bar, section nav, footer) aligns to
+     the same two values, so changing them here moves all of them together. */
+  --shell-w: 100%;
+  --shell-pad: 30px;
 }

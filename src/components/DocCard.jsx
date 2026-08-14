@@ -3,9 +3,9 @@ import { describeDoc, KIND_LABEL } from '../lib/docPreview'
 import { Icon } from './Icon'
 
 /**
- * Image preview of a Google document; clicking opens the real thing in a new
- * tab. Drive's thumbnail endpoint fails for folders, Forms and anything not
- * publicly shared, so a typed placeholder always stands behind it.
+ * A document the school linked. The Drive thumbnail is shown when it loads —
+ * it fails for folders, Forms and anything not publicly shared — and a typed
+ * icon tile always stands behind it.
  */
 /**
  * A chip carries no URL, so the kind cannot be read off one. The category says
@@ -31,14 +31,11 @@ export function DocCard({ label, url, category, pending = false }) {
     const pendingKind = PENDING_KIND[category] || 'file'
     return (
       <div className="doc-card is-pending">
-        <div className="doc-fallback">
+        <span className="doc-icon">
           <Icon name={pendingKind} />
-          <span>{KIND_LABEL[pendingKind]}</span>
-        </div>
-        <div className="doc-body">
-          <div className="doc-label">{label}</div>
-          <div className="doc-meta">{category} · link not added yet</div>
-        </div>
+        </span>
+        <span className="doc-label">{label}</span>
+        <span className="doc-meta">{category} · link not added yet</span>
       </div>
     )
   }
@@ -54,15 +51,12 @@ export function DocCard({ label, url, category, pending = false }) {
           onError={() => setBroken(true)}
         />
       ) : (
-        <div className="doc-fallback">
+        <span className="doc-icon">
           <Icon name={kind} />
-          <span>{KIND_LABEL[kind]}</span>
-        </div>
+        </span>
       )}
-      <div className="doc-body">
-        <div className="doc-label">{label}</div>
-        <div className="doc-meta">{category || KIND_LABEL[kind]} ↗</div>
-      </div>
+      <span className="doc-label">{label}</span>
+      <span className="doc-meta">{category || KIND_LABEL[kind]} ↗</span>
     </a>
   )
 }

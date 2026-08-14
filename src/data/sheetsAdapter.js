@@ -1,6 +1,7 @@
 import { config } from '../config'
 import { csvToObjects } from './csv'
-import { parseSheetRef, csvExportUrl, parsePublishedRef, publishedCsvUrl } from '../lib/sheetUrl'
+import { parseSheetRef, csvExportUrl, parsePublishedRef, publishedCsvUrl, publishedXlsxUrl } from '../lib/sheetUrl'
+import { xlsxToObjects } from './xlsxSheet'
 import { isAdminEmailLocally } from '../auth/roles.js'
 import { looksLikeTripApp } from './tripApp'
 import {
@@ -91,7 +92,30 @@ function withFallback(id, gid, tabName) {
   return [csvExportUrl({ id, tabName }), csvExportUrl({ id, gid: '0' })]
 }
 
+/**
+ * The workbook export of a published sheet, which is the only export that keeps
+ * the school's smart-chip links. Read in preference to the CSV, and only for a
+ * published document — a local CSV fixture or a gviz URL has no workbook.
+ */
+function workbookUrlFor(name) {
+  if (localUrl(name)) return null
+  const published = parsePublishedRef(config().publishedId)
+  return published ? publishedXlsxUrl({ id: published.id }) : null
+}
+
 async function loadSheet(name) {
+  const workbook = workbookUrlFor(name)
+  if (workbook) {
+    try {
+      return await xlsxToObjects(workbook)
+    } catch (err) {
+      // Never fatal: an old browser, a withdrawn publish or a shape this reader
+      // does not understand must still leave the page working off the CSV — it
+      // only costs the links, which is where this started.
+      console.warn(`[sheets] workbook read failed for "${name}", falling back to CSV:`, err.message)
+    }
+  }
+
   const urls = await urlsFor(name)
   let lastError
   for (const url of urls) {

@@ -21,6 +21,7 @@ const PATHS = {
   itinerary: <><path d="M12 21s-7-6.5-7-11a7 7 0 0 1 14 0c0 4.5-7 11-7 11z" /><circle cx="12" cy="10" r="2.5" /></>,
   safety: <path d="M12 3l7 3v6c0 4.5-3 8-7 9-4-1-7-4.5-7-9V6l7-3z" />,
   dodont: <path d="M20 6L9 17l-5-5" />,
+  close: <path d="M7 7l10 10M17 7L7 17" />,
   ticket: <><rect x="4" y="7" width="16" height="12" rx="2" /><path d="M9 4v3M15 4v3M4 13h16" /></>,
   reminder: <><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.7 21a2 2 0 0 1-3.4 0" /></>,
   photo: <><rect x="3" y="6" width="18" height="14" rx="2" /><circle cx="12" cy="13" r="3.5" /><path d="M8 6l1.5-2h5L16 6" /></>,

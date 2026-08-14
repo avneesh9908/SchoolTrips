@@ -1,6 +1,7 @@
 // Explicit .js: this module is checked with plain Node, which does not resolve
 // extensionless paths the way Vite does.
-import { normalizeRow, pick } from './csv.js'
+import { normalizeRow, pick, LINKS } from './csv.js'
+import { linkFor } from './xlsxSheet.js'
 import { normalizeGradeId } from '../lib/grades.js'
 
 /**
@@ -59,7 +60,11 @@ export function groupByGrade(rows) {
     if (!currentGrade) continue
 
     // A row that carries nothing but the merged grade cell is padding.
-    const hasContent = Object.entries(row).some(([k, v]) => k !== 'grades' && k !== 'grade' && String(v || '').trim())
+    // LINKS is an object, so it must be skipped here or every blank row counts
+    // as filled and the grouping silently takes in the sheet's empty rows.
+    const hasContent = Object.entries(row).some(
+      ([k, v]) => k !== 'grades' && k !== 'grade' && k !== LINKS && String(v || '').trim()
+    )
     if (!hasContent) continue
 
     if (!groups.has(currentGrade)) groups.set(currentGrade, [])
@@ -69,9 +74,12 @@ export function groupByGrade(rows) {
 }
 
 /**
- * Every one of these columns is meant to hold a link. Measured against the
- * live published sheet on 2026-08-12: 0 of 22 filled cells carried a URL — all
- * were smart chips, which export as their display text alone.
+ * Every one of these columns is meant to hold a link, and the school fills them
+ * with smart chips. A chip's URL is absent from the CSV export — 0 of 22 cells
+ * carried one — but present in the workbook export, which is what the sheets
+ * adapter now reads (`xlsxSheet.js`). So a cell's link comes from one of two
+ * places: the text itself when someone pasted a plain URL, or `linkFor(row, …)`
+ * when it is a chip.
  */
 const BATCH_LINK_COLUMNS = [
   { aliases: ['parentorientation', 'parentsorientation', 'parentorientationdeck'], category: 'Parent orientation' },
@@ -112,8 +120,20 @@ const TEXT_COLUMNS = [
  *
  * `fileNamesOnly` is for the text columns: prose in one of those is guidance to
  * print, not a lost link, so only a leftover chip file name becomes a card.
+ *
+ * `chipLinks` is off for those same columns, at the school's instruction
+ * (2026-08-13): Safety, Do/Don't's and Things to carry are meant to be **read on
+ * the page**, so resolving their poster chips into working links would say "this
+ * is done" while the text a parent actually needs is still missing. The pending
+ * card is the honest state there. Everywhere else — orientation decks, the
+ * itinerary, the photo folders — a resolved link is exactly the point.
  */
-function documentsFrom(rows, columns, lostLinks, { labelWithBatch = true, fileNamesOnly = false } = {}) {
+function documentsFrom(
+  rows,
+  columns,
+  lostLinks,
+  { labelWithBatch = true, fileNamesOnly = false, chipLinks = true } = {}
+) {
   const out = []
   const seen = new Set()
   rows.forEach((row, i) => {
@@ -126,18 +146,30 @@ function documentsFrom(rows, columns, lostLinks, { labelWithBatch = true, fileNa
       if (seen.has(key)) continue
       seen.add(key)
 
-      if (!isUrl(cell)) {
-        if (fileNamesOnly && !looksLikeFileName(cell)) continue
+      // In a text column, only a leftover chip name is a file; prose is
+      // guidance to print, even on the rare cell that carries a link inside it.
+      if (fileNamesOnly && !isUrl(cell) && !looksLikeFileName(cell)) continue
+
+      // A pasted URL is its own link; a smart chip carries its URL beside the
+      // cell, recovered from the workbook export — unless this is a column the
+      // school wants read as text, where a chip stays a pending card.
+      const chipUrl = isUrl(cell) || !chipLinks ? '' : linkFor(row, ...col.aliases)
+
+      if (!isUrl(cell) && !chipUrl) {
         lostLinks.push(`${col.category}: "${cell}"`)
         // The chip's own name is the best label there is — it says which grade,
         // batch and destination the file is for.
         out.push({ grade: '', label: cell, url: '', category: col.category, pending: true })
         continue
       }
+
       out.push({
         grade: '',
-        label: batch ? `${col.category} — ${batch}` : col.category,
-        url: cell,
+        // A chip names the file itself ("G7 B1 … Parent's Orientation"), which
+        // says more than the column ever could; a bare URL has no name, so the
+        // column and batch have to supply one.
+        label: chipUrl ? readableName(cell) : batch ? `${col.category} — ${batch}` : col.category,
+        url: chipUrl || cell,
         category: col.category,
       })
     }
@@ -160,6 +192,18 @@ function isUrl(s) {
  */
 function looksLikeFileName(s) {
   return !/\s/.test(s) && /[-_]/.test(s)
+}
+
+/**
+ * "safety-guidelines-poster" is a file name, and on a card a parent clicks it
+ * should read like a title. Only slugs are touched — a chip that already has a
+ * real name ("G7 B1 … Parent's Orientation") is left exactly as the school
+ * wrote it.
+ */
+function readableName(s) {
+  if (!looksLikeFileName(s)) return s
+  const words = s.replace(/[-_]+/g, ' ').trim()
+  return words.charAt(0).toUpperCase() + words.slice(1)
 }
 
 /** "Batch 1: 12-19 December 2026 …" -> "Batch 1". */
@@ -277,7 +321,11 @@ export function assembleTripApp(gradeId, rows, { section } = {}) {
     ...documentsFrom(mine, BATCH_LINK_COLUMNS, lostLinks),
     ...documentsFrom(all, COMMON_LINK_COLUMNS, lostLinks, { labelWithBatch: false }),
     // A text column holding a URL — or a chip pointing at one — is a poster.
-    ...documentsFrom(all, TEXT_COLUMNS, lostLinks, { labelWithBatch: false, fileNamesOnly: true }),
+    ...documentsFrom(all, TEXT_COLUMNS, lostLinks, {
+      labelWithBatch: false,
+      fileNamesOnly: true,
+      chipLinks: false,
+    }),
   ].map((d) => ({ ...d, grade: gradeId }))
 
   /** Text columns become lines on the page, one list item per line. */
@@ -294,6 +342,22 @@ export function assembleTripApp(gradeId, rows, { section } = {}) {
       }
     }
     return [...seen]
+  }
+
+  /**
+   * The sheet has ONE Do/Dont's column, so the two sides can only be told apart
+   * by how the line starts ("Do: …" / "Don't: …"). Prefixed lines become the
+   * two-column layout; anything unprefixed stays one list, so a school that just
+   * types sentences still gets a correct page.
+   */
+  const dos = []
+  const donts = []
+  const doDonts = []
+  for (const line of textLines(['dodonts', 'dodont', 'dosanddonts'])) {
+    const m = line.match(/^(don'?ts?|dos?)\s*[:\-–—]\s*(.+)$/i)
+    if (!m) doDonts.push(line)
+    else if (/^don/i.test(m[1])) donts.push(m[2])
+    else dos.push(m[2])
   }
 
   if (lostLinks.length) {
@@ -332,11 +396,9 @@ export function assembleTripApp(gradeId, rows, { section } = {}) {
     itinerary: [],
     documents,
     safety: textLines(['safetyguidelines', 'safety']),
-    // One column holds both sides, so it renders as a single list rather than
-    // the eight-tab schema's Do / Don't pair.
-    doDonts: textLines(['dodonts', 'dodont', 'dosanddonts']),
-    dos: [],
-    donts: [],
+    doDonts,
+    dos,
+    donts,
     carry: textLines(['thingstocarry', 'packinglist']),
     reminders: [],
     travel,

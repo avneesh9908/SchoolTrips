@@ -1,5 +1,13 @@
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
+import { gradeById } from '../lib/grades'
+
+/** "Aadhyan Khunt" → "AK", for the monogram the design puts beside the name. */
+export function initials(name) {
+  const parts = String(name || '').trim().split(/\s+/).filter(Boolean)
+  if (!parts.length) return 'ST'
+  return (parts[0][0] + (parts.length > 1 ? parts[parts.length - 1][0] : '')).toUpperCase()
+}
 
 export function TopBar() {
   const { isAuthenticated, isAdmin, session, students, activeStudent, selectStudent, logout } = useAuth()
@@ -15,34 +23,43 @@ export function TopBar() {
     navigate('/children')
   }
 
+  const who = session?.parentName || (isAdmin ? 'Staff' : 'Parent')
+
   return (
     <header className="topbar">
-      <div className="brand">
-        <span className="dot" />
-        <h1 className="display">Trip Explorer</h1>
-      </div>
-
-      {isAuthenticated && (
-        <div className="topbar-right">
-          {isAdmin && <span className="staff-chip">Staff</span>}
-          <span className="who">
-            {activeStudent ? (
-              <>
-                <strong>{activeStudent.name}</strong> · {activeStudent.grade.toUpperCase()}
-              </>
-            ) : (
-              <>Signed in as <strong>{session.parentName || 'Parent'}</strong></>
-            )}
-          </span>
-          {isAdmin && (
-            <button className="linkbtn" onClick={() => navigate('/children')}>All grades</button>
-          )}
-          {!isAdmin && students.length > 1 && activeStudent && (
-            <button className="linkbtn" onClick={switchChild}>Switch child</button>
-          )}
-          <button className="linkbtn" onClick={signOut}>Sign out</button>
+      <div className="topbar-inner">
+        <div className="brand">
+          <span className="mark">ST</span>
+          <h1>Educational Trips</h1>
         </div>
-      )}
+
+        {isAuthenticated && (
+          <div className="topbar-right">
+            {isAdmin && <span className="staff-chip">Staff</span>}
+            {isAdmin && (
+              <button className="ghostbtn" onClick={() => navigate('/children')}>
+                All grades
+              </button>
+            )}
+            {!isAdmin && students.length > 1 && activeStudent && (
+              <button className="ghostbtn" onClick={switchChild}>Switch child</button>
+            )}
+            <button className="ghostbtn" onClick={signOut}>Sign out</button>
+
+            <div className="account">
+              <span className="who">
+                <span className="n">{who}</span>
+                <span className="r">
+                  {activeStudent
+                    ? `${activeStudent.name} · ${gradeById(activeStudent.grade).full}`
+                    : isAdmin ? 'Staff account' : 'Parent account'}
+                </span>
+              </span>
+              <span className="avatar">{initials(who)}</span>
+            </div>
+          </div>
+        )}
+      </div>
     </header>
   )
 }
