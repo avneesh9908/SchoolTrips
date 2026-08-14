@@ -384,6 +384,42 @@ The one Do/Dont's column splits into the **two-column Do / Don't layout** when l
 still right. The prefix convention is documented in the paste file — it is the only thing telling
 the two sides apart in a single-column sheet.
 
+### Sheet edits reach parents by themselves — with three exceptions
+Asked directly on 2026-08-13: does a correction made by management show up automatically? **Yes.**
+Nothing is baked in at build time — `public/config.json` and the sheet are both fetched at page
+load, and Google serves the published export with `Cache-Control: no-cache, no-store,
+must-revalidate` (measured). Edit the cell, reload the page, it is there. No rebuild, no
+redeploy, no developer. The one nuance is that the workbook is fetched **once per page load**
+(`loadWorkbook`'s cache), so a tab left open all day keeps the copy it started with — a refresh
+is what picks up a correction.
+
+What does **not** flow through automatically:
+1. **Anything on a second worksheet** — see the JS-tab finding below.
+2. **A renamed column** whose new name is not in the alias list — that column silently empties.
+   `normalizeKey` absorbs case and punctuation, and `DATE_ALIASES`/`OVERVIEW_ALIASES` cover the
+   renames seen so far, but "Safety guidelines" → "Safety instructions" would drop.
+3. **A grade cell the app cannot read** — the row group is dropped with a console warning rather
+   than being filed under the previous grade.
+
+### The "JS" tab is invisible to the app — Senior KG and Grades 1–6 are stranded there
+Found 2026-08-13 while answering the question above. The published workbook has **two**
+worksheets: `SS` (senior school) and `JS ` (junior school, note the trailing space). Every read
+path takes the **first** worksheet only — `xlsxToObjects` defaults to `sheetIndex: 0`, and the
+published CSV URL without a `gid` likewise serves the first tab. So the JS tab has never been
+read.
+
+It is not empty. It carries the same 13 columns and real trips: `SR.KG` Kevdi, `Grade 1` Kilad,
+`Grade 2` Mahal, `Grade 3` Saputara, `Grade 4` Jambughoda, `Grade 5` SOU with hotel, `Grade 6`
+Purna River Resort — each with batch/section lines and the standard Header Text. Confirmed on
+production the same day: `/trip/g3` renders "Nothing published yet". **This is the answer to
+"why do the junior grades have no content", and it is not the school's fault.**
+
+Two things are needed to fix it, and they are separate:
+- Read **both** worksheets and merge their grade groups (or address the JS tab by its gid).
+- `normalizeGradeId` does not understand the junior tab's spellings: measured, **`SR.KG` → `''`
+  and `JR.KG` → `''`**, so those two rows would be dropped even after the tab is read. Only the
+  spelled-out "Senior KG" / "Junior KG" resolve today.
+
 ### "Local shows it, Netlify doesn't" — it has never been the deploy
 Measured panel by panel on 2026-08-13, staff signed in on both, Grade 7: identical tab list, tab
 order, headings, 5 document links and 2 photo links. **The only difference was Safety (15 text
