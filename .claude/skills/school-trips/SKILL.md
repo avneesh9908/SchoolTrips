@@ -1066,7 +1066,10 @@ Raised in `docs/DATA-HANDOVER.md`; none answered yet. Do not assume any of these
   errors. **Caveat that outlives this change: all three poster files answer 401 anonymously**
   (measured), so a parent now gets a clickable card leading to a Google sign-in page. The links
   are only useful once the school sets those files to "Anyone with the link → Viewer" — same
-  sharing blocker as the other 15 files.
+  sharing blocker as the other 15 files. **Pushed as `cb08a26` and verified on production the
+  same day**: bundle hash matched the local build, and Grade 7's Safety tab serves 2 poster links
+  and Things to carry 1, with no "link not added yet" text anywhere. The `zz-secnav-repro-*.html`
+  scratch files were again left untracked.
 - 2026-08-13 — **Pushed and live.** `f0f6af4` on `main` carried the whole session — the navy
   redesign, tabs, grade names, Header Text in Overview, and the workbook reader — and Netlify
   auto-deployed it. Verified on production: the new login screen renders, staff reach 14 grade
