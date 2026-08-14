@@ -1,0 +1,44 @@
+{
+  "_readme": "FALLBACK ONLY — the sheet always wins. These lines are printed for a grade only when the sheet's Safety / Do-Dont's / Things-to-carry cell holds no text (today they hold poster chips). The moment school management types the text into the cell, that text takes over and this file is ignored for that column. Delete a grade's entry once its cell is filled.",
+  "_source": "The school's own Trip Explorer prototype text, with safety point 1 corrected to match the wording on the current Safety Guidelines poster (1:8, one adult per 8-9 students). Points 2-11 have NOT been re-checked against the current poster.",
+  "_confirm": "Management must confirm this is current for 2026-27. Any correction belongs in the sheet, not here.",
+
+  "g7": {
+    "safety": [
+      "A ratio of 1:8 is maintained (one accompanying adult for every 8-9 students), including teachers, admin, support staff and Safety Monitors.",
+      "Room allocation lets teachers easily monitor students; students know which room their teacher is in.",
+      "One adult accompanies students at all times, including washroom breaks and activities.",
+      "A student orientation is held 15 days before the trip covering safety protocols.",
+      "A trained medical person and first-aid facility are available at the campsite at all times.",
+      "Nearest Police Station and Hospital details are kept handy with the Safety Monitor.",
+      "Accompanying staff receive first-aid training and carry contact details of all parents.",
+      "Staff and vendors are trained under POCSO, with signed undertakings from all vendors.",
+      "Each batch has 2 dedicated Safety Monitors focused solely on student safety.",
+      "Regular WhatsApp updates with photos/videos are shared with parents.",
+      "Headcount is taken at every stop and at regular intervals; health checks are done daily at end of day."
+    ],
+    "dos": [
+      "If your child takes any medicine regularly, hand it to the Safety Monitor a day prior at the bus stop, with clear instructions.",
+      "Inform the accompanying teacher if your child has any medical history needing personal attention."
+    ],
+    "donts": [
+      "Students may not carry personal medicines — staff carry a first-aid box with basics if needed.",
+      "Students may not carry mobile phones, smart watches, or other gadgets; these will be confiscated if found."
+    ],
+    "carry": [
+      "Original School ID & Aadhar card (mandatory)",
+      "Clothes for 7 days — full pants, full-sleeve T-shirts, sweatshirts",
+      "Sweater / fleece jacket / thermals",
+      "Night dress",
+      "Heavy woolens",
+      "Shawl / light blanket",
+      "Sport or trekking shoes (compulsory)",
+      "Sandals / slippers",
+      "Water bottle + shoulder bag to carry it throughout the day",
+      "Towel, napkin, cap/hat, bandana, cotton socks, warm gloves",
+      "Toiletries, moisturizer, sun cream, lip balm",
+      "Mosquito repellent cream — Odomos (compulsory)",
+      "Dry, healthy snacks for travelling"
+    ]
+  }
+}

@@ -3,6 +3,7 @@ import { getAdapter, isServerEnforced } from './index'
 import { assembleTrip } from './normalize'
 import { assembleTripApp } from './tripApp'
 import { expandFolderDocuments } from '../lib/drive'
+import { applyGuidelineFallback } from './guidelineFallback'
 
 /**
  * Loads the trip for one grade.
@@ -25,13 +26,16 @@ export function useTrip(gradeId, { enabled = true, section = '' } = {}) {
       .fetchTripSets(gradeId)
       .then(async (sets) => {
         if (cancelled) return
-        const trip =
+        const assembled =
           isServerEnforced() && sets.trip
             ? sets.trip
             : sets.flat
               ? assembleTripApp(gradeId, sets.flat, { section })
               : assembleTrip(gradeId, sets)
-        if (!trip) return { status: 'ready', trip: null, error: null }
+        if (!assembled) return { status: 'ready', trip: null, error: null }
+
+        // Only fills a guideline list the sheet left empty; a filled cell wins.
+        const trip = applyGuidelineFallback(assembled, gradeId)
 
         // A Documents row may point at a whole folder; turn it into one card
         // per file. No-ops without a Drive key, and never fails the page.
