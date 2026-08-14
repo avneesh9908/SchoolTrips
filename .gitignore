@@ -6,7 +6,7 @@ dist
 
 # Real roster pulled for local testing only. Contains student PII —
 # must never be committed or deployed.
-# public/local-roster/
+public/local-roster/
 
 # Local-only config override (points at real data during development).
 public/config.local.json
