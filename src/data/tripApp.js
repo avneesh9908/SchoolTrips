@@ -121,18 +121,19 @@ const TEXT_COLUMNS = [
  * `fileNamesOnly` is for the text columns: prose in one of those is guidance to
  * print, not a lost link, so only a leftover chip file name becomes a card.
  *
- * `chipLinks` is off for those same columns, at the school's instruction
- * (2026-08-13): Safety, Do/Don't's and Things to carry are meant to be **read on
- * the page**, so resolving their poster chips into working links would say "this
- * is done" while the text a parent actually needs is still missing. The pending
- * card is the honest state there. Everywhere else — orientation decks, the
- * itinerary, the photo folders — a resolved link is exactly the point.
+ * Chip URLs are resolved in **every** column, including the three text ones
+ * (2026-08-14, reversing the 2026-08-13 rule that held them back). The argument
+ * for holding back was that a working poster link makes those tabs look finished
+ * while the text a parent needs is still missing. In practice the sheet's text
+ * cells have stayed chips, so the choice was between a link a parent can open
+ * and a dashed card they cannot — and the link wins. If the school later pastes
+ * the text in, the cell stops being a chip and prints as text anyway.
  */
 function documentsFrom(
   rows,
   columns,
   lostLinks,
-  { labelWithBatch = true, fileNamesOnly = false, chipLinks = true } = {}
+  { labelWithBatch = true, fileNamesOnly = false } = {}
 ) {
   const out = []
   const seen = new Set()
@@ -151,9 +152,8 @@ function documentsFrom(
       if (fileNamesOnly && !isUrl(cell) && !looksLikeFileName(cell)) continue
 
       // A pasted URL is its own link; a smart chip carries its URL beside the
-      // cell, recovered from the workbook export — unless this is a column the
-      // school wants read as text, where a chip stays a pending card.
-      const chipUrl = isUrl(cell) || !chipLinks ? '' : linkFor(row, ...col.aliases)
+      // cell, recovered from the workbook export.
+      const chipUrl = isUrl(cell) ? '' : linkFor(row, ...col.aliases)
 
       if (!isUrl(cell) && !chipUrl) {
         lostLinks.push(`${col.category}: "${cell}"`)
@@ -324,7 +324,6 @@ export function assembleTripApp(gradeId, rows, { section } = {}) {
     ...documentsFrom(all, TEXT_COLUMNS, lostLinks, {
       labelWithBatch: false,
       fileNamesOnly: true,
-      chipLinks: false,
     }),
   ].map((d) => ({ ...d, grade: gradeId }))
 

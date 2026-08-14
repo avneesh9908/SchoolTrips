@@ -198,18 +198,21 @@ value makes every blank row look filled.
 The workbook is fetched **once per page load** (`loadWorkbook` caches by URL) — the seven trip
 sources share one download, confirmed as a single request in the browser.
 
-**Chip links are resolved for the FILE columns only — never for the three text columns.** Set by
-the user on 2026-08-13, immediately after seeing all of them resolve: Safety, Do/Don't's and
-Things to carry are meant to be **read on the page**, so turning their poster chips into working
-links makes those tabs look finished while the text a parent actually needs is still missing.
-`documentsFrom` takes `chipLinks`, passed `false` for `TEXT_COLUMNS`, and those cells stay
-dashed pending cards with the raw slug as the label. Do not "fix" this by switching it on.
+**Chip links are resolved in EVERY column, including the three text ones (2026-08-14).** This
+reverses the rule set on 2026-08-13, which held them back for `TEXT_COLUMNS` on the argument that
+a working poster link makes Safety / Do-Don't's / Things to carry look finished while the text a
+parent actually needs is still missing. That argument lost to reality: the sheet's text cells have
+stayed chips, so the real choice was a link a parent can open versus a dashed card they cannot.
+The `chipLinks` option is **deleted**, not just flipped — `documentsFrom` has no such parameter
+now. `fileNamesOnly` still stands, so prose in a text column is printed rather than carded, and a
+cell that later receives real text stops being a chip and prints as text with no code change.
 
-Result on the live sheet: Grade 7's **Documents tab (2 orientation decks + the itinerary) and
-Photos tab (both Drive folders) are real links**, and the hero's "View itinerary" button appears
-because the itinerary finally has a URL. The Safety and Things to carry tabs stay pending by
-design. `readableName` (slug → "Safety guidelines poster") therefore only affects a chip that
-does resolve.
+Result on the live sheet (re-measured 2026-08-14, after chip links were switched on everywhere):
+Grade 7 has **zero pending cards on any tab**. Documents shows 5 links (both batches' parent and
+student decks + the itinerary), Photos 2 folders, **Safety 2 posters and Things to carry 1** —
+the last three being the ones that used to be dashed. The hero's "View itinerary" button appears
+because the itinerary has a URL. `readableName` (slug → "Safety guidelines poster") supplies the
+label for all of them.
 
 **The next blocker is sharing, not export.** Of the 18 distinct files linked from the sheet,
 **3 answer 200 and 15 redirect to `accounts.google.com/ServiceLogin`** (measured 2026-08-13) — a
@@ -428,7 +431,7 @@ not code, and neither is fixed by redeploying:
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| Guideline text missing live | dev reads the local fixture, production reads the school's sheet, which holds poster chips in those columns | paste the text into the sheet — takes effect on the next page load, **no redeploy** |
+| Guideline text missing live | dev reads the local fixture, production reads the school's sheet, which holds poster chips in those columns | paste the text into the sheet — takes effect on the next page load, **no redeploy**. Since 2026-08-14 those chips at least render as poster links rather than dashed cards, but that is a consolation, not the fix |
 | A new staff address is refused live | `ADMIN_EMAILS` in Netlify still holds the older list | set the variable **and redeploy** |
 
 Diagnose it that way round: run the same probe on both, compare panel by panel, and only then
@@ -1049,6 +1052,21 @@ Raised in `docs/DATA-HANDOVER.md`; none answered yet. Do not assume any of these
 - `legacy/trip-explorer.html` is frozen reference. Do not edit it.
 
 ## Changelog
+- 2026-08-14 — **Chip links switched on for the three text columns, reversing yesterday's rule.**
+  Asked to fix "Safety text missing on Netlify"; confirmed first that it is data, not the deploy —
+  fetched the live published CSV and Grade 7's Safety / Do-Dont's / Things-to-carry cells still
+  read `safety-guidelines-poster`, `do-and-donts-poster`, `things-to-carry-poster`. The primary
+  fix (paste the text, `sample-data/grade-7-guidelines-to-paste.md`, verified line-for-line
+  against the fixture: 11 / 2+2 / 13) needs write access to a **Restricted** sheet nobody here
+  has, so the user chose the code route instead. Removed the `chipLinks` option from
+  `documentsFrom` in `src/data/tripApp.js`. Verified **both** paths: reading the live workbook
+  (with `csvUrls.trips` temporarily dropped, then restored) Grade 7 has zero pending cards and
+  Safety carries 2 real poster links, Things to carry 1; reading the fixture the text still
+  prints (11 safety measures, "0 of 13 packed", 0 links). `npm run build` clean, no console
+  errors. **Caveat that outlives this change: all three poster files answer 401 anonymously**
+  (measured), so a parent now gets a clickable card leading to a Google sign-in page. The links
+  are only useful once the school sets those files to "Anyone with the link → Viewer" — same
+  sharing blocker as the other 15 files.
 - 2026-08-13 — **Pushed and live.** `f0f6af4` on `main` carried the whole session — the navy
   redesign, tabs, grade names, Header Text in Overview, and the workbook reader — and Netlify
   auto-deployed it. Verified on production: the new login screen renders, staff reach 14 grade
