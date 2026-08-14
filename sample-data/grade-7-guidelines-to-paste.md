@@ -1,8 +1,21 @@
 # Grade 7 — text for the three guideline columns
 
-Paste each block into the matching cell of the Grade 7 row in the **Trip app** sheet,
-replacing the poster chip that is there now. One point per line; the app prints each line
-as its own bullet.
+Where it goes — **Trip app** sheet, tab **`SS`**, the **Grade 7 row (row 3)**:
+
+| Cell | Column header | Block below |
+|---|---|---|
+| **I3** | Safety guidelines | 11 lines |
+| **J3** | Do/Dont's | 2 `Do:` + 2 `Don't:` |
+| **K3** | Things to carry | 13 lines |
+
+Delete the poster chip in the cell first, then paste. One point per line; the app prints each
+line as its own item.
+
+**The one trick:** to get several lines into a single cell, **double-click the cell first** so
+the cursor is inside it, then paste. Pasting onto a selected cell spills the lines down the
+column instead. (Typing it by hand: `Alt+Enter` makes a line break inside a cell.)
+
+Nothing needs deploying — the app reads the sheet on every page load, so a reload shows it.
 
 Source: the original Trip Explorer prototype (`legacy/trip-explorer.html`), which the school
 supplied. **Confirm it is still current for 2026-27 before pasting** — it is a year old.
