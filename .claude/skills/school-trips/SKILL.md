@@ -998,6 +998,15 @@ Raised in `docs/DATA-HANDOVER.md`; none answered yet. Do not assume any of these
 - `legacy/trip-explorer.html` is frozen reference. Do not edit it.
 
 ## Changelog
+- 2026-08-13 — **Pushed and live.** `f0f6af4` on `main` carried the whole session — the navy
+  redesign, tabs, grade names, Header Text in Overview, and the workbook reader — and Netlify
+  auto-deployed it. Verified on production: the new login screen renders, staff reach 14 grade
+  cards, Grade 7 shows the hero photo, "View itinerary", and **both photo folders as working
+  links from one `output=xlsx` request**, `/api/lookup` still 404s an unknown address, and
+  `/local-roster/students.csv`, `/local-roster/trip-app.csv` and `/config.local.json` all serve
+  the SPA index rather than their contents (**bodies checked, not status codes**). Two partial
+  staff addresses were scrubbed from this file before pushing, since the repo is public. The
+  `zz-secnav-repro-*.html` scratch files were deliberately left untracked.
 - 2026-08-13 — **Guideline text restored in dev, after removing `csvUrls.trips` had quietly
   taken it away.** The text only ever lived in the local fixture; the live sheet has poster chips
   in those three columns, so reading the live workbook made Safety and Things to carry fall back
