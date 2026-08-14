@@ -384,6 +384,21 @@ The one Do/Dont's column splits into the **two-column Do / Don't layout** when l
 still right. The prefix convention is documented in the paste file — it is the only thing telling
 the two sides apart in a single-column sheet.
 
+### "Local shows it, Netlify doesn't" — it has never been the deploy
+Measured panel by panel on 2026-08-13, staff signed in on both, Grade 7: identical tab list, tab
+order, headings, 5 document links and 2 photo links. **The only difference was Safety (15 text
+items local, 2 pending cards live) and Things to carry (13 vs 1).** Both differences are data,
+not code, and neither is fixed by redeploying:
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| Guideline text missing live | dev reads the local fixture, production reads the school's sheet, which holds poster chips in those columns | paste the text into the sheet — takes effect on the next page load, **no redeploy** |
+| A new staff address is refused live | `ADMIN_EMAILS` in Netlify still holds the older list | set the variable **and redeploy** |
+
+Diagnose it that way round: run the same probe on both, compare panel by panel, and only then
+look at the bundle. Verified the bundle hash matches the local build, so a stale-cache theory
+needs evidence before it is worth chasing.
+
 ### The guideline text exists ONLY in the local fixture — read this before "fixing" it
 `public/local-roster/trip-app.csv` (gitignored) is the published sheet with Grade 7's three chip
 cells replaced by that text, wired up via `csvUrls.trips` in `config.local.json`. **The live
