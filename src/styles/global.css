@@ -679,6 +679,56 @@ ul.plain.chip-lines { display: block; }
 .chip-lines > li.is-do .chip-mark { background: var(--green-bg); color: var(--green); }
 .chip-lines > li.is-dont .chip-mark { background: var(--red-bg); color: var(--red); }
 
+/* ---------- the live Google Slides deck ----------
+   The school's own presentation, framed inside the guideline card so it reads as
+   part of the page rather than as a website inside a website (2026-08-17). It
+   replaces the card-with-an-Open-link entirely: a parent should not have to leave
+   the site to read the school's safety rules.
+
+   The frame keeps a 16:9 ratio, but `max-height` is what makes it usable here —
+   this page never scrolls the window, so on a short window the deck shrinks to
+   the height the panel can spare instead of pushing the card past the fold. Width
+   and height are therefore both bounded, and `margin-inline: auto` keeps the
+   result centred in the card. */
+.chip-slides {
+  flex: 1 1 0; min-height: 0; display: flex; justify-content: center; padding: 14px;
+}
+/* HEIGHT-driven, and that is the whole trick. Sizing the frame from its width —
+   `width: 100%; aspect-ratio: 16/9` — makes its height fall out of the card's
+   width, which at 1280×720 came to 322px inside a 291px box and hung 31px below
+   the window. `max-height` on the iframe cannot fix that: it resolves against a
+   wrapper that has no height of its own, so it is ignored. Deriving the width
+   from the available height instead keeps 16:9 exactly and cannot overflow —
+   `max-width` then handles the opposite case, a tall narrow card. */
+.google-slides-preview {
+  position: relative; height: 100%; width: auto; aspect-ratio: 16 / 9;
+  max-width: 100%; margin: auto;
+  overflow: hidden; border-radius: 14px; background: var(--card);
+  border: 1px solid var(--line);
+}
+.google-slides-preview iframe {
+  display: block; width: 100%; height: 100%; aspect-ratio: 16 / 9; border: 0;
+}
+/* The skeleton is the same 16:9 box, and sits BEHIND the frame rather than
+   instead of it — the load event we are waiting for only fires if the frame is
+   rendered. So the panel is its final height from the first paint and nothing
+   jumps when Google answers. */
+.gsp-skeleton {
+  position: absolute; inset: 0; z-index: 1;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+  background: var(--wash); color: var(--soft); font-size: 13px; font-weight: 700;
+}
+.gsp-shimmer {
+  width: 34px; height: 34px; border-radius: var(--r-pill);
+  border: 3px solid var(--line-2); border-top-color: var(--accent);
+  animation: gsp-spin 0.8s linear infinite;
+}
+@keyframes gsp-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .gsp-shimmer { animation: none; border-top-color: var(--line-2); }
+}
+.google-slides-preview.is-error .gsp-skeleton { color: var(--muted); }
+
 /* ---------- do's and don'ts: a vertical stack of cards ----------
    The school's poster shape, asked for 2026-08-17 ("do and donts make vertically
    cards"). Each rule is its own tinted card under a DO or DON'T label, rather
@@ -718,6 +768,12 @@ ul.plain.chip-lines { display: block; }
    into FOUR columns of three, which stops reading as a list at all; 1080px keeps
    it to two columns of seven — still a list, and still entirely on screen. */
 .carry-card { flex: 1 1 0; min-height: 200px; max-width: 1080px; }
+/* The 1080px cap is for the LIST — thirteen items across 1847px stop reading as a
+   list. A deck is the opposite: capping its width made the width bind before the
+   height, and since the frame derives its width from its height, that clamped the
+   width without shrinking the height and the ratio came out 1.735 instead of
+   1.778. With no cap the height always binds and the ratio is exact. */
+.carry-card.has-slides { max-width: none; }
 .carry-list { padding: 10px 22px 16px; }
 .carry-list > li { padding: 12px 0; }
 
@@ -751,6 +807,11 @@ ul.plain.chip-lines { display: block; }
   .section.is-stretch > .chip-row, .carry-card { flex: 0 0 auto; min-height: 0; }
   .chip-lines, .chip-docs, .rule-stack { flex: 0 0 auto; overflow: visible; }
   .carry-list { column-width: auto; columns: 1; }
+  /* Stacked, the card has no fixed height for the frame to derive a width from,
+     so it goes back to width-driven and the panel scrolls instead. */
+  .chip-slides { flex: 0 0 auto; }
+  .google-slides-preview { height: auto; width: 100%; }
+  .google-slides-preview iframe { height: auto; }
 }
 
 /* Documents */

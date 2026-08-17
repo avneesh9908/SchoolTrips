@@ -32,6 +32,13 @@
     "g7": "/trip-photos/g7.jpg"
   },
 
+  "_slidePreviews": "Published Google Slides decks shown LIVE on the trip page — Safety and Do's and don'ts on the Itinerary tab, Things to carry on its own tab. Paste the File → Share → Publish to web link; /pub and /embed are both accepted and /pub is rewritten to /embed, which is the same snapshot sized to fit its frame. Because this frames the published document rather than an exported image, an edit staff make in Slides appears on the next page load — nothing to redraw, no deploy. Keys are FLAT '<gradeId>.<section>' strings where section is safety, dodont or carry; do NOT nest them, because config merging walks one level and would stringify a nested object. Keyed per grade so one grade's parents are never shown another grade's safety deck. A section with no entry here falls back to the sheet's own card or text.",
+  "slidePreviews": {
+    "g7.carry": "https://docs.google.com/presentation/d/e/2PACX-1vSR399fkXM4SMVBoRbnEhiNj6060-5rPf7CfCxMMo9zlDRfpmrtoAZlInFdBXRlia_VxyMZzMSK4nsj/pub?start=true&loop=true&delayms=3000",
+    "g7.safety": "https://docs.google.com/presentation/d/e/2PACX-1vRsFT2Z1r8ixbcpNTrPfui4OdEX__Pc_pUUDTkITRu8L66eZiRG7-A-qAD_CIuX0em8GiRux5IQ2xNr/pub?start=true&loop=true&delayms=3000",
+    "g7.dodont": "https://docs.google.com/presentation/d/e/2PACX-1vTvITQj9nULhwOVRjH3eV0kOKI11fv2-EYab9X9yLGGYQNE3MnW9Pn3TvreuGeVizEuU26yFz289uze/pub?start=true&loop=true&delayms=3000"
+  },
+
   "_googleClientId": "OAuth 2.0 Web client id. When set, the login page shows Google Sign-In and One Tap signs a returning parent in with no typing.",
   "googleClientId": ""
 }

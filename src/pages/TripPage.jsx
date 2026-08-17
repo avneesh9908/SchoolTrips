@@ -4,8 +4,10 @@ import { useAuth } from '../auth/AuthContext'
 import { useTrip } from '../data/useTrip'
 import { gradeById, isComingSoon } from '../lib/grades'
 import { tripPhotoFor } from '../lib/tripPhoto'
+import { slidePreviewFor } from '../lib/slidePreviews'
 import { Section } from '../components/Section'
 import { DocCard } from '../components/DocCard'
+import { GoogleSlidesPreview } from '../components/GoogleSlidesPreview'
 import { Icon } from '../components/Icon'
 import { Loading, ErrorState, EmptyState } from '../components/States'
 
@@ -201,6 +203,7 @@ function buildSections(trip, photo, grade) {
       icon: 'safety',
       docs: byCategory('Safety'),
       lines: trip.safety,
+      slides: slidePreviewFor(grade.id, 'safety'),
     },
     {
       key: 'dodont',
@@ -209,14 +212,19 @@ function buildSections(trip, photo, grade) {
       icon: 'dodont',
       docs: byCategory("Do's and don'ts"),
       lines: [...(trip.doDonts || []), ...trip.dos.map((t) => `Do: ${t}`), ...trip.donts.map((t) => `Don't: ${t}`)],
+      slides: slidePreviewFor(grade.id, 'dodont'),
     },
-  ].filter((c) => c.docs.length || c.lines.length)
+  ].filter((c) => c.slides || c.docs.length || c.lines.length)
 
   // Packing left the Itinerary tab on 2026-08-17 ("things to carry new tab").
   // It is the longest of the three lists — 13 items against safety's 11 and four
   // rules — and sharing a row with them meant none of the three fitted. On its
   // own tab it gets the whole panel and Safety and Do's/Don'ts get half each.
-  const carry = { docs: byCategory('Things to carry'), lines: trip.carry || [] }
+  const carry = {
+    docs: byCategory('Things to carry'),
+    lines: trip.carry || [],
+    slides: slidePreviewFor(grade.id, 'carry'),
+  }
 
   const itineraryDocs = byCategory('Itinerary')
   if (trip.itinerary.length || trip.batches?.length || itineraryDocs.length || guidelineColumns.length) {
@@ -234,11 +242,11 @@ function buildSections(trip, photo, grade) {
     })
   }
 
-  if (carry.docs.length || carry.lines.length) {
+  if (carry.slides || carry.docs.length || carry.lines.length) {
     out.push({
       id: 'carry',
       label: 'Things to carry',
-      node: <CarrySection key="carry" docs={carry.docs} lines={carry.lines} />,
+      node: <CarrySection key="carry" docs={carry.docs} lines={carry.lines} slides={carry.slides} />,
     })
   }
 
@@ -509,16 +517,20 @@ function RuleStack({ lines }) {
  * reads standing over a suitcase, so it gets the width rather than a third of a
  * row. It flows into columns so all thirteen items fit on screen at once.
  */
-function CarrySection({ docs, lines }) {
+function CarrySection({ docs, lines, slides }) {
   return (
     <Section id="carry" className="is-stretch">
-      <div className="chip-col is-carry carry-card">
+      <div className={slides ? 'chip-col is-carry carry-card has-slides' : 'chip-col is-carry carry-card'}>
         <div className="chip-head">
           <span className="chip-icon"><Icon name="carry" stroke="currentColor" /></span>
           <h4>Things to carry</h4>
-          <span className="chip-count">{docs.length || lines.length}</span>
+          {!slides && <span className="chip-count">{docs.length || lines.length}</span>}
         </div>
-        {docs.length > 0 ? (
+        {slides ? (
+          <div className="chip-slides">
+            <GoogleSlidesPreview title="Things to carry" url={slides} />
+          </div>
+        ) : docs.length > 0 ? (
           <div className="chip-docs">
             {docs.map((d, i) => <DocCard key={`carry-${i}`} {...d} hideMeta eager />)}
           </div>
@@ -533,7 +545,7 @@ function CarrySection({ docs, lines }) {
           </ul>
         )}
       </div>
-      <PendingNote docs={docs} />
+      {!slides && <PendingNote docs={docs} />}
     </Section>
   )
 }
@@ -610,9 +622,16 @@ function ItinerarySection({ trip, itineraryDocs, columns }) {
               <div className="chip-head">
                 <span className="chip-icon"><Icon name={c.icon} stroke="currentColor" /></span>
                 <h4>{c.title}</h4>
-                <span className="chip-count">{c.docs.length || c.lines.length}</span>
+                {!c.slides && <span className="chip-count">{c.docs.length || c.lines.length}</span>}
               </div>
-              {c.docs.length > 0 ? (
+              {/* The live deck wins over everything else. It IS the school's
+                  document, so a card linking to the same document beside it, or a
+                  transcription of it below, would both be noise. */}
+              {c.slides ? (
+                <div className="chip-slides">
+                  <GoogleSlidesPreview title={c.title} url={c.slides} />
+                </div>
+              ) : c.docs.length > 0 ? (
                 <div className="chip-docs">
                   {c.docs.map((d, i) => <DocCard key={`${c.key}-${i}`} {...d} hideMeta eager />)}
                 </div>

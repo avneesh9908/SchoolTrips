@@ -710,6 +710,46 @@ columns went 217 → 356px, and 758px at 1920×1080. Below 980px the columns sta
 height and let the panel scroll — sharing one row's height between three stacked columns left each a
 69px head and no list at all.
 
+### The guideline sections are LIVE Google Slides embeds — this is the current answer
+Set 2026-08-17 and it supersedes both the poster-card and the printed-text paths for these three
+sections. The school publishes Safety, Do's and don'ts and Things to carry as Slides decks and asked
+for them **on the page, with no click**: "The Google Slides presentation must be embedded and visible
+directly inside the existing webpage."
+
+- `GoogleSlidesPreview` (`src/components/GoogleSlidesPreview.jsx`) frames the deck. `slidePreviews.js`
+  resolves the URL and **rewrites `/pub` to `/embed`** — both are frameable (measured), but `/pub` is
+  the standalone viewer with its own chrome and `/embed` is the same snapshot sized to its frame,
+  which is the difference between "part of the page" and "a website inside a website". The document id
+  and publish state are untouched, so **a staff edit in Slides appears on the next page load** with no
+  image to replace and no deploy. That is the whole point — do not export these to PNG/JPG.
+- **The URLs live in `config.slidePreviews`, keyed `"<gradeId>.<section>"` — FLAT, and it must stay
+  flat.** `config.js`'s `merge()` walks one level into an object and calls `String()` on each value, so
+  a nested `{g7: {safety: …}}` reaches the app as the literal `"[object Object]"`. Keyed per grade
+  because Grade 8's parents must never be shown Grade 7's safety deck; only `g7` has entries today,
+  and a grade with no entry falls through to the sheet's card or text exactly as before.
+- A deck **replaces** the card, the count pill and the `PendingNote` for that section. The deck is the
+  school's document, so a link to the same document beside it is noise.
+- **The frame is HEIGHT-driven** (`height: 100%; width: auto; aspect-ratio: 16/9; max-width: 100%`),
+  which is the one non-obvious part. Sizing it from width — the natural
+  `width: 100%; aspect-ratio: 16/9` — derives its height from the card's width, which at 1280×720 came
+  to 322px inside a 291px box and hung 31px below the window; `max-height` on the iframe cannot save
+  it, because that resolves against a wrapper with no height of its own and is ignored. Below 980px the
+  cards stack, there is no fixed height to derive from, and it goes back to width-driven with the panel
+  scrolling. `.carry-card.has-slides` drops the list's 1080px cap: capping the width made width bind
+  before height, which clamped the width without shrinking the height and the ratio came out 1.735.
+- **The skeleton sits behind the frame, not instead of it** — the load event being waited for only
+  fires if the frame is rendered. It is `position: absolute; inset: 0`, and because the wrapper's
+  height comes from its container rather than its content, the box is its final size from the first
+  paint. Measured: skeleton 820×461 against a wrapper of 822×463, so nothing can jump.
+
+Measured, Grade 7, all zero overflow and zero window scroll: 1907×878 → Safety and Do's/Don'ts
+820×461 (ar 1.781), Things to carry 1075×604 (ar 1.780); 1280×720 → 465×261 (1.784); 1920×620 →
+362×203 (1.785); 375×812 → 307×173 (1.778), `documentElement.scrollWidth` 375 so no horizontal
+overflow, both decks reachable.
+
+**The poster path below is now the fallback, not the main route** — it still runs for any grade or
+section with no deck configured.
+
 **The poster is shown WHOLE, not as a strip** (2026-08-17: "i want hole preview i dont want like i
 click then show the poster"). In the chip columns `.doc-card` is `flex: 1 1 0` and `.doc-thumb` takes
 every px the label does not, at **`object-fit: contain`** — the posters are landscape and the column
@@ -1392,6 +1432,16 @@ Raised in `docs/DATA-HANDOVER.md`; none answered yet. Do not assume any of these
 - `legacy/trip-explorer.html` is frozen reference. Do not edit it.
 
 ## Changelog
+- 2026-08-17 (fifth pass, same day) — **Safety, Do's and don'ts and Things to carry are now LIVE
+  Google Slides embeds**, replacing the card-with-an-Open-link. New `GoogleSlidesPreview` component and
+  `lib/slidePreviews.js`; the three published URLs live in `config.slidePreviews` under flat
+  `"<gradeId>.<section>"` keys, so staff edits in Slides appear on the next page load with nothing to
+  rebuild. `/pub` is rewritten to `/embed` (both frame, but `/embed` fits its box instead of bringing
+  its own page chrome). Two things that took measurement to get right: the frame must be **height**-driven
+  or a width-derived 16:9 box hangs below the window, and the loading skeleton must sit **behind** the
+  iframe or the load event it waits for never fires. Verified at four viewports plus mobile — exact
+  16:9, no overflow, no window scroll, no layout jump; grades without a deck fall back to the sheet's
+  card or text unchanged. **Not pushed** — build clean, waiting on the go-ahead.
 - 2026-08-17 (fourth pass, same day) — **The Grade 7 trip photograph was published** ("overview photo
   not show in after publish please set in folder"). Moved
   `public/local-roster/trip-photos/g7-abhaneri.jpg` → `public/trip-photos/g7.jpg` and added the entry
