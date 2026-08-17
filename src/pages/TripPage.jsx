@@ -520,7 +520,7 @@ function CarrySection({ docs, lines }) {
         </div>
         {docs.length > 0 ? (
           <div className="chip-docs">
-            {docs.map((d, i) => <DocCard key={`carry-${i}`} {...d} hideMeta />)}
+            {docs.map((d, i) => <DocCard key={`carry-${i}`} {...d} hideMeta eager />)}
           </div>
         ) : (
           <ul className="plain chip-lines carry-list">
@@ -614,7 +614,7 @@ function ItinerarySection({ trip, itineraryDocs, columns }) {
               </div>
               {c.docs.length > 0 ? (
                 <div className="chip-docs">
-                  {c.docs.map((d, i) => <DocCard key={`${c.key}-${i}`} {...d} hideMeta />)}
+                  {c.docs.map((d, i) => <DocCard key={`${c.key}-${i}`} {...d} hideMeta eager />)}
                 </div>
               ) : c.key === 'dodont' ? (
                 <RuleStack lines={c.lines} />

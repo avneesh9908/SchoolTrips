@@ -31,9 +31,15 @@ const PENDING_KIND = {
  *
  * `hideMeta` drops the category line, for the guideline chips where a heading
  * directly above already says "Safety" / "Things to carry".
+ *
+ * `eager` loads the thumbnail immediately instead of lazily. Set it where the
+ * image IS the content of the panel — the guideline posters — since the card only
+ * mounts when its tab is opened, so it is on screen the moment it exists and a
+ * lazy load is pure delay.
  */
 export function DocCard({
   label, url, category, batchTag = '', pending = false, compact = false, hideMeta = false,
+  eager = false,
 }) {
   const { kind, thumb, open } = describeDoc(url)
   const [broken, setBroken] = useState(false)
@@ -66,7 +72,7 @@ export function DocCard({
           className="doc-thumb"
           src={thumb}
           alt={`Preview of ${label}`}
-          loading="lazy"
+          loading={eager ? 'eager' : 'lazy'}
           onError={() => setBroken(true)}
         />
       ) : (

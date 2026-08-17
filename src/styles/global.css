@@ -603,8 +603,24 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible {
   display: flex; flex-direction: column; gap: 12px; padding: 14px 16px 16px;
 }
 .chip-docs::-webkit-scrollbar { display: none; }
-.chip-col .doc-card { padding: 16px 18px; gap: 10px; border-radius: 16px; box-shadow: none; }
-.chip-col .doc-thumb { height: 90px; }
+/* The WHOLE poster, not a strip of it (2026-08-17: "i want hole preview i dont
+   want like i click then show the poster"). The 90px band this used to be showed
+   a poster's title and nothing else, so the guidance itself was only reachable by
+   opening the file. Now that the school has shared these files the Drive
+   thumbnail actually renders, so the card fills the column and the image takes
+   every px the label does not.
+
+   `object-fit: contain`, never `cover`: the posters are landscape and the column
+   is portrait, so `cover` crops away exactly the part worth showing. The letterbox
+   sits on `--card`, which makes it read as the page rather than as a gap. */
+.chip-col .doc-card {
+  flex: 1 1 0; min-height: 0; justify-content: flex-start;
+  padding: 14px; gap: 10px; border-radius: 16px; box-shadow: none;
+}
+.chip-col .doc-thumb {
+  flex: 1 1 0; min-height: 0; height: auto; width: 100%;
+  object-fit: contain; object-position: center; background: var(--card);
+}
 .chip-col .doc-label { font-size: 15px; }
 .chip-col .doc-meta { font-size: 12.5px; }
 

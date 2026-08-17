@@ -453,14 +453,24 @@ The banner is `flex: 1` and takes whatever height the fixed layout leaves, rathe
 height of its own — that is what makes Overview fill the window on any screen without scrolling.
 Measured: 494px tall at 1280×720, 564px at 375×812, both inside the viewport.
 
-**The Grade 7 photograph is deliberately NOT committed.** It is a group photo of ~50 identifiable
-students at Chand Baori, Abhaneri, supplied 2026-08-14. It sits at
-`public/local-roster/trip-photos/g7-abhaneri.jpg` with its pointer in the gitignored
-`config.local.json`, so `stripLocalOnlyFiles()` removes it from every build — **verified: absent
-from `dist`**. Publishing it means moving the file to `public/trip-photos/` and adding the entry to
-the committed `config.json`. That is a decision about putting children's faces on a public site
-from a public repo, so it is the school's to make and has **not** been made. Committed
-`config.json` carries `"tripPhotos": {}` plus a `_tripPhotos` note saying so.
+**The Grade 7 photograph IS published, decided 2026-08-17.** It is a group photo of ~50 identifiable
+students at Chand Baori, Abhaneri, supplied 2026-08-14. It now sits at `public/trip-photos/g7.jpg`
+(1920×1080, 346KB) with `"tripPhotos": {"g7": "/trip-photos/g7.jpg"}` in the **committed**
+`config.json`; the `tripPhotos` override was removed from `config.local.json` so local and production
+render the same image. Verified: the file is in `dist`, `/trip-photos/g7.jpg` answers 200 as
+`image/jpeg`, and the Overview banner renders it at 1220×563 with `has-photo` set.
+
+This **reverses** the 2026-08-14 position, which held the file under the gitignored
+`public/local-roster/` precisely so `stripLocalOnlyFiles()` would keep it out of every build. That
+paragraph called publishing it the school's decision and not a developer's — and the school made it.
+Both facts were put to them before the move and neither is undone by a later deletion:
+- **`avneesh9908/SchoolTrips` is a public repo** (GitHub API answers 200 unauthenticated), so the
+  image is in public git history permanently.
+- **`public/` is not behind the parent login**, so the file is fetchable by URL by anyone.
+
+They confirmed **parental consent is on file**. Do not re-litigate this or quietly move the file
+back; if it ever has to come down, the file and the `config.json` entry are only half the job — the
+git history is the other half.
 
 `Do/Dont's` is one column holding both sides, so it renders as a **single list**, not the
 eight-tab schema's Do/Don't pair — hence the extra `doDonts` field alongside the legacy
@@ -699,6 +709,24 @@ other (`.itin-top`) and the batches side by side (`.batch-grid`): 306 → 167px 
 columns went 217 → 356px, and 758px at 1920×1080. Below 980px the columns stack, take their natural
 height and let the panel scroll — sharing one row's height between three stacked columns left each a
 69px head and no list at all.
+
+**The poster is shown WHOLE, not as a strip** (2026-08-17: "i want hole preview i dont want like i
+click then show the poster"). In the chip columns `.doc-card` is `flex: 1 1 0` and `.doc-thumb` takes
+every px the label does not, at **`object-fit: contain`** — the posters are landscape and the column
+is portrait, so the old `cover` + `height: 90px` cropped away everything but the title and left the
+guidance reachable only by opening the file. Measured at 1907×878 with a 1320×740 stand-in: drawn
+**669×375**, whole poster visible, no panel or window scroll. The cards are `eager` (a new `DocCard`
+prop): the card only mounts when its tab opens, so it is on screen the instant it exists and a lazy
+load is pure delay. Clicking still opens the full-resolution file, which is the readable version —
+375px of a 740px poster is half scale.
+
+**Whether a parent sees any of this is still the sharing question, and it is easy to be fooled by
+your own browser.** Re-measured 2026-08-17 anonymously from localhost: both the Safety and the
+Do/Dont's thumbnails **error**, while a control image (Google's favicon) loads 32×32 — so it is those
+files, not images in general. Staff see the posters render on production because **their browser is
+signed in to a Google account that has access**; that is not what a signed-out parent gets. Check this
+with a detached `new Image()` against the `drive.google.com/thumbnail?id=…` URL plus a public control,
+never by looking at your own screen.
 
 **The previews are blank today, and that is the sharing blocker, not a bug.** All three poster files
 answer 401 anonymously, so `drive.google.com/thumbnail?id=…` cannot render them; the card shows an
@@ -1364,6 +1392,23 @@ Raised in `docs/DATA-HANDOVER.md`; none answered yet. Do not assume any of these
 - `legacy/trip-explorer.html` is frozen reference. Do not edit it.
 
 ## Changelog
+- 2026-08-17 (fourth pass, same day) — **The Grade 7 trip photograph was published** ("overview photo
+  not show in after publish please set in folder"). Moved
+  `public/local-roster/trip-photos/g7-abhaneri.jpg` → `public/trip-photos/g7.jpg` and added the entry
+  to the committed `config.json`; dropped the now-redundant `tripPhotos` override from
+  `config.local.json`. This reverses the 2026-08-14 decision to keep it out of every build. The school
+  was told first that the repo is public (so the image enters git history permanently) and that
+  `public/` is not behind the parent login, and confirmed **parental consent is on file**. Verified:
+  in `dist`, 200 as `image/jpeg`, banner renders 1220×563.
+- 2026-08-17 (third pass, same day) — **The guideline poster is shown whole instead of as a 90px
+  strip you had to click through.** `.chip-col .doc-card` fills its column and `.doc-thumb` takes the
+  remaining height at `object-fit: contain`; new `eager` prop on `DocCard` for images that are the
+  panel's content. Drawn 669×375 at 1907×878, nothing cropped, no scroll. **Also measured, and worth
+  more than the CSS: both poster thumbnails error anonymously while a public control image loads, so
+  the posters render for staff only because their own browser is signed in to Google.** A signed-out
+  parent sees an empty tile. Verify sharing with a detached `new Image()` plus a control, never by
+  looking at your own screen. Testing this needed the live sheet, so `csvUrls.trips` was temporarily
+  removed from the gitignored `config.local.json` and **restored afterwards**.
 - 2026-08-17 (second pass, same day) — **Safety and Do's/Don'ts side by side; Things to carry became
   its own tab.** Tab list is now Overview · Itinerary · **Things to carry** · Orientation · Travel ·
   Photos. Do's and don'ts is a **vertical stack of tinted cards** (`RuleStack`) under DO / DON'T

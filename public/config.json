@@ -27,8 +27,10 @@
   "_adminEmails": "Leave empty. Staff are configured via ADMIN_EMAILS in the server environment — this file is public, and listing staff here would tell anyone which address unlocks every grade.",
   "adminEmails": [],
 
-  "_tripPhotos": "The school's own photograph of each grade's trip, shown on the Home tab with the sheet's Header Text over it. Keyed by grade id: {\"g7\": \"/trip-photos/g7.jpg\"}. Put the file in public/trip-photos/ or paste any public image URL. A grade with no entry shows no photograph — nothing is searched for and no stock image is substituted, because a picture of a place reads to a parent as a picture of their child's trip. NOTE: anything listed here is served publicly, so a photograph of students is a publishing decision, not a configuration one.",
-  "tripPhotos": {},
+  "_tripPhotos": "The school's own photograph of each grade's trip, shown on the Overview tab with the sheet's Header Text over it. Keyed by grade id. Put the file in public/trip-photos/ or paste any public image URL. A grade with no entry shows no photograph — nothing is searched for and no stock image is substituted, because a picture of a place reads to a parent as a picture of their child's trip. NOTE: anything listed here is served publicly and is NOT behind the parent login, so adding a photograph of students is a publishing decision, not a configuration one. The g7 entry was published on 2026-08-17 on the school's instruction, with parental consent confirmed as on file.",
+  "tripPhotos": {
+    "g7": "/trip-photos/g7.jpg"
+  },
 
   "_googleClientId": "OAuth 2.0 Web client id. When set, the login page shows Google Sign-In and One Tap signs a returning parent in with no typing.",
   "googleClientId": ""
