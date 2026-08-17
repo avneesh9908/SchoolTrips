@@ -32,6 +32,11 @@
     "g7": "/trip-photos/g7.jpg"
   },
 
+  "_tripCardPhotos": "The photograph on the grade card in the picker, keyed by grade id. Optional: a grade with no entry here uses its tripPhotos image, and with neither it keeps the grade's colour and icon. It exists separately because the card is a wide 2.6:1 strip while the trip page's banner fills the window, so the same file rarely crops well in both. Served publicly and not behind the login, exactly like tripPhotos.",
+  "tripCardPhotos": {
+    "g7": "/trip-photos/g7-card.jpg"
+  },
+
   "_slidePreviews": "Published Google Slides decks shown LIVE on the trip page — Safety and Do's and don'ts on the Itinerary tab, Things to carry on its own tab. Paste the File → Share → Publish to web link; /pub and /embed are both accepted and /pub is rewritten to /embed, which is the same snapshot sized to fit its frame. Because this frames the published document rather than an exported image, an edit staff make in Slides appears on the next page load — nothing to redraw, no deploy. Keys are FLAT '<gradeId>.<section>' strings where section is safety, dodont or carry; do NOT nest them, because config merging walks one level and would stringify a nested object. Keyed per grade so one grade's parents are never shown another grade's safety deck. A section with no entry here falls back to the sheet's own card or text.",
   "slidePreviews": {
     "g7.carry": "https://docs.google.com/presentation/d/e/2PACX-1vSR399fkXM4SMVBoRbnEhiNj6060-5rPf7CfCxMMo9zlDRfpmrtoAZlInFdBXRlia_VxyMZzMSK4nsj/pub?start=true&loop=true&delayms=3000",

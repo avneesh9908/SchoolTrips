@@ -1,6 +1,8 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { GRADES, gradeById, isComingSoon } from '../lib/grades'
+import { tripCardPhotoFor } from '../lib/tripPhoto'
 import { useTripTitles } from '../data/useTripTitles'
 import { Icon } from '../components/Icon'
 import { initials } from '../components/TopBar'
@@ -147,21 +149,39 @@ function DashHead({ here, title, lede, name, role }) {
  */
 function PickCard({ grade, title, code, status, line, cta, comingSoon = false, onClick }) {
   const Tag = comingSoon ? 'div' : 'button'
+  // A grade with no trip gets no photograph either — the picture is of the trip,
+  // and there is nothing to picture until one is announced.
+  const photo = comingSoon ? '' : tripCardPhotoFor(grade.id)
+  const [broken, setBroken] = useState(false)
+  const showPhoto = photo && !broken
 
   return (
     <Tag
       className={comingSoon ? 'pick-card is-soon' : 'pick-card'}
       onClick={comingSoon ? undefined : onClick}
     >
-      <span className="pick-media" style={{ background: `linear-gradient(150deg, ${grade.color}, #1B2560)` }}>
+      <span
+        className={showPhoto ? 'pick-media has-photo' : 'pick-media'}
+        style={{ background: `linear-gradient(150deg, ${grade.color}, #1B2560)` }}
+      >
+        {showPhoto && (
+          <img className="pick-photo" src={photo} alt="" loading="lazy" onError={() => setBroken(true)} />
+        )}
         <span className="pick-code">{code}</span>
         {status && <span className="pick-status">{status}</span>}
-        <span className="glyph"><Icon name={grade.icon} stroke="currentColor" /></span>
+        {/* The gradient's icon is the placeholder for a missing photograph, not a
+            decoration on top of one. */}
+        {!showPhoto && <span className="glyph"><Icon name={grade.icon} stroke="currentColor" /></span>}
+        {/* The destination, or "Coming soon" — named on the picture itself, which
+            is what the school asked for (2026-08-17): the card's head used to be a
+            block of colour that said nothing. */}
+        <span className="pick-label">{comingSoon ? 'Coming soon' : line}</span>
       </span>
       <span className="pick-body">
+        {/* The trip's name moved onto the picture above, so it is not repeated
+            here — the body is the grade (or the child) and the way in. */}
         <span className="pick-name">
           <span className="n">{title}</span>
-          <span className="line">{line}</span>
         </span>
         <span className="pick-cta">{comingSoon ? 'Coming soon' : cta}</span>
       </span>

@@ -453,6 +453,31 @@ The banner is `flex: 1` and takes whatever height the fixed layout leaves, rathe
 height of its own — that is what makes Overview fill the window on any screen without scrolling.
 Measured: 494px tall at 1280×720, 564px at 375×812, both inside the viewport.
 
+### The grade card carries the photograph and names the trip (2026-08-17)
+The picker's card head was a block of grade colour with an icon and no words, while the trip's name sat
+in the body. The school asked for the head to carry the picture and to say what it is: "show here
+comming soon or trip name".
+
+- `.pick-media` takes a photograph from **`config.tripCardPhotos`**, a second map beside `tripPhotos`
+  and keyed the same way. It exists because the card head is a wide ~2.6:1 strip 132px tall while the
+  trip page's banner fills the window, so one file rarely crops well in both; `tripCardPhotoFor()`
+  falls back to `tripPhotos` when a grade has no card entry, and to the colour-plus-icon when it has
+  neither. **No photograph is invented** — that rule is unchanged.
+- The icon is **dropped** where a photograph exists rather than laid over it; it is the placeholder,
+  not a decoration.
+- `.pick-label` prints the destination, or **"Coming soon"** for a grade with no published trip, over
+  a strengthened bottom scrim. It is absolutely positioned so the card's height does not depend on
+  whether the trip name has arrived from the sheet — the same reason `tripLine` returns an em space
+  rather than "Loading…". Verified: all 14 cards 260–261px regardless.
+- The body's duplicate trip line was **removed**. A grade with no trip previously said it three times
+  (head, body, pill); it now says it twice, on the picture and on the pill.
+- A coming-soon grade gets **no photograph**, whatever config says: the picture is of the trip, and
+  there is nothing to picture until one is announced.
+
+Grade 7's card photo is `public/trip-photos/g7-card.jpg` — the group shot at the Jaipur gate, supplied
+2026-08-17, resized 3248×1432 → **1400×617 and 1.7MB → 226KB** with Pillow before committing. Resize
+what the school sends; a 3248px file for a 345px slot is most of a parent's page weight on mobile.
+
 **The Grade 7 photograph IS published, decided 2026-08-17.** It is a group photo of ~50 identifiable
 students at Chand Baori, Abhaneri, supplied 2026-08-14. It now sits at `public/trip-photos/g7.jpg`
 (1920×1080, 346KB) with `"tripPhotos": {"g7": "/trip-photos/g7.jpg"}` in the **committed**
@@ -1432,6 +1457,15 @@ Raised in `docs/DATA-HANDOVER.md`; none answered yet. Do not assume any of these
 - `legacy/trip-explorer.html` is frozen reference. Do not edit it.
 
 ## Changelog
+- 2026-08-17 (sixth pass, same day) — **The grade card now carries a photograph and names the trip on
+  it.** New `config.tripCardPhotos` map + `tripCardPhotoFor()` (falls back to `tripPhotos`, then to the
+  grade's colour and icon); `.pick-photo` fills the head and the icon is dropped where a photo exists;
+  `.pick-label` prints the destination or "Coming soon" over a stronger bottom scrim, absolutely
+  positioned so a late-arriving trip name cannot change the card's height. The body's duplicate trip
+  line was removed. A coming-soon grade gets no photograph regardless of config. Grade 7's card photo
+  is the Jaipur gate group shot, resized 3248×1432 → 1400×617, 1.7MB → 226KB. Verified: 14 cards all
+  260–261px, label never overlapping the grade or section pill, no horizontal overflow at 1907 or 375.
+  **Not pushed.**
 - 2026-08-17 (fifth pass, same day) — **Safety, Do's and don'ts and Things to carry are now LIVE
   Google Slides embeds**, replacing the card-with-an-Open-link. New `GoogleSlidesPreview` component and
   `lib/slidePreviews.js`; the three published URLs live in `config.slidePreviews` under flat
