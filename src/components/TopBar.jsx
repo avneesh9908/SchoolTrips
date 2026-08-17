@@ -41,8 +41,14 @@ export function TopBar() {
                 All grades
               </button>
             )}
-            {!isAdmin && students.length > 1 && activeStudent && (
-              <button className="ghostbtn" onClick={switchChild}>Switch child</button>
+            {/* Shown for a single child too, not just several. The trip page's own
+                back link was removed on 2026-08-14, so for a one-child parent this
+                is the ONLY way back to the card — without it they were stranded on
+                the trip page. */}
+            {!isAdmin && activeStudent && (
+              <button className="ghostbtn" onClick={switchChild}>
+                {students.length > 1 ? 'Switch child' : 'My child'}
+              </button>
             )}
             <button className="ghostbtn" onClick={signOut}>Sign out</button>
 

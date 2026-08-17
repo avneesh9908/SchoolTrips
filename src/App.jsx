@@ -6,12 +6,22 @@ import ChildPicker from './pages/ChildPicker'
 import TripPage from './pages/TripPage'
 
 export default function App() {
+  const { pathname } = useLocation()
   // The sign-in screen carries its own brand mark and fills the window, so the
   // shared header and footer would only repeat it.
-  const bare = useLocation().pathname === '/login'
+  const bare = pathname === '/login'
+
+  /**
+   * The trip page is a fixed-height view: it fills the window exactly and the
+   * window never scrolls (the school's instruction, 2026-08-14 — "I don't want
+   * scrollbar anywhere"). The footer goes with the scroll, because ~117px of
+   * chrome is the difference between fitting and not — and its one line of copy
+   * points at the trip page, which is where the reader already is.
+   */
+  const fixed = pathname.startsWith('/trip/')
 
   return (
-    <div className="app">
+    <div className={fixed ? 'app is-fixed' : 'app'}>
       {!bare && <TopBar />}
 
       <Routes>
@@ -21,7 +31,7 @@ export default function App() {
         <Route path="*" element={<Navigate to="/children" replace />} />
       </Routes>
 
-      {!bare && <SiteFooter />}
+      {!bare && !fixed && <SiteFooter />}
     </div>
   )
 }

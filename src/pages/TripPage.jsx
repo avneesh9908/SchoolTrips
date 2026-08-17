@@ -1,9 +1,9 @@
-import { useState, useMemo, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useState, useMemo } from 'react'
+import { useParams } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { useTrip } from '../data/useTrip'
-import { gradeById } from '../lib/grades'
-import { fetchDestinationPhoto } from '../lib/destinationPhoto'
+import { gradeById, isComingSoon } from '../lib/grades'
+import { tripPhotoFor } from '../lib/tripPhoto'
 import { Section } from '../components/Section'
 import { DocCard } from '../components/DocCard'
 import { Icon } from '../components/Icon'
@@ -11,22 +11,29 @@ import { Loading, ErrorState, EmptyState } from '../components/States'
 
 export default function TripPage() {
   const { gradeId } = useParams()
-  const navigate = useNavigate()
-  const { canAccessGrade, students, activeStudent, isAdmin } = useAuth()
+  // No back link on this page: the top bar already carries "All grades" for
+  // staff and "Switch child" / "My child" for a parent, and it names the grade
+  // beside the account. The row that used to sit here was crossed out for
+  // repeating both (2026-08-14).
+  const { canAccessGrade, activeStudent } = useAuth()
 
   const allowed = canAccessGrade(gradeId)
+  // Junior and middle school have no published trip, so there is nothing to
+  // fetch — same rule as an unauthorised grade: don't ask for what cannot be
+  // shown.
+  const soon = isComingSoon(gradeId)
   // The child's section decides which batch's dates and travel apply. Staff
   // have no section and see every batch.
   const { status, trip, error, retry } = useTrip(gradeId, {
-    enabled: allowed,
+    enabled: allowed && !soon,
     section: activeStudent?.section || '',
   })
   const grade = gradeById(gradeId)
-  const photo = useDestinationPhoto(trip?.title, trip?.coverImage)
+  const photo = tripPhotoFor(gradeId)
 
   const sections = useMemo(
-    () => (trip ? buildSections(trip, activeStudent, photo) : []),
-    [trip, activeStudent, photo]
+    () => (trip ? buildSections(trip, photo, grade) : []),
+    [trip, photo, grade]
   )
 
   // The tab a parent picked, held by id rather than index: the list is built
@@ -47,26 +54,17 @@ export default function TripPage() {
     )
   }
 
+  if (soon) {
+    return (
+      <EmptyState
+        title="Coming soon"
+        message={`The trip for ${grade.full} has not been announced yet. It will appear here as soon as the school publishes it.`}
+      />
+    )
+  }
+
   return (
     <>
-      <TripHero
-        grade={grade}
-        trip={trip}
-        photo={photo}
-        loading={status === 'loading'}
-        onOpenPhotos={
-          sections.some((s) => s.id === 'photos') ? () => openTab('photos', setChosen) : null
-        }
-        back={
-          (isAdmin || students.length > 0) && {
-            label: isAdmin ? 'All grades' : students.length > 1 ? 'All children' : 'Back',
-            onClick: () => navigate('/children'),
-          }
-        }
-      />
-
-      {status === 'ready' && trip && <FactBar trip={trip} student={activeStudent} />}
-
       {status === 'loading' && <Loading message="Loading your child's trip details…" />}
 
       {status === 'error' && (
@@ -88,22 +86,6 @@ export default function TripPage() {
 }
 
 /**
- * The tab bar sits below a 520px hero, so a button up in the hero has to bring
- * it into view — otherwise the tab changes 600px below the fold and the button
- * looks broken. Clicking a tab itself never scrolls.
- */
-function openTab(id, setChosen) {
-  setChosen(id)
-  requestAnimationFrame(() => {
-    revealTab(id)
-    const nav = document.querySelector('.secnav')
-    if (!nav) return
-    const top = nav.getBoundingClientRect().top + window.scrollY - 66
-    window.scrollTo({ top, behavior: 'smooth' })
-  })
-}
-
-/**
  * Slides the tab strip sideways so the chosen tab is visible. The strip is a
  * scroller with its scrollbar hidden, so on a phone the selected tab can sit
  * off the right edge with nothing on screen looking selected. Only the strip
@@ -118,96 +100,8 @@ function revealTab(id) {
 }
 
 /**
- * The header, in the order the school asked for it: the trip's name, then the
- * batch dates, then the two things a parent opens first.
- *
- * The photograph behind it is of the destination, not of the trip (see
- * `destinationPhoto.js`), so it is credited and the sheet's own `coverImage`
- * always wins over it.
- */
-function TripHero({ grade, trip, photo, loading, back, onOpenPhotos }) {
-  const [broken, setBroken] = useState(false)
-  const image = trip?.coverImage || (photo && photo.url)
-  const dateLines = loading ? [] : heroDateLines(trip)
-  const itinerary = (trip?.documents || []).find((d) => d.category === 'Itinerary' && d.url)
-
-  return (
-    <section className="trip-hero" style={{ background: grade.color }}>
-      {image && !broken && (
-        <img className="th-photo" src={image} alt="" onError={() => setBroken(true)} />
-      )}
-
-      <div className="th-body">
-        {back && (
-          <button className="backlink" onClick={back.onClick}>← {back.label}</button>
-        )}
-
-        <div className="th-eyebrow">
-          <span className="th-grade">{grade.full}</span>
-          {trip && (
-            <span className={trip.status === 'confirmed' ? 'pill is-confirmed' : 'pill is-soon'}>
-              {trip.status === 'confirmed' ? 'Confirmed' : 'Details coming soon'}
-            </span>
-          )}
-        </div>
-
-        <h2 className="th-title">{trip?.title || `${grade.full} Trip`}</h2>
-
-        {dateLines.length > 0 && (
-          <div className="th-dates">
-            {dateLines.map((d) => <span key={d}>{d}</span>)}
-          </div>
-        )}
-
-        {(onOpenPhotos || itinerary) && (
-          <div className="th-actions">
-            {onOpenPhotos && (
-              <button className="primary" onClick={onOpenPhotos}>
-                View photos
-              </button>
-            )}
-            {itinerary && (
-              <a className="secondary" href={itinerary.url} target="_blank" rel="noopener noreferrer">
-                View itinerary
-              </a>
-            )}
-          </div>
-        )}
-      </div>
-
-      {!trip?.coverImage && photo && !broken && (
-        <a className="th-credit" href={photo.pageUrl} target="_blank" rel="noopener noreferrer">
-          {photo.title} · photo from Wikipedia
-        </a>
-      )}
-    </section>
-  )
-}
-
-/** A destination photo, or null until (or unless) one is found. */
-function useDestinationPhoto(destination, override) {
-  const [photo, setPhoto] = useState(null)
-
-  useEffect(() => {
-    if (override || !destination) {
-      setPhoto(null)
-      return
-    }
-    let live = true
-    fetchDestinationPhoto(destination).then((p) => {
-      if (live) setPhoto(p)
-    })
-    return () => { live = false }
-  }, [destination, override])
-
-  return photo
-}
-
-/**
  * The sheet's "Header Text" column opens with a headline — "A Journey Beyond
- * the Classroom" — and then the paragraphs beneath it. Both belong in the
- * Overview tab (the school's choice), the headline set apart from the body so
- * it reads as the opening line rather than the first sentence of a paragraph.
+ * the Classroom" — and then the paragraphs beneath it.
  *
  * A first line too long to be a headline is not treated as one: the whole cell
  * renders as body text instead.
@@ -223,42 +117,6 @@ export function splitHeader(raw) {
   return { lead, body: others.join('\n').trim() }
 }
 
-/** One line per batch the page is showing, dates only. */
-function heroDateLines(trip) {
-  if (!trip) return []
-  const lines = (trip.batches || []).map((b) => b.headline).filter(Boolean)
-  if (lines.length) return lines
-  return trip.dates ? [trip.dates] : ['Dates to be announced']
-}
-
-/**
- * The three facts that decide whether the page in front of a parent is about
- * their own child: which batch, when, and who is travelling.
- */
-function FactBar({ trip, student }) {
-  const facts = [
-    heroBatch(trip) && { k: 'Batch', v: heroBatch(trip) },
-    heroDates(trip) && { k: 'Dates', v: heroDates(trip) },
-    student && {
-      k: 'Travelling',
-      v: student.section ? `${student.name} · ${student.section}` : student.name,
-    },
-  ].filter(Boolean)
-
-  if (!facts.length) return null
-
-  return (
-    <dl className="factbar">
-      {facts.map((f) => (
-        <div className="fact" key={f.k}>
-          <dt>{f.k}</dt>
-          <dd>{f.v}</dd>
-        </div>
-      ))}
-    </dl>
-  )
-}
-
 /**
  * Which batch to name. A matched section means this is the child's own batch
  * and can be stated plainly; otherwise the page is showing all of them, and
@@ -270,132 +128,126 @@ function heroBatch(trip) {
   return trip.batches.length > 1 ? `All ${trip.batches.length} batches` : trip.batches[0].label || ''
 }
 
-/** The batch headline without the "Batch 1:" prefix already shown beside it. */
+/**
+ * Dates only — the "Batch 1:" prefix is stripped because the batch is already
+ * named beside it in the same line.
+ *
+ * Stripped in the all-batches case too, not just the matched one: the sheet's
+ * own headlines carry the prefix verbatim, and Grade 7 has it wrong on both rows
+ * (see `batchLabels`), so staff were reading
+ * "Batch 1: 12-19 December · Batch 1: 13-20 December". `batchLabels` corrects the
+ * label but cannot rewrite the school's headline text.
+ */
 function heroDates(trip) {
   if (!trip) return ''
-  if (trip.batchMatched && trip.batches?.length) {
-    return trip.batches[0].headline.replace(/^batch\s*\d+\s*[:–-]\s*/i, '')
+  const strip = (s) => String(s || '').replace(/^batch\s*\d+\s*[:–-]\s*/i, '').trim()
+  if (trip.batchMatched && trip.batches?.length) return strip(trip.batches[0].headline)
+  if (trip.batches?.length) {
+    return trip.batches.map((b) => strip(b.headline)).filter(Boolean).join(' · ')
   }
   return trip.dates || ''
 }
 
 /**
- * Sections are built from the trip, not declared up front: a section with
- * nothing in it is never rendered, so a half-filled sheet still reads as a
- * finished page rather than a row of empty shelves.
+ * Four tabs, in the order the school set out (2026-08-14), down from nine —
+ * fewer tabs and shorter panels, because the ask was less page to scroll:
+ *
+ *   Home        the photograph, carrying the sheet's Header Text
+ *   Itinerary   the day-by-day detail, and with it travel, do's and don'ts and
+ *               things to carry — "all three things show on the one tab"
+ *   Orientation the parent and student decks, each batch beside the other
+ *   Safety      the safety guidelines
+ *
+ * Photos stays as a fifth tab when the sheet holds any, and Reminders as a
+ * sixth when it holds coordinator details; neither is reachable from today's
+ * sheet, and a tab with nothing behind it is never rendered — that rule is what
+ * keeps a half-filled sheet reading as a finished page.
  *
  * Two kinds of content, kept apart on purpose (the school's instruction):
- *   - Parent/Student orientation, photos and the itinerary are FILES → cards
- *     that open the real thing.
+ *   - Orientation decks, photos and the itinerary link are FILES → cards that
+ *     open the real thing.
  *   - Header text, travel, safety, do's/don'ts and packing are TEXT → printed
  *     on the page, so a parent never has to open a document to read them.
  */
-function buildSections(trip, student, photo) {
+function buildSections(trip, photo, grade) {
   const docs = trip.documents || []
   const byCategory = (...names) => docs.filter((d) => names.includes(d.category))
   const hasComm = trip.coordinator || trip.coordinatorPhone || trip.coordinatorEmail || trip.emergency
   const out = []
 
-  // Overview leads, because the sheet's Header Text is the school's opening
-  // word to parents and this is the tab that opens by default.
-  if (trip.overview || trip.batches?.length) {
+  if (trip.overview || photo) {
     out.push({
-      id: 'overview',
+      id: 'home',
       label: 'Overview',
-      node: <OverviewSection key="overview" trip={trip} photo={photo} />,
+      node: <HomeSection key="home" trip={trip} photo={photo} grade={grade} />,
     })
   }
 
-  const studentFacts = studentDetails(trip, student)
-  if (studentFacts.length) {
-    out.push({
-      id: 'student',
-      label: 'Student',
-      node: (
-        <Section
-          id="student"
-          eyebrow="Your child's trip information, all in one place"
-          title="Student details"
-          key="student"
-        >
-          <div className="panel">
-            <dl className="kv-list">
-              {studentFacts.map((f) => (
-                <div className="kv-row" key={f.k}>
-                  <dt>{f.k}</dt>
-                  <dd>{f.v}</dd>
-                </div>
-              ))}
-            </dl>
-          </div>
-        </Section>
-      ),
-    })
-  }
+  /**
+   * The three guideline columns, shown beside each other under the itinerary.
+   *
+   * Each column prefers the sheet's own **chip** — a preview card that opens the
+   * school's poster — and only prints text when that column has no chip at all.
+   * That order is the school's instruction (2026-08-14): "in sheet have links and
+   * links have chips, show the chips … don't write according to you". The text
+   * path stays as the fallback so a school that pastes real guidance into a cell
+   * still gets it printed, per cell, with no code change.
+   */
+  const guidelineColumns = [
+    {
+      key: 'safety',
+      title: 'Safety',
+      tone: 'safety',
+      icon: 'safety',
+      docs: byCategory('Safety'),
+      lines: trip.safety,
+    },
+    {
+      key: 'dodont',
+      title: "Do's and don'ts",
+      tone: 'rules',
+      icon: 'dodont',
+      docs: byCategory("Do's and don'ts"),
+      lines: [...(trip.doDonts || []), ...trip.dos.map((t) => `Do: ${t}`), ...trip.donts.map((t) => `Don't: ${t}`)],
+    },
+  ].filter((c) => c.docs.length || c.lines.length)
 
-  const fileDocs = byCategory('Parent orientation', 'Student orientation', 'Itinerary')
-  if (fileDocs.length) {
-    out.push({
-      id: 'documents',
-      label: 'Documents',
-      node: (
-        <Section
-          id="documents"
-          eyebrow="Important documents"
-          title="Everything you need before the trip"
-          key="documents"
-        >
-          <div className="doc-grid">
-            {fileDocs.map((d, i) => (
-              <DocCard key={`${d.category}-${d.label}-${i}`} {...d} />
-            ))}
-          </div>
-          <PendingNote docs={fileDocs} />
-        </Section>
-      ),
-    })
-  }
+  // Packing left the Itinerary tab on 2026-08-17 ("things to carry new tab").
+  // It is the longest of the three lists — 13 items against safety's 11 and four
+  // rules — and sharing a row with them meant none of the three fitted. On its
+  // own tab it gets the whole panel and Safety and Do's/Don'ts get half each.
+  const carry = { docs: byCategory('Things to carry'), lines: trip.carry || [] }
 
-  if (trip.itinerary.length) {
+  const itineraryDocs = byCategory('Itinerary')
+  if (trip.itinerary.length || trip.batches?.length || itineraryDocs.length || guidelineColumns.length) {
     out.push({
       id: 'itinerary',
       label: 'Itinerary',
       node: (
-        <Section
-          id="itinerary"
-          eyebrow="Your trip timeline"
-          title="Day-wise itinerary"
+        <ItinerarySection
           key="itinerary"
-        >
-          <div className="panel">
-            <table className="itin-table">
-              <thead>
-                <tr><th>Day</th><th>Time</th><th>Activity</th><th>Location</th></tr>
-              </thead>
-              <tbody>
-                {trip.itinerary.map((r, i) => (
-                  <tr key={i}>
-                    <td className="day">{r.day}</td>
-                    <td>{r.time}</td>
-                    <td>{r.activity}</td>
-                    <td>{r.location}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Section>
+          trip={trip}
+          itineraryDocs={itineraryDocs}
+          columns={guidelineColumns}
+        />
       ),
     })
   }
 
-  const guidelineDocs = byCategory('Safety', "Do's and don'ts")
-  const hasRules = trip.safety.length || trip.doDonts?.length || trip.dos.length || trip.donts.length
-  if (hasRules || guidelineDocs.length) {
+  if (carry.docs.length || carry.lines.length) {
     out.push({
-      id: 'safety',
-      label: 'Safety',
-      node: <SafetySection key="safety" trip={trip} docs={guidelineDocs} />,
+      id: 'carry',
+      label: 'Things to carry',
+      node: <CarrySection key="carry" docs={carry.docs} lines={carry.lines} />,
+    })
+  }
+
+  const orientationDocs = byCategory('Parent orientation', 'Student orientation')
+  if (orientationDocs.length) {
+    out.push({
+      id: 'orientation',
+      label: 'Orientation',
+      node: <OrientationSection key="orientation" docs={orientationDocs} />,
     })
   }
 
@@ -404,23 +256,6 @@ function buildSections(trip, student, photo) {
       id: 'travel',
       label: 'Travel',
       node: <TravelSection key="travel" legs={trip.travel} />,
-    })
-  }
-
-  if (trip.reminders.length || hasComm) {
-    out.push({
-      id: 'reminders',
-      label: 'Reminders',
-      node: <RemindersSection key="reminders" trip={trip} hasComm={hasComm} />,
-    })
-  }
-
-  const carryDocs = byCategory('Things to carry')
-  if (trip.carry.length || carryDocs.length) {
-    out.push({
-      id: 'carry',
-      label: 'Things to carry',
-      node: <CarrySection key="carry" items={trip.carry} docs={carryDocs} />,
     })
   }
 
@@ -434,27 +269,20 @@ function buildSections(trip, student, photo) {
     })
   }
 
-  return out
-}
+  if (trip.reminders.length || hasComm) {
+    out.push({
+      id: 'reminders',
+      label: 'Reminders',
+      node: <RemindersSection key="reminders" trip={trip} hasComm={hasComm} />,
+    })
+  }
 
-/** Only the facts the sheet and the roster actually carry. */
-function studentDetails(trip, student) {
-  if (!student) return []
-  return [
-    { k: 'Student name', v: student.name },
-    student.grade && { k: 'Grade', v: gradeById(student.grade).full },
-    student.section && { k: 'Section', v: student.section },
-    heroBatch(trip) && { k: 'Batch', v: heroBatch(trip) },
-    trip.title && { k: 'Trip', v: trip.title },
-    heroDates(trip) && { k: 'Dates', v: heroDates(trip) },
-  ].filter(Boolean)
+  return out
 }
 
 /**
  * The sections are tabs, not one long page: picking a tab swaps the panel and
  * the page does not move, so each part of the trip plan reads as its own screen.
- * (It scrolled through a single page until 2026-08-13; the school asked for the
- * tab behaviour back.)
  */
 function TripBody({ sections, active, onSelect }) {
   if (!sections.length) {
@@ -508,8 +336,14 @@ function TripBody({ sections, active, onSelect }) {
         </div>
       </nav>
 
+      {/* `is-fill` marks the one panel that must stretch to the window instead of
+          scrolling: Overview, which is a single photograph. Every other panel is a
+          normal block scroller. This is a class rather than a `:has(#home)` rule
+          because the flex/block distinction decides whether a tall panel can be
+          scrolled at all, and getting it wrong silently hides content — Safety's
+          last four measures were unreachable while `.sections` stayed flex. */}
       <div
-        className="sections"
+        className={current.id === 'home' ? 'sections is-fill' : 'sections'}
         key={current.id}
         id={`panel-${current.id}`}
         role="tabpanel"
@@ -522,138 +356,293 @@ function TripBody({ sections, active, onSelect }) {
   )
 }
 
-function OverviewSection({ trip, photo }) {
-  const image = trip.coverImage || (photo && photo.url)
+/**
+ * The Overview tab: **the photograph, and nothing but the photograph.** Grade,
+ * batch, dates and the whole Header Text sit on top of it — the school's layout,
+ * given 2026-08-14 as "overview have only images … header text, grade, batch,
+ * date, only these things needed", with the old hero and fact bar crossed out.
+ *
+ * Everything is inside the image on purpose. A panel of body copy underneath is
+ * what used to make this tab scroll, and the same instruction asked for no
+ * scrollbar; the banner grows to the height available instead.
+ *
+ * The photo is not `loading="lazy"`: it is the first thing on the first tab, and
+ * a lazy image never loads at all while the preview pane is hidden.
+ */
+function HomeSection({ trip, photo, grade }) {
+  const [broken, setBroken] = useState(false)
   const { lead, body } = splitHeader(trip.overview)
+  const showPhoto = photo && !broken
+  const batch = heroBatch(trip)
+  const dates = heroDates(trip)
 
   return (
-    <Section id="overview" eyebrow="Know before you go" title="Orientation overview">
-      <div className="overview">
-        {image && (
-          <div className="overview-photo">
-            <img src={image} alt="" />
-          </div>
+    <Section id="home">
+      <div className={showPhoto ? 'home-banner has-photo' : 'home-banner'}>
+        {showPhoto && (
+          <img
+            className="home-photo"
+            src={photo}
+            alt={`${trip.title} — photograph from the school trip`}
+            onError={() => setBroken(true)}
+          />
         )}
-        <div className="overview-copy">
-          <h4>{trip.title}</h4>
-          {lead && <p className="overview-lead">{lead}</p>}
-          {body && <p className="overview-text">{body}</p>}
+        <div className="home-banner-text">
+          <div className="home-meta">
+            <span>{grade.full}</span>
+            {batch && <span>{batch}</span>}
+            {dates && <span>{dates}</span>}
+          </div>
+          <h3>{trip.title}</h3>
+          {lead && <p className="home-lead">{lead}</p>}
+          {body && <p className="home-body-text">{body}</p>}
         </div>
       </div>
+    </Section>
+  )
+}
 
+/**
+ * "Batch 1" -> "B1", the school's own shorthand from their sketch of this page.
+ * An unrecognised label is passed through rather than mangled.
+ */
+function shortBatch(label) {
+  const m = String(label || '').match(/batch\s*(\d+)/i)
+  return m ? `B${m[1]}` : label || ''
+}
+
+/**
+ * Parent and student decks, one row per kind with the batches beside each other
+ * — the school drew this as `Parent Orientation [B1] [B2]`.
+ *
+ * The card's label is the chip's own name as the sheet has it ("G7 B1 …
+ * Parent's Orientation"), which is what they asked for: it names the grade,
+ * batch and destination better than any label built here could.
+ */
+function OrientationSection({ docs }) {
+  const groups = ['Parent orientation', 'Student orientation']
+    .map((category) => ({ category, items: docs.filter((d) => d.category === category) }))
+    .filter((g) => g.items.length)
+
+  return (
+    <Section id="orientation" eyebrow="Before the trip" title="Orientation">
+      {groups.map((g) => (
+        <div className="orient-group" key={g.category}>
+          <h4>{g.category}</h4>
+          <div className="orient-row">
+            {g.items.map((d, i) => (
+              <DocCard key={`${d.label}-${i}`} {...d} batchTag={shortBatch(d.batch)} compact hideMeta />
+            ))}
+          </div>
+        </div>
+      ))}
+      <PendingNote docs={docs} />
+    </Section>
+  )
+}
+
+/**
+ * Itinerary first, then Safety, Do's and don'ts and Things to carry **beside
+ * each other** underneath it — the school's layout, 2026-08-14.
+ *
+ * Each of those three is the sheet's own chip, shown as a preview card that
+ * opens the school's poster. Nothing is written on their behalf: a column falls
+ * back to printed text only when it has no chip, which is what keeps a
+ * half-converted sheet working either way.
+ *
+ * The batch/sections block sits above, because "which batch am I in" is what a
+ * parent checks the itinerary for.
+ */
+/**
+ * The Do/Don't column is one list in the sheet, with each line marked `Do:` or
+ * `Don't:` — the only thing telling the two sides apart in a single column. The
+ * prefix picks the tick or the cross and is then dropped, because repeating
+ * "Don't:" beside a cross is noise.
+ *
+ * A line with no prefix keeps its full text and gets the column's own marker, so
+ * a school that just types sentences is still rendered correctly.
+ */
+export function splitRule(raw) {
+  const text = String(raw || '').trim()
+  const m = text.match(/^(do|don'?t|dont)\s*[:–-]\s*(.+)$/is)
+  if (!m) return { kind: '', text }
+  return { kind: m[1].toLowerCase() === 'do' ? 'do' : 'dont', text: m[2].trim() }
+}
+
+/**
+ * The do's and don'ts as a **vertical stack of cards**, one per rule, grouped
+ * with a DO / DON'T label above each side — the school's own poster layout,
+ * asked for on 2026-08-17.
+ *
+ * The label only appears where the side changes, so a sheet that prefixes only
+ * some of its lines still reads correctly, and an unprefixed list gets no labels
+ * at all rather than a heading it did not earn.
+ */
+function RuleStack({ lines }) {
+  const rules = lines.map(splitRule)
+
+  return (
+    <div className="rule-stack">
+      {rules.map((r, i) => (
+        <div key={i}>
+          {r.kind && r.kind !== rules[i - 1]?.kind && (
+            <span className={`rule-side is-${r.kind}`}>
+              <Icon name={r.kind === 'do' ? 'dodont' : 'close'} stroke="currentColor" />
+              {r.kind === 'do' ? 'Do' : "Don't"}
+            </span>
+          )}
+          <div className={r.kind ? `rule-card is-${r.kind}` : 'rule-card'}>
+            <span className="chip-mark">
+              <Icon name={r.kind === 'dont' ? 'close' : 'dodont'} stroke="currentColor" />
+            </span>
+            <span>{r.text}</span>
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+/**
+ * Things to carry, on its own tab since 2026-08-17. The whole panel is one
+ * checklist — the longest of the three guideline lists, and the one a parent
+ * reads standing over a suitcase, so it gets the width rather than a third of a
+ * row. It flows into columns so all thirteen items fit on screen at once.
+ */
+function CarrySection({ docs, lines }) {
+  return (
+    <Section id="carry" className="is-stretch">
+      <div className="chip-col is-carry carry-card">
+        <div className="chip-head">
+          <span className="chip-icon"><Icon name="carry" stroke="currentColor" /></span>
+          <h4>Things to carry</h4>
+          <span className="chip-count">{docs.length || lines.length}</span>
+        </div>
+        {docs.length > 0 ? (
+          <div className="chip-docs">
+            {docs.map((d, i) => <DocCard key={`carry-${i}`} {...d} hideMeta />)}
+          </div>
+        ) : (
+          <ul className="plain chip-lines carry-list">
+            {lines.map((t, i) => (
+              <li key={i}>
+                <span className="chip-mark">{i + 1}</span>
+                <span>{t}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+      <PendingNote docs={docs} />
+    </Section>
+  )
+}
+
+function ItinerarySection({ trip, itineraryDocs, columns }) {
+  // No section heading: the tab is already labelled "Itinerary", and the 86px it
+  // cost was the difference between this tab fitting the window and scrolling.
+  // The column headings below carry the meaning that matters here.
+  return (
+    <Section id="itinerary" className={columns.length ? 'is-stretch' : undefined}>
+      {/* The batch block and the itinerary card sit BESIDE each other. Stacked
+          they cost 306px of a 541px panel and left the three guideline columns
+          217px — the "preview" the school photographed. Side by side they cost
+          162 and hand the rest to the columns. */}
+      {(trip.batches?.length > 0 || itineraryDocs.length > 0) && (
+      <div className="itin-top">
       {trip.batches?.length > 0 && (
-        <div className="panel" style={{ marginTop: 28 }}>
+        <div className="panel is-tight">
           {trip.batchMatched && trip.batchCount > 1 && (
             <p className="batch-note">
               Showing the batch for section <strong>{trip.section}</strong>. Other batches travel on
               different dates.
             </p>
           )}
-          {trip.batches.map((b, i) => (
-            <div className="batch-row" key={i}>
-              {b.label && <span className="batch-tag">{b.label}</span>}
-              <div>
-                <div className="batch-headline">{b.headline}</div>
-                {b.detail && <div className="batch-detail">{b.detail}</div>}
+          {/* Batches sit beside each other rather than stacked. Staff see every
+              batch, and two stacked rows cost ~96px that the guideline columns
+              below need more than this block does. */}
+          <div className="batch-grid">
+            {trip.batches.map((b, i) => (
+              <div className="batch-row" key={i}>
+                {b.label && <span className="batch-tag">{b.label}</span>}
+                <div>
+                  <div className="batch-headline">{b.headline}</div>
+                  {b.detail && <div className="batch-detail">{b.detail}</div>}
+                </div>
               </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {itineraryDocs.length > 0 && (
+        <div className="orient-row itin-docs">
+          {itineraryDocs.map((d, i) => <DocCard key={`itin-${i}`} {...d} compact />)}
+        </div>
+      )}
+      </div>
+      )}
+
+      {trip.itinerary.length > 0 && (
+        <div className="panel">
+          <table className="itin-table">
+            <thead>
+              <tr><th>Day</th><th>Time</th><th>Activity</th><th>Location</th></tr>
+            </thead>
+            <tbody>
+              {trip.itinerary.map((r, i) => (
+                <tr key={i}>
+                  <td className="day">{r.day}</td>
+                  <td>{r.time}</td>
+                  <td>{r.activity}</td>
+                  <td>{r.location}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {columns.length > 0 && (
+        <div className="chip-row">
+          {columns.map((c) => (
+            <div className={`chip-col is-${c.tone}`} key={c.key}>
+              <div className="chip-head">
+                <span className="chip-icon"><Icon name={c.icon} stroke="currentColor" /></span>
+                <h4>{c.title}</h4>
+                <span className="chip-count">{c.docs.length || c.lines.length}</span>
+              </div>
+              {c.docs.length > 0 ? (
+                <div className="chip-docs">
+                  {c.docs.map((d, i) => <DocCard key={`${c.key}-${i}`} {...d} hideMeta />)}
+                </div>
+              ) : c.key === 'dodont' ? (
+                <RuleStack lines={c.lines} />
+              ) : (
+                <ul className="plain chip-lines">
+                  {c.lines.map((t, i) => (
+                    <li key={i}>
+                      <span className="chip-mark">{i + 1}</span>
+                      <span>{t}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           ))}
         </div>
       )}
+
+      <PendingNote docs={[...itineraryDocs, ...columns.flatMap((c) => c.docs)]} />
     </Section>
   )
 }
 
 /**
- * Safety points are one line each in the sheet. A line that names its measure
- * before the detail ("Adult supervision: a ratio of 1:12…") opens; a line that
- * is just a sentence has nothing to hide, so it does not pretend to expand.
+ * Travel is its own tab again (2026-08-14, "tavel tab show"). It had been folded
+ * into Itinerary earlier the same day; the school wants it back on its own,
+ * which also keeps the Itinerary tab short enough not to scroll.
  */
-function splitGuideline(line) {
-  const m = line.match(/^([A-Za-z][A-Za-z '&/]{2,47}?)\s*[:–—-]\s+(.+)$/)
-  return m ? { title: m[1], body: m[2] } : { title: line, body: '' }
-}
-
-function SafetySection({ trip, docs }) {
-  const points = trip.safety.map(splitGuideline)
-  const [open, setOpen] = useState(0)
-  const hasPair = trip.dos.length > 0 || trip.donts.length > 0
-
-  return (
-    <Section
-      id="safety"
-      eyebrow="Safety comes first"
-      tone="safety"
-      title="Safety guidelines"
-      subtitle={points.length ? `${points.length} measures we follow on every school trip.` : undefined}
-    >
-      {points.length > 0 && (
-        <div className="acc">
-          {points.map((p, i) => {
-            const isOpen = p.body && open === i
-            const Head = p.body ? 'button' : 'div'
-            return (
-              <div className={isOpen ? 'acc-item is-open' : 'acc-item'} key={i}>
-                <Head
-                  className="acc-head"
-                  type={p.body ? 'button' : undefined}
-                  aria-expanded={p.body ? isOpen : undefined}
-                  onClick={p.body ? () => setOpen(open === i ? -1 : i) : undefined}
-                >
-                  <span className="acc-title">
-                    <span className="acc-n">{i + 1}</span>
-                    <span className="acc-label">{p.title}</span>
-                  </span>
-                  {p.body && <span className="acc-sign">+</span>}
-                </Head>
-                {isOpen && <p className="acc-body">{p.body}</p>}
-              </div>
-            )
-          })}
-        </div>
-      )}
-
-      {trip.doDonts?.length > 0 && (
-        <ul className="plain" style={{ marginTop: points.length ? 24 : 0 }}>
-          {trip.doDonts.map((t, i) => <li key={i}>{t}</li>)}
-        </ul>
-      )}
-
-      {hasPair && (
-        <div className="two-col">
-          <RulePanel kind="do" title="Do" lines={trip.dos} />
-          <RulePanel kind="dont" title="Don't" lines={trip.donts} />
-        </div>
-      )}
-
-      {docs.length > 0 && (
-        <div className="doc-grid" style={{ marginTop: 24 }}>
-          {docs.map((d, i) => <DocCard key={`${d.label}-${i}`} {...d} />)}
-        </div>
-      )}
-      <PendingNote docs={docs} />
-    </Section>
-  )
-}
-
-function RulePanel({ kind, title, lines }) {
-  return (
-    <div className={`rule-panel ${kind}`}>
-      <div className="rule-head">
-        <span className="mark">
-          <Icon name={kind === 'do' ? 'dodont' : 'close'} stroke="#fff" />
-        </span>
-        <h4>{title}</h4>
-      </div>
-      {lines.length ? (
-        <ul className="plain">{lines.map((t, i) => <li key={i}>{t}</li>)}</ul>
-      ) : (
-        <p className="empty-note">Nothing listed.</p>
-      )}
-    </div>
-  )
-}
-
 function TravelSection({ legs }) {
   return (
     <Section id="travel" eyebrow="Getting there and back" title="Travel details">
@@ -763,44 +752,6 @@ function splitDate(raw) {
   return { day: m[1], month: m[2].slice(0, 3), rest: s }
 }
 
-function CarrySection({ items, docs }) {
-  const [packed, setPacked] = useState({})
-  const count = Object.values(packed).filter(Boolean).length
-
-  return (
-    <Section
-      id="carry"
-      eyebrow="What to carry"
-      tone="carry"
-      title="Things to carry"
-      aside={items.length ? `${count} of ${items.length} packed` : undefined}
-    >
-      {items.length > 0 && (
-        <div className="check-grid">
-          {items.map((item, i) => (
-            <button
-              key={i}
-              className={packed[i] ? 'check-item is-on' : 'check-item'}
-              aria-pressed={!!packed[i]}
-              onClick={() => setPacked((p) => ({ ...p, [i]: !p[i] }))}
-            >
-              <span className="box"><Icon name="dodont" stroke="#fff" strokeWidth="3.4" /></span>
-              <span className="txt">{item}</span>
-            </button>
-          ))}
-        </div>
-      )}
-
-      {docs.length > 0 && (
-        <div className="doc-grid" style={{ marginTop: items.length ? 24 : 0 }}>
-          {docs.map((d, i) => <DocCard key={`${d.label}-${i}`} {...d} />)}
-        </div>
-      )}
-      <PendingNote docs={docs} />
-    </Section>
-  )
-}
-
 function PhotosSection({ albums, media, title }) {
   return (
     <Section
@@ -855,7 +806,7 @@ function PhotoTile({ item }) {
 }
 
 /**
- * One explanation per section for cards the sheet named but did not link — not
+ * One explanation per panel for cards the sheet named but did not link — not
  * one per card. Repeated, it reads as a broken page; said once, it reads as
  * "the school is still filling this in".
  */

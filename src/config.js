@@ -26,6 +26,12 @@ const FROM_ENV = {
   publishedId: ENV.VITE_PUBLISHED_SHEET_URL || '',
   /** Only needed when a tab has been renamed — a gid survives renames. */
   gids: envMap('VITE_GID_'),
+  /**
+   * Grade id -> URL of the school's own photograph for that grade's trip, shown
+   * on the trip page. Config rather than code so a photo can be added or swapped
+   * without a developer; a grade with no entry gets no photo, never a stock one.
+   */
+  tripPhotos: {},
   googleClientId: ENV.VITE_GOOGLE_CLIENT_ID || '',
   driveApiKey: ENV.VITE_GOOGLE_API_KEY || '',
   driveApiBase: ENV.VITE_DRIVE_API_BASE || 'https://www.googleapis.com/drive/v3',

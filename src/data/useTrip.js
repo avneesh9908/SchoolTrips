@@ -3,7 +3,6 @@ import { getAdapter, isServerEnforced } from './index'
 import { assembleTrip } from './normalize'
 import { assembleTripApp } from './tripApp'
 import { expandFolderDocuments } from '../lib/drive'
-import { applyGuidelineFallback } from './guidelineFallback'
 
 /**
  * Loads the trip for one grade.
@@ -34,8 +33,19 @@ export function useTrip(gradeId, { enabled = true, section = '' } = {}) {
               : assembleTrip(gradeId, sets)
         if (!assembled) return { status: 'ready', trip: null, error: null }
 
-        // Only fills a guideline list the sheet left empty; a filled cell wins.
-        const trip = applyGuidelineFallback(assembled, gradeId)
+        /**
+         * The guideline text fallback is NOT applied. Turned off 2026-08-14 on the
+         * school's instruction — "in sheet have links and links have chips, show
+         * the chips … don't write according to you".
+         *
+         * It was doing the opposite of that: for a chip-only cell it injected
+         * `public/trip-guidelines.json`'s text *and dropped that column's poster
+         * card*, so production printed text nobody in the sheet had written and
+         * hid the school's own poster. `guidelineFallback.js` and
+         * `public/trip-guidelines.json` are left in place, unused, so the decision
+         * can be reversed by restoring this one call.
+         */
+        const trip = assembled
 
         // A Documents row may point at a whole folder; turn it into one card
         // per file. No-ops without a Drive key, and never fails the page.

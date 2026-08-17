@@ -26,6 +26,20 @@ a:hover { color: var(--link-hover); }
 .page { flex: 1; padding: 34px 0 70px; }
 .page.is-flush { padding: 0; }
 
+/* The trip page is a FIXED-HEIGHT view: it fills the window exactly and the
+   window itself never scrolls ("I don't want scrollbar anywhere", 2026-08-14).
+   The footer is dropped on this route by App.jsx for the same reason.
+
+   `dvh` not `vh`: on a phone `100vh` is the address bar's tallest state, so a
+   vh-sized page overflows by the bar's height and scrolls — which is the exact
+   thing being removed. The whole chain needs `min-height: 0`, or a flex child
+   refuses to shrink below its content and the overflow reappears at the window.
+   Tabs whose content genuinely cannot fit — 11 safety measures, a 13-item
+   packing list — scroll inside their own panel instead. */
+.app.is-fixed { height: 100dvh; min-height: 0; overflow: hidden; }
+.app.is-fixed .page { min-height: 0; overflow: hidden; padding: 18px 0 0; display: flex; }
+.app.is-fixed .shell { min-height: 0; display: flex; flex-direction: column; flex: 1; }
+
 button:focus-visible, a:focus-visible, [tabindex]:focus-visible {
   outline: 2.5px solid var(--accent); outline-offset: 3px; border-radius: 8px;
 }
@@ -283,79 +297,23 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible {
 }
 .pick-card:hover .pick-cta { background: var(--accent); }
 
-/* ---------- trip hero ---------- */
-.backlink {
-  display: inline-flex; align-items: center; gap: 8px;
-  background: rgba(255, 255, 255, 0.14); border: 1px solid rgba(255, 255, 255, 0.26);
-  color: #fff; padding: 8px 14px; border-radius: var(--r-pill);
-  font-size: 13px; font-weight: 700; backdrop-filter: blur(8px); align-self: flex-start;
+/* A grade with no published trip. Muted rather than greyed out — the card is
+   still information ("this grade exists, its trip is being prepared"), it just
+   is not a thing to press. */
+.pick-card.is-soon { cursor: default; }
+.pick-card.is-soon:hover { transform: none; box-shadow: none; }
+.pick-card.is-soon .pick-media { filter: saturate(0.45); }
+.pick-card.is-soon .pick-cta {
+  background: var(--wash); color: var(--soft); border: 1px solid var(--line);
 }
-.backlink:hover { background: rgba(255, 255, 255, 0.24); color: #fff; }
 
-/* Full-bleed: the hero sits edge to edge, out of the shell's gutters. */
-.trip-hero {
-  position: relative; overflow: hidden; border-radius: var(--r-hero);
-  min-height: 520px; display: flex; align-items: flex-end; color: #fff;
-  margin: -34px calc(-1 * var(--shell-pad)) 0;
-}
-.th-photo { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-.trip-hero::after {
-  content: ''; position: absolute; inset: 0; pointer-events: none;
-  background: linear-gradient(180deg, rgba(15, 23, 42, 0.25) 0%, rgba(19, 28, 62, 0.6) 52%, rgba(19, 28, 62, 0.94) 100%);
-}
-.th-body {
-  position: relative; z-index: 1; width: 100%;
-  padding: 60px var(--shell-pad) 46px; display: flex; flex-direction: column; gap: 14px;
-}
-.th-eyebrow { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 8px; }
-.th-grade {
-  font-size: 13px; font-weight: 800; letter-spacing: 0.1em;
-  text-transform: uppercase; color: rgba(255, 255, 255, 0.8);
-}
-.pill {
-  padding: 6px 13px; border-radius: var(--r-pill); font-size: 12px;
-  font-weight: 800; background: rgba(255, 255, 255, 0.22); color: #fff;
-}
-.pill.is-confirmed { background: var(--green); }
-.pill.is-soon { background: var(--amber); }
-.th-title {
-  margin: 0; font-family: var(--font-display); font-weight: 400;
-  font-size: clamp(34px, 4.4vw, 58px); line-height: 1.04;
-  letter-spacing: -0.02em; max-width: 900px; text-wrap: pretty;
-}
-.th-dates {
-  display: flex; gap: 22px; flex-wrap: wrap; margin-top: 6px;
-  color: rgba(255, 255, 255, 0.92); font-size: 15px; font-weight: 600;
-}
-.th-actions { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 14px; }
-.th-actions .primary {
-  padding: 14px 24px; border-radius: 13px; border: none; background: #fff; color: var(--navy);
-  font: inherit; font-size: 15px; font-weight: 700; cursor: pointer; transition: background 0.2s ease;
-}
-.th-actions .primary:hover { background: #f0f3fd; }
-.th-actions .secondary {
-  padding: 14px 24px; border-radius: 13px; background: rgba(255, 255, 255, 0.14);
-  border: 1px solid rgba(255, 255, 255, 0.3); color: #fff;
-  font-size: 15px; font-weight: 700; backdrop-filter: blur(8px); transition: background 0.2s ease;
-}
-.th-actions .secondary:hover { background: rgba(255, 255, 255, 0.24); color: #fff; }
-.th-credit {
-  position: absolute; right: 14px; top: 14px; z-index: 2;
-  font-size: 10.5px; font-weight: 600; color: rgba(255, 255, 255, 0.78);
-  background: rgba(0, 0, 0, 0.3); padding: 4px 10px; border-radius: var(--r-pill);
-}
-.th-credit:hover { color: #fff; }
-
-.factbar {
-  display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px;
-  margin: 24px 0 0; position: relative; z-index: 5;
-}
-.fact {
-  background: var(--card); border: 1px solid var(--line); border-radius: 16px;
-  padding: 16px 20px;
-}
-.fact dt { font-size: 12px; font-weight: 700; letter-spacing: 0.06em; color: var(--soft); text-transform: uppercase; }
-.fact dd { margin: 4px 0 0; font-size: 18px; font-weight: 700; letter-spacing: -0.01em; }
+/* ---------- trip page ----------
+   Nothing sits above the tabs any more. `.trip-hero` and `.factbar` went on
+   2026-08-14 (their content is on the Overview image), and `.trip-topline` — the
+   back link and grade — went with them in the same session: the school crossed
+   that row out too, because the top bar already carries "All grades" /
+   "Switch child" and names the grade beside the account. The tab bar is the
+   first thing under the header. */
 
 /* ---------- section nav ---------- */
 .secnav {
@@ -364,6 +322,13 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible {
   background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(14px);
   border-bottom: 1px solid var(--line);
 }
+/* NOT sticky in the fixed layout, and this is load-bearing.
+   `overflow: hidden` on `.app.is-fixed` makes it a scrollport, so `top: 66px`
+   still applied: the bar was pushed 66px DOWN out of its flow slot, which left
+   an 84px empty band under the header AND laid the bar on top of the panel,
+   slicing the first heading and the first batch row. There is nothing to stick
+   to any more — the panel is the scroller and the bar sits outside it. */
+.app.is-fixed .secnav { position: static; margin-top: 0; flex: 0 0 auto; }
 .secnav-inner {
   max-width: var(--shell-w); margin: 0 auto; padding: 0 var(--shell-pad);
   display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none;
@@ -381,12 +346,79 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible {
 /* ---------- tab panels ---------- */
 /* One panel at a time, keyed on the tab, so switching reads as a new page
    rather than a jump within a long one. */
+/* Tighter than it was (58/44) — fewer, fuller tabs means the spacing that read
+   as air between two sections now reads as a gap inside one. */
 .sections {
-  display: flex; flex-direction: column; gap: 58px; padding-top: 44px;
-  min-height: 320px; animation: fade-in 0.35s ease both;
+  display: flex; flex-direction: column; gap: 34px; padding-top: 22px;
+  min-height: 0; animation: fade-in 0.35s ease both;
 }
+/* The panel is the only thing that may scroll, and it takes whatever height is
+   left after the top line and the tab bar. Its scrollbar is hidden to match
+   `.secnav-inner`, which has always been a scroller with no visible bar.
+
+   `display: block`, NOT flex. A flex column lets its item shrink below its own
+   content, and the overflow then paints outside the box without counting toward
+   `scrollHeight` — so the panel reported nothing to scroll while Safety's last
+   four measures sat below the fold, unreachable. A block scroller measures its
+   content honestly. `.sections` only ever has one child, so the flex `gap` it
+   used to rely on was doing nothing anyway. */
+.app.is-fixed .sections {
+  display: block; flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden;
+  scrollbar-width: none; padding-bottom: 22px;
+}
+.app.is-fixed .sections::-webkit-scrollbar { display: none; }
+/* Overview is the one panel that must never scroll — it is a single photograph,
+   told to fill the window rather than to grow past it. */
+.app.is-fixed .sections.is-fill {
+  display: flex; flex-direction: column; overflow: hidden; padding-bottom: 0;
+}
+.app.is-fixed .sections.is-fill .section { flex: 1; min-height: 0; }
+/* Tighter inside the fixed layout, where every gap competes with content for a
+   fixed budget of height. */
+.app.is-fixed .section { min-height: 0; gap: 18px; }
+/* The Itinerary tab fills the panel instead of leaving a dead band under three
+   short guideline boxes: the section is told to be at least as tall as the
+   panel, and `.chip-row` takes whatever the blocks above it did not use.
+
+   `.sections` itself stays `display: block` — a flex panel cannot be scrolled and
+   fails silently (see the trap in the skill). Only the section inside it becomes
+   a stretching column, and `min-height` (not `height`) means a tall itinerary
+   still grows and scrolls normally. */
+.app.is-fixed .section.is-stretch { min-height: 100%; }
+.section.is-stretch > .chip-row { flex: 1 1 0; min-height: 200px; }
+
+/* The batch block and the itinerary card, BESIDE each other rather than stacked.
+   Stacked they took 306px of a 541px panel and left the three guideline columns
+   217px — which is what made those columns read as a preview. Side by side they
+   take 162px and hand the rest down. */
+.itin-top { display: flex; flex-wrap: wrap; gap: 18px; align-items: flex-start; }
+/* Specificity has to beat `.panel.is-tight`, which is declared later in the
+   file — an equally specific rule up here would simply lose. */
+.itin-top > .panel.is-tight { flex: 1 1 420px; min-width: 0; padding: 16px 20px; }
+/* Every px in this block comes straight off the guideline columns below, so the
+   batches sit beside each other and the stacked rows' dividers go with them. */
+.itin-top .batch-note { margin-bottom: 12px; }
+.itin-top .batch-grid { display: flex; flex-wrap: wrap; gap: 10px; }
+.itin-top .batch-grid > .batch-row {
+  flex: 1 1 240px; min-width: 0; padding: 12px 14px; border-bottom: none;
+  background: var(--wash); border-radius: var(--r-chip);
+}
+.itin-top .batch-tag { background: var(--card); }
+.itin-top > .itin-docs { flex: 1 1 340px; }
+/* Overrides `.orient-row`'s fixed 270px basis so a batch's card shrinks and the
+   batches stay on ONE line. Staff see two itinerary cards; at the 270px basis
+   they wrapped onto a second line, and the block measured 265px — taller than
+   the batch panel beside it and straight off the guideline columns below.
+
+   Deliberately NOT `height: 100%` under a stretching parent either: the two fed
+   each other and settled at 265px again. */
+.itin-top > .itin-docs > * { flex: 1 1 150px; max-width: none; }
 .sections:focus { outline: none; }
-.section-head { margin-bottom: 20px; }
+/* A tab now holds several blocks rather than one — the Itinerary tab carries the
+   batches, the day plan, travel, do's and don'ts and the packing list — so the
+   section itself spaces its children instead of each block owning a margin. */
+.section { display: flex; flex-direction: column; gap: 24px; }
+.section-head { margin-bottom: 0; }
 .section-head.with-aside {
   display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; flex-wrap: wrap;
 }
@@ -405,6 +437,7 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible {
   background: var(--card); border: 1px solid var(--line); border-radius: var(--r-detail);
   padding: 28px 30px;
 }
+.panel.is-tight { padding: 18px 22px; border-radius: 18px; }
 
 /* Student details — hairline grid of white cells. It must keep flowing as the
    window widens: held at two columns, a full-width window put 860px of dead
@@ -421,30 +454,50 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible {
 }
 .kv-row dd { margin: 3px 0 0; font-size: 15px; font-weight: 600; color: var(--ink); }
 
-/* Overview */
-.overview {
-  display: grid; grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr));
-  gap: 34px; align-items: center; background: var(--card);
-  border: 1px solid var(--line); border-radius: 26px; padding: 12px; overflow: hidden;
+/* Overview tab — the school's own photograph of the trip, and nothing else.
+   Grade, batch, dates and the whole Header Text sit ON it. Exactly one photo on
+   the page: the destination-photo lookup, the second copy of it in the old
+   Overview block, and the panel of body copy that used to sit beneath it were
+   all removed 2026-08-14 ("overview have only images"). */
+.home-banner {
+  position: relative; overflow: hidden; border-radius: 24px;
+  background: linear-gradient(150deg, var(--navy), #0F172A);
+  display: flex; align-items: flex-end; min-height: 190px;
+  /* Grows into the height the fixed layout leaves, rather than setting a height
+     of its own — that is what lets Overview fill the window with no scroll on
+     any screen. */
+  flex: 1; min-height: 0;
 }
-.overview-copy { display: flex; flex-direction: column; gap: 14px; padding: 26px 26px 26px 14px; }
-.overview-copy h4 {
-  margin: 0; font-family: var(--font-display); font-weight: 400;
-  font-size: clamp(28px, 3vw, 38px); letter-spacing: -0.015em; line-height: 1.1;
+.home-photo { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+/* Strong enough at the foot to carry the whole Header Text, which now sits on
+   the image rather than in a panel below it. */
+.home-banner.has-photo::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.04) 22%, rgba(15, 23, 42, 0.62) 58%, rgba(11, 17, 33, 0.93) 100%);
 }
-/* The headline of the sheet's Header Text cell, set apart from its paragraphs. */
-.overview-lead {
-  margin: 0; font-size: 19px; line-height: 1.45; font-weight: 700;
-  letter-spacing: -0.01em; color: var(--ink); max-width: 560px; text-wrap: pretty;
+.home-banner-text {
+  position: relative; z-index: 1; padding: 30px 34px 30px;
+  display: flex; flex-direction: column; gap: 10px; color: #fff; width: 100%;
 }
-.overview-text {
-  margin: 0; font-size: 16px; line-height: 1.65; color: var(--body);
-  white-space: pre-wrap; text-wrap: pretty; max-width: 560px;
+/* Grade · Batch · Dates — the three facts the deleted fact bar used to carry. */
+.home-meta {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  font-size: 12.5px; font-weight: 800; letter-spacing: 0.08em;
+  text-transform: uppercase; color: rgba(255, 255, 255, 0.86);
 }
-.overview-photo {
-  border-radius: 20px; overflow: hidden; height: 100%; min-height: 340px; background: var(--wash);
+.home-meta span + span::before { content: '·'; margin-right: 10px; opacity: 0.7; }
+.home-banner-text h3 {
+  margin: 0; font-family: var(--font-display); font-weight: 400; color: #fff;
+  font-size: clamp(26px, 2.6vw, 36px); letter-spacing: -0.015em; line-height: 1.1;
 }
-.overview-photo img { width: 100%; height: 100%; min-height: 340px; object-fit: cover; display: block; }
+.home-lead {
+  margin: 0; font-size: 17px; line-height: 1.4; font-weight: 700;
+  color: #fff; max-width: 760px; text-wrap: pretty;
+}
+.home-body-text {
+  margin: 0; font-size: 14.5px; line-height: 1.55; color: rgba(255, 255, 255, 0.9);
+  white-space: pre-wrap; text-wrap: pretty; max-width: 88ch;
+}
 
 /* Batches */
 .batch-note { margin: 0 0 16px; font-size: 14px; color: var(--muted); line-height: 1.6; }
@@ -459,13 +512,255 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible {
 .batch-headline { font-size: 15.5px; font-weight: 700; }
 .batch-detail { font-size: 14px; color: var(--muted); margin-top: 4px; white-space: pre-wrap; line-height: 1.6; }
 
+/* A heading inside a panel-stack tab. The Itinerary tab carries travel, do's
+   and don'ts and the packing list as well as the itinerary itself (the school's
+   grouping), so each needs a label without being promoted to its own Section. */
+.sub-block { display: flex; flex-direction: column; gap: 16px; }
+.sub-block > h4, .sub-head h4 {
+  margin: 0; font-size: 20px; font-weight: 700; letter-spacing: -0.015em;
+}
+.sub-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.sub-block .two-col { margin-top: 0; }
+
+/* Orientation — one row per kind, the batches beside each other. */
+.orient-group { display: flex; flex-direction: column; gap: 10px; }
+.orient-group + .orient-group { margin-top: 18px; }
+.orient-group > h4 {
+  margin: 0; font-size: 12.5px; font-weight: 700; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--soft);
+}
+/* Flex with a fixed basis, NOT `auto-fit` + `1fr`. auto-fit collapses the empty
+   tracks and hands the survivors the whole row, so a lone card measured 1860px
+   wide at 1920 and a pair measured 930px each — the school asked for these to be
+   small and they were the widest thing on the page. Fixed basis, left-aligned,
+   wrapping. */
+.orient-row { display: flex; flex-wrap: wrap; gap: 14px; }
+.orient-row > * { flex: 0 1 270px; max-width: 320px; min-width: 0; }
+
+/* ---------- the guideline columns, side by side ----------
+   Safety · Do's and don'ts · Things to carry, in parallel under the itinerary.
+   Each column shows the sheet's own chip as a preview card, and prints text only
+   where a column has no chip.
+
+   Redesigned 2026-08-17 to take the **full width and height of the panel**. It
+   used to be three loose boxes, each capped at 520px wide and
+   `clamp(150px, 26vh, 430px)` tall, which left a ~250px dead band under them and
+   sliced Safety off after four of its points — the screenshot the user sent. The
+   row now stretches into whatever height the itinerary leaves (see
+   `.section.is-stretch`) and each column scrolls its own list inside that height,
+   so more text is visible on a taller window and the page still never scrolls. */
+.chip-row { display: flex; flex-wrap: wrap; gap: 18px; align-items: stretch; }
+.chip-row > * { flex: 1 1 300px; min-width: 0; }
+/* Only a LONE column is capped. Three abreast should have the window between
+   them; one card spanning 1900px is what the old blanket cap existed to stop. */
+.chip-row > :only-child { max-width: 620px; }
+
+/* Each column is one card — a tinted head strip over a plain white list. The
+   colour lives in the head, so the guidance underneath stays black-on-white and
+   legible; tinting the whole column made the longest one hard to read. */
+.chip-col {
+  display: flex; flex-direction: column; min-width: 0; overflow: hidden;
+  background: var(--card); border: 1px solid var(--line);
+  border-radius: var(--r-detail); box-shadow: var(--shadow-hero);
+}
+.chip-head {
+  display: flex; align-items: center; gap: 12px; flex: 0 0 auto;
+  padding: 13px 20px; background: var(--wash); border-bottom: 1px solid var(--line);
+}
+.chip-head h4 {
+  margin: 0; flex: 1; min-width: 0;
+  font-size: 15px; font-weight: 800; letter-spacing: -0.01em; color: var(--ink);
+}
+.chip-icon {
+  flex: 0 0 auto; width: 36px; height: 36px; border-radius: var(--r-chip);
+  display: grid; place-items: center;
+  background: var(--card); border: 1px solid var(--line); color: var(--accent);
+}
+.chip-icon svg { width: 19px; height: 19px; }
+/* How many measures / rules / items — the count the old heading never gave, and
+   the quickest way for a parent to see a column is longer than its window. */
+.chip-count {
+  flex: 0 0 auto; font-size: 12px; font-weight: 800;
+  padding: 4px 10px; border-radius: var(--r-pill);
+  background: var(--card); border: 1px solid var(--line); color: var(--muted);
+}
+
+/* Green for safety, navy for the rules, amber for packing — the same three tones
+   the section eyebrows already use, so the columns read as part of the kit. */
+.chip-col.is-safety .chip-head { background: var(--green-bg); border-bottom-color: var(--green-line); }
+.chip-col.is-safety .chip-icon { color: var(--green); border-color: var(--green-line); }
+.chip-col.is-rules .chip-head { background: var(--warm); border-bottom-color: var(--line-2); }
+.chip-col.is-rules .chip-icon { color: var(--accent); border-color: var(--line-2); }
+.chip-col.is-carry .chip-head { background: var(--amber-bg); border-bottom-color: var(--amber-line); }
+.chip-col.is-carry .chip-icon { color: var(--amber); border-color: var(--amber-line); }
+
+/* The chip's card keeps its Drive preview — that is the point of showing the
+   chip — but at 90px rather than 150px, with tighter padding. Three full-size
+   preview cards put this tab 83px past the window, and the page must not
+   scroll. 90px is still a legible strip of the poster across the column. */
+.chip-docs {
+  flex: 1 1 0; min-height: 0; overflow-y: auto; scrollbar-width: none;
+  display: flex; flex-direction: column; gap: 12px; padding: 14px 16px 16px;
+}
+.chip-docs::-webkit-scrollbar { display: none; }
+.chip-col .doc-card { padding: 16px 18px; gap: 10px; border-radius: 16px; box-shadow: none; }
+.chip-col .doc-thumb { height: 90px; }
+.chip-col .doc-label { font-size: 15px; }
+.chip-col .doc-meta { font-size: 12.5px; }
+
+/* The printed guidance. `flex: 1` + `min-height: 0` rather than a fixed cap is
+   what lets it take the column's leftover height: a tall window now shows the
+   whole list instead of the first four lines with 300px of empty panel below. */
+/* `flex: 1 1 0`, NOT `1 1 auto`. With an `auto` basis the list contributes its
+   full content height to the column, the column to the row and the row to the
+   section — so a 13-item packing list made the row 1061px tall and put the panel
+   843px past the window, which is the opposite of filling it. A zero basis means
+   the list claims no height of its own and takes exactly what the row hands it. */
+/* `display: block` + `column-width`, not the flex column `ul.plain` gives it:
+   with Things to carry on its own tab this card is ~915px wide on a full-screen
+   window, and eleven safety measures running down one edge of it both wasted the
+   width and ran 203px past the panel. Two columns fit the lot. The width is a
+   threshold, not a count — a 601px card stays single-column, where two columns
+   would wrap every sentence to three lines. */
+.chip-lines {
+  margin: 0; flex: 1 1 0; min-height: 0; overflow-y: auto; scrollbar-width: none;
+  display: block; column-gap: 34px;
+  padding: 4px 20px; font-size: 14px; line-height: 1.55;
+}
+.chip-lines::-webkit-scrollbar { display: none; }
+/* `border-bottom`, not `border-top`: a top rule on the first item of the second
+   column is a line hanging under nothing. A bottom rule on the last item of the
+   first column reads as "the list carries on", which it does. */
+.chip-lines > li {
+  display: flex; gap: 12px; align-items: flex-start; break-inside: avoid;
+  padding: 8px 0; border-bottom: 1px solid var(--rule);
+  font-size: 14px; line-height: 1.55; color: var(--body);
+}
+.chip-lines > li:last-child { border-bottom: none; }
+/* The bullet is drawn by `.chip-mark` now — a numbered disc — so the shared
+   `ul.plain` dot has to go or every line carries TWO markers, a grey dot and
+   then the number. It did exactly that until 2026-08-17: `ul.plain li::before`
+   is declared later in this file at equal specificity, so it won on source
+   order. `ul.plain.chip-lines` outranks it. */
+ul.plain.chip-lines > li::before { content: none; }
+/* Same source-order fight: `ul.plain`'s `display: flex` outranks `.chip-lines`
+   at equal specificity, and a flex container ignores `column-width` entirely —
+   which is why the two-column flow did nothing until this rule existed. */
+ul.plain.chip-lines { display: block; }
+/* Sized and nudged so a marker aligns to the FIRST line of a wrapped item
+   rather than centring itself against three lines of text. */
+.chip-mark {
+  flex: 0 0 auto; width: 24px; height: 24px; margin-top: 1px;
+  display: grid; place-items: center; border-radius: 8px;
+  font-size: 12px; font-weight: 800; font-variant-numeric: tabular-nums;
+  background: var(--warm); color: var(--accent);
+}
+.chip-mark svg { width: 14px; height: 14px; }
+.chip-col.is-safety .chip-mark { background: var(--green-bg); color: var(--green); border-radius: var(--r-pill); }
+.chip-col.is-carry .chip-mark { background: var(--amber-bg); color: var(--amber); }
+/* A `Do:` / `Don't:` line overrides the column's own marker — that prefix is the
+   only thing separating the two sides in the sheet's single column. */
+.chip-lines > li.is-do .chip-mark { background: var(--green-bg); color: var(--green); }
+.chip-lines > li.is-dont .chip-mark { background: var(--red-bg); color: var(--red); }
+
+/* ---------- do's and don'ts: a vertical stack of cards ----------
+   The school's poster shape, asked for 2026-08-17 ("do and donts make vertically
+   cards"). Each rule is its own tinted card under a DO or DON'T label, rather
+   than a row in a list — with only a handful of rules a list looked thin beside
+   Safety's eleven. */
+.rule-stack {
+  flex: 1 1 0; min-height: 0; overflow-y: auto; scrollbar-width: none;
+  display: flex; flex-direction: column; gap: 10px; padding: 14px 18px 16px;
+}
+.rule-stack::-webkit-scrollbar { display: none; }
+.rule-stack > div { display: flex; flex-direction: column; gap: 8px; }
+/* The side label, printed only where the side changes. */
+.rule-side {
+  display: inline-flex; align-items: center; gap: 6px; align-self: flex-start;
+  font-size: 11.5px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase;
+}
+.rule-side svg { width: 13px; height: 13px; }
+.rule-side.is-do { color: var(--green); }
+.rule-side.is-dont { color: var(--red); }
+.rule-card {
+  display: flex; gap: 12px; align-items: flex-start;
+  padding: 13px 15px; border-radius: var(--r-chip);
+  background: var(--wash); border: 1px solid var(--line);
+  font-size: 14px; line-height: 1.55; color: var(--body);
+}
+.rule-card.is-do { background: var(--green-bg); border-color: var(--green-line); color: var(--green-ink); }
+.rule-card.is-dont { background: var(--red-bg); border-color: var(--red-line); color: var(--red-ink); }
+.rule-card.is-do .chip-mark { background: var(--card); color: var(--green); }
+.rule-card.is-dont .chip-mark { background: var(--card); color: var(--red); }
+
+/* ---------- things to carry, on its own tab ----------
+   One card filling the panel. The list flows into COLUMNS rather than running
+   down one edge: thirteen items in a single file need ~590px and the panel has
+   ~540, so a single column could not "fit on screen" at any window height, and a
+   13-item list stretched across 1900px of white is not a list anyone reads. */
+/* Capped, not full-bleed. Given the whole 1847px window the thirteen items flow
+   into FOUR columns of three, which stops reading as a list at all; 1080px keeps
+   it to two columns of seven — still a list, and still entirely on screen. */
+.carry-card { flex: 1 1 0; min-height: 200px; max-width: 1080px; }
+.carry-list { padding: 10px 22px 16px; }
+.carry-list > li { padding: 12px 0; }
+
+/* Two tracks on a wide window — GRID, not CSS multicol.
+
+   Multicol cannot be used here at all: inside a scroller with a definite height
+   the browser keeps adding "overflow columns" until the content fits, sideways.
+   Measured at 1280 with `column-width: 400px` on a 601px card, it produced three
+   180px columns and 1226px of horizontal scroll, every sentence wrapped to bits.
+   `column-count` with `column-fill: balance` did the same — the definite height
+   wins either way. A grid has a fixed number of tracks and simply grows
+   downwards, which is what the list's own scrollbar is for.
+
+   `ul.plain.chip-lines` is the specificity these have to beat, so they carry the
+   same `ul.plain` prefix. */
+@media (min-width: 1100px) {
+  ul.plain.carry-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-content: start; }
+}
+@media (min-width: 1600px) {
+  ul.plain.chip-lines:not(.carry-list) {
+    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-content: start;
+  }
+}
+
+/* Once the three columns wrap they are stacked, and sharing one row's height
+   between them leaves each a head and nothing else — measured 69px per column at
+   375px wide. Below that width they take their natural height and the panel
+   scrolls instead, which is what a phone does on this tab anyway (the window
+   still never scrolls). */
+@media (max-width: 980px) {
+  .section.is-stretch > .chip-row, .carry-card { flex: 0 0 auto; min-height: 0; }
+  .chip-lines, .chip-docs, .rule-stack { flex: 0 0 auto; overflow: visible; }
+  .carry-list { column-width: auto; columns: 1; }
+}
+
 /* Documents */
 .doc-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
 .doc-card {
+  position: relative;
   display: flex; flex-direction: column; gap: 14px; background: var(--card);
   border: 1px solid var(--line); border-radius: 20px; padding: 26px;
   color: var(--ink); transition: transform 0.3s cubic-bezier(0.2, 0.7, 0.3, 1), box-shadow 0.3s ease, border-color 0.2s ease;
 }
+/* "B1" / "B2". Positioned rather than placed in the flow so it sits over a
+   Drive thumbnail as readily as over the icon tile. */
+.doc-batch {
+  position: absolute; top: 18px; right: 18px; z-index: 1;
+  padding: 5px 11px; border-radius: var(--r-pill); background: var(--warm);
+  color: var(--navy); font-size: 12px; font-weight: 800; letter-spacing: 0.02em;
+}
+.doc-card.is-pending .doc-batch { background: var(--wash); color: var(--soft); }
+/* Compact: no 150px preview, tighter box. Four of these fit one screen where
+   four full cards did not. */
+.doc-card.is-compact { padding: 16px 18px; gap: 10px; border-radius: 16px; }
+.doc-card.is-compact .doc-icon { width: 36px; height: 36px; border-radius: 11px; }
+.doc-card.is-compact .doc-icon svg { width: 17px; height: 17px; }
+.doc-card.is-compact .doc-label { font-size: 15px; }
+.doc-card.is-compact .doc-meta { font-size: 12.5px; }
+.doc-card.is-compact .doc-batch { top: 12px; right: 12px; padding: 4px 9px; font-size: 11px; }
 .doc-card:hover {
   transform: translateY(-4px); box-shadow: var(--shadow-card);
   border-color: var(--accent); color: var(--ink);
@@ -671,7 +966,7 @@ ul.plain li::before { content: '•'; flex: none; font-weight: 800; color: var(-
 .state .linkbtn { margin-top: 14px; }
 
 @media (prefers-reduced-motion: reduce) {
-  .login, .auth-card, .pick-card, .doc-card, .photo-item, .btn, .th-actions .primary, .acc-body {
+  .login, .auth-card, .pick-card, .doc-card, .photo-item, .btn, .acc-body {
     animation: none; transition: none;
   }
 }
@@ -693,13 +988,13 @@ ul.plain li::before { content: '•'; flex: none; font-weight: 800; color: var(-
   .topbar .account { padding-left: 0; border-left: none; }
   .account .who { text-align: left; }
   .dash-head { margin-bottom: 24px; }
-  .trip-hero { min-height: 420px; }
-  .th-body { padding: 40px var(--shell-pad) 32px; }
-  .secnav { margin-top: 22px; }
-  .sections { gap: 46px; padding-top: 34px; }
+  .secnav { margin-top: 16px; }
+  .sections { gap: 28px; padding-top: 18px; }
+  .section { gap: 20px; }
   .section h3 { font-size: 24px; }
   .panel, .travel-card, .reminder-list, .comm { padding: 22px; }
-  .overview-copy { padding: 22px 18px; }
+  .home-banner-text { padding: 22px 18px 20px; gap: 8px; }
+  .home-body-text { font-size: 13.5px; line-height: 1.5; }
   .acc-head { padding: 16px 18px; }
   .acc-body { padding: 0 18px 18px 18px; }
   .photo-masonry { columns: 1; }

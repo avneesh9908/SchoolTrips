@@ -1,14 +1,16 @@
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
-import { GRADES, gradeById } from '../lib/grades'
+import { GRADES, gradeById, isComingSoon } from '../lib/grades'
+import { useTripTitles } from '../data/useTripTitles'
 import { Icon } from '../components/Icon'
 import { initials } from '../components/TopBar'
 
 export default function ChildPicker() {
   const { students, selectStudent, session, isAdmin } = useAuth()
   const navigate = useNavigate()
+  const titles = useTripTitles()
 
-  if (isAdmin) return <GradePicker name={session?.parentName} navigate={navigate} />
+  if (isAdmin) return <GradePicker name={session?.parentName} navigate={navigate} titles={titles} />
 
   const open = (student) => {
     selectStudent(student.id)
@@ -43,6 +45,7 @@ export default function ChildPicker() {
       <div className="card-grid">
         {students.map((s) => {
           const g = gradeById(s.grade)
+          const soon = isComingSoon(g.id)
           return (
             <PickCard
               key={s.id}
@@ -50,8 +53,9 @@ export default function ChildPicker() {
               title={s.name}
               code={g.label}
               status={s.section ? `Section ${s.section}` : ''}
-              line={`${g.full} · trip plan`}
+              line={tripLine(g, titles, soon)}
               cta="View trip details →"
+              comingSoon={soon}
               onClick={() => open(s)}
             />
           )
@@ -62,7 +66,9 @@ export default function ChildPicker() {
 }
 
 /** Staff view: every grade in the school. */
-function GradePicker({ name, navigate }) {
+function GradePicker({ name, navigate, titles }) {
+  const live = GRADES.filter((g) => !isComingSoon(g.id)).length
+
   return (
     <>
       <DashHead
@@ -75,24 +81,42 @@ function GradePicker({ name, navigate }) {
 
       <div className="list-head">
         <h3>Select a grade</h3>
-        <span className="count">{GRADES.length} grades</span>
+        <span className="count">{live} of {GRADES.length} open</span>
       </div>
 
       <div className="card-grid">
-        {GRADES.map((g) => (
-          <PickCard
-            key={g.id}
-            grade={g}
-            title={g.full}
-            code={g.label}
-            line="Trip plan"
-            cta="View trip details →"
-            onClick={() => navigate(`/trip/${g.id}`)}
-          />
-        ))}
+        {GRADES.map((g) => {
+          const soon = isComingSoon(g.id)
+          return (
+            <PickCard
+              key={g.id}
+              grade={g}
+              title={g.full}
+              code={g.label}
+              line={tripLine(g, titles, soon)}
+              cta="View trip details →"
+              comingSoon={soon}
+              onClick={() => navigate(`/trip/${g.id}`)}
+            />
+          )
+        })}
       </div>
     </>
   )
+}
+
+/**
+ * The card's second line: the trip's own name, which is what the school asked
+ * for in place of the words "Trip plan".
+ *
+ * `titles` is null until the sheet lands. An em space rather than "Loading…"
+ * keeps the card the same height, so the grid does not jump when the names
+ * arrive a moment later.
+ */
+function tripLine(grade, titles, soon) {
+  if (soon) return 'Trip not announced yet'
+  if (!titles) return ' '
+  return titles[grade.id] || 'Not published yet'
 }
 
 function DashHead({ here, title, lede, name, role }) {
@@ -116,9 +140,19 @@ function DashHead({ here, title, lede, name, role }) {
   )
 }
 
-function PickCard({ grade, title, code, status, line, cta, onClick }) {
+/**
+ * A grade whose trip is not published yet renders as a plain `div`, never a
+ * disabled button: there is nothing behind it, so it must not take focus or
+ * invite a click that does nothing.
+ */
+function PickCard({ grade, title, code, status, line, cta, comingSoon = false, onClick }) {
+  const Tag = comingSoon ? 'div' : 'button'
+
   return (
-    <button className="pick-card" onClick={onClick}>
+    <Tag
+      className={comingSoon ? 'pick-card is-soon' : 'pick-card'}
+      onClick={comingSoon ? undefined : onClick}
+    >
       <span className="pick-media" style={{ background: `linear-gradient(150deg, ${grade.color}, #1B2560)` }}>
         <span className="pick-code">{code}</span>
         {status && <span className="pick-status">{status}</span>}
@@ -129,8 +163,8 @@ function PickCard({ grade, title, code, status, line, cta, onClick }) {
           <span className="n">{title}</span>
           <span className="line">{line}</span>
         </span>
-        <span className="pick-cta">{cta}</span>
+        <span className="pick-cta">{comingSoon ? 'Coming soon' : cta}</span>
       </span>
-    </button>
+    </Tag>
   )
 }

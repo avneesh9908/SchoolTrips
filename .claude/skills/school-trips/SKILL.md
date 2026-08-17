@@ -34,6 +34,7 @@ sample-data/         EMPTY template workbook + the setup-guide deck for manageme
 sample-data/split/   the master-links-to-separate-sheets layout: Trip Master.xlsx
                       (Settings only) plus one workbook per source
 public/config.json    the live pointer; there is deliberately no committed .env
+public/trip-guidelines.json  committed fallback guideline TEXT, per grade (see below)
 legacy/               original single-file prototype (reference only)
 src/
   main.jsx            BrowserRouter > AuthProvider > App
@@ -41,8 +42,8 @@ src/
   auth/               AuthContext, RequireAuth / RequireStudent
   components/         Icon, Section, DocCard, TopBar, States
   data/               index (adapter pick), sheetsAdapter, apiAdapter, csv,
-                      normalize, useTrip
-  lib/                grades, phone, docPreview, destinationPhoto
+                      normalize, useTrip, useTripTitles, guidelineFallback
+  lib/                grades, phone, docPreview, tripPhoto
   pages/              Login, ChildPicker, TripPage
   styles/             tokens.css, global.css
 ```
@@ -332,38 +333,134 @@ Itinerary (nucleus). **Five are text → printed on the page**, so a parent neve
 document to read them: Header Text, Travel details, Safety guidelines, Do/Dont's, Things to
 carry.
 
-**Page order, revised 2026-08-13: header (with a destination photo) → fact bar → sticky section
-nav → the sections.** Photos are a section named **Photos** at the end, reached from the hero's
-"View photos" button.
+**Page order, final for 2026-08-14: the tab bar is the first thing under the header, then one
+panel.** Nothing sits above the tabs. The hero's "View photos" / "View itinerary" buttons and
+`openTab()` were **deleted** — nothing on this page scrolls the window any more.
+
+Three things above the tabs were removed across two passes that day, each crossed out on a
+screenshot by the user. Do not rebuild any of them:
+- **`TripHero`** and `.trip-hero` / `.th-*` — its grade, trip name and dates are on the Overview image.
+- **`FactBar`** and `.factbar` / `.fact` — same.
+- **`TopLine`** and `.trip-topline` — the back link and grade name. The top bar already carries
+  "All grades" for staff and names the grade beside the account, so the row was pure repetition.
+
+**Removing `TopLine` needed a matching change in `TopBar`:** its "Switch child" button used to appear
+only for `students.length > 1`, so a one-child parent lost their only route back and was stranded on
+the trip page. It now shows for any parent with an active student, labelled "Switch child" or
+**"My child"**. Verified: a one-child parent gets "My child" and it reaches `/children`.
 
 `PhotosSection` renders a `photo-masonry` of `PhotoTile`s when the sheet holds image URLs, plus a
 `DocCard` block for album folder links; with neither, `buildSections` never creates the section.
 `PhotoTile` swaps to a typed tile on `onError`, since a Drive image that is not link-shared 403s
 and would otherwise leave a white gap.
 
-### The trip header — name, batch, dates, child, in that order
-`TripHero` + `FactBar` in `TripPage.jsx`, ordered as the user specified: grade pill → **trip name**
-→ batch date lines → then **Batch**, **Dates**, **Travelling** (child · section) as the three white
-`fact` cards that overlap the bottom of the hero. Each carries a small uppercase label rather than
-being a bare pill — "Batch 2" alone does not tell a parent it is their child's batch.
-`heroBatch` says `Batch 1` only when
-`trip.batchMatched`; otherwise it says "All N batches", because naming one batch would be wrong
-when the page is showing every batch. `heroDates` strips the "Batch 1:" prefix already shown
-beside it.
+### The trip page is a FIXED-HEIGHT view — the window never scrolls
+Set 2026-08-14: *"I don't want scrollbar anywhere."* `App.jsx` puts `is-fixed` on `.app` for any
+`/trip/` path, which makes the route fill the window exactly, and **drops the site footer** — ~117px
+of chrome was the difference between fitting and not, and its one line of copy points at the trip
+page the reader is already on. `/children` and `/login` are unaffected: the picker still scrolls and
+still has its footer.
 
-**The hero photo is of the destination, from Wikipedia — never presented as the school's photo.**
-`lib/destinationPhoto.js` splits the Destination cell (`Jaipur-Abhaneri-Ranthambore` → three
-candidates), searches each via the action API
-(`generator=search&prop=pageimages&piprop=thumbnail&pithumbsize=1600&origin=*`) and takes the
-first hit; results are cached per destination and a failure resolves to `null` so the hero just
-stays the grade colour. The action API is used over the REST summary endpoint because summary
-thumbnails are only 330px and search tolerates the school's spelling (`Panchmarhi` → Pachmarhi).
-It sends `Access-Control-Allow-Origin: *`, so no key and no proxy. A sheet `coverImage` always
-wins, and when the Wikipedia image is used a `th-credit` link names the page. Keep the credit —
-without it an illustrative stock photo reads as a picture of this trip.
+Three things in that CSS are load-bearing:
+- **`100dvh`, never `100vh`.** On a phone `100vh` is the address bar's tallest state, so a vh-sized
+  page overflows by the bar's height and scrolls — the exact thing being removed.
+- **`min-height: 0` down the whole chain** (`.app.is-fixed` → `.page` → `.shell` → `.sections`). A
+  flex child refuses to shrink below its content without it, and the overflow pops back out at the
+  window.
+- **`.sections` is `display: block` when it scrolls, and `flex` only for Overview.** See the trap
+  below — this one silently hid content.
 
-The photo is **not** `loading="lazy"`: it is the hero, above the fold, and lazy images never load
-at all while the preview pane is hidden, which also makes the tile fallbacks unverifiable there.
+`heroBatch` / `heroDates` survive as the Overview image's meta line. `heroBatch` says `Batch 1` only
+when `trip.batchMatched`; otherwise "All N batches", because naming one batch would be wrong when
+every batch is shown. `heroDates` strips the `Batch N:` prefix from **both** the matched and the
+all-batches case — the sheet's headlines carry it verbatim and Grade 7 has it wrong on both rows, so
+staff were reading "Batch 1: 12-19 December · Batch 1: 13-20 December".
+
+#### The trap: `overflow: hidden` hides overflow from `scrollWidth`, so measure element rects
+`.app.is-fixed { overflow: hidden }` means content wider or taller than the window is **clipped, not
+scrolled** — so `documentElement.scrollWidth - innerWidth` reads **0 whether the layout fits or not**.
+A whole round of "zero horizontal overflow" measurements was worthless for that reason, and the user
+had to send screenshots of cards sliced off at the right edge and headings sliced by the tab bar.
+
+Verify the fixed layout by walking `.sections *` and comparing each `getBoundingClientRect()` against
+`innerWidth` / `innerHeight`, skipping anything inside `.chip-lines` (its own scroller, legitimately
+clipping its own content). Zero is the pass. Also assert `secnav.bottom <= sections.top` — the two
+must not overlap — and check the gap under the header is the page padding (18px) and nothing more.
+
+#### The trap: `position: sticky` still applies inside an `overflow: hidden` box
+`.secnav` kept `position: sticky; top: var(--header-h)` after the page became fixed-height. Because
+`overflow: hidden` makes `.app.is-fixed` a **scrollport**, the `top: 66px` offset was still honoured:
+the bar was pushed 66px **down out of its flow slot**, which simultaneously
+- left an **84px empty band** under the header (its vacated flow slot), and
+- laid the bar **on top of the panel**, slicing the first heading ("Orientation") and the first batch
+  row — exactly what the screenshots showed.
+
+`.app.is-fixed .secnav { position: static; }` fixes both. Nothing needs to stick any more: the panel
+is the scroller and the bar sits outside it. Measured after: gap 84 → **18**, `navOverlapsPanel`
+false on all five tabs, at 1280×720 **and** 1920×1080, on both data paths.
+
+#### The trap: a flex panel cannot be scrolled, and fails silently
+Caught by measurement 2026-08-14 and worth the paragraph. With `.sections` as a flex column and its
+section allowed to shrink (`min-height: 0`), the section's box settled at the container height while
+its content painted *outside* it — so `scrollHeight === clientHeight`, the panel reported nothing to
+scroll, and **Safety's last four measures were unreachable**. Nothing looked broken; the content was
+just gone.
+
+`.sections` is therefore `display: block` in the fixed layout, which measures its content honestly,
+and `.sections.is-fill` (flex, `overflow: hidden`) is used only for Overview. `is-fill` is a **class
+set in `TripPage`, not a `:has(#home)` rule** — the distinction decides whether a tall panel can be
+scrolled at all, so it should be explicit. `.sections` only ever has one child, so the flex `gap` it
+used to rely on was doing nothing.
+
+Verify this the same way if it is ever touched: per tab, assert `scrollHeight > clientHeight` **and**
+that the last `.acc-item` / `.doc-card` / `.check-item` is reachable after `panel.scrollTop =
+panel.scrollHeight`. Measured at 1280×720 — Overview 538/538 (no scroll), Safety 917, Itinerary
+1649, all last children reachable, `window` scroll 0 on every tab.
+
+**Scrollbars are hidden on the panels** (`scrollbar-width: none`, matching `.secnav-inner`), per the
+instruction.
+
+**On desktop nothing scrolls at all any more** — after the Travel split, the compact Orientation cards
+and the 90px chip previews, every tab's panel fits. Re-measured 2026-08-14 at 1280×720, both data
+paths: window scroll 0 **and panel scroll 0** on all five tabs.
+
+**On a phone the panels still scroll**, and that is unavoidable: at 375px the three side-by-side
+guideline columns stack into three, so Itinerary runs ~694px past the panel (Orientation 229, Travel
+196). The window still never scrolls. Do not try to "fix" this by shrinking the columns further — at
+375px wide three columns abreast would be illegible.
+
+**The Confirmed / "Details coming soon" pill is gone.** `assembleTripApp` sets
+`status: 'confirmed'` unconditionally, so the pill never said anything true. Do not reintroduce it
+without a real status column.
+
+### The photograph — the school's own, one per page, and one only
+`lib/tripPhoto.js` reads `config().tripPhotos`, a **grade id → image URL** map. That is the whole
+mechanism: nothing is searched for, nothing is inferred from the destination, and a grade with no
+entry shows no photograph at all.
+
+It replaced `lib/destinationPhoto.js` (Wikipedia search, **deleted** 2026-08-14) at the user's
+instruction — they supply the real photograph of the real trip. The old module's credit chip
+(`th-credit`) went with it. Do not reintroduce a photo lookup: an illustrative picture of a place
+reads to a parent as a picture of their child's trip, which is why the credit was mandatory before
+and why no photo is now preferable to a found one.
+
+The photo lives on the **Overview tab and nowhere else** — `HomeSection`'s `.home-banner`. There is
+**exactly one image on the page** (asserted in verification); the old Overview block's second copy of
+it was the "remove second image" instruction. It is **not** `loading="lazy"`: it is the first thing on
+the first tab, and a lazy image never loads at all while the preview pane is hidden.
+
+The banner is `flex: 1` and takes whatever height the fixed layout leaves, rather than setting a
+height of its own — that is what makes Overview fill the window on any screen without scrolling.
+Measured: 494px tall at 1280×720, 564px at 375×812, both inside the viewport.
+
+**The Grade 7 photograph is deliberately NOT committed.** It is a group photo of ~50 identifiable
+students at Chand Baori, Abhaneri, supplied 2026-08-14. It sits at
+`public/local-roster/trip-photos/g7-abhaneri.jpg` with its pointer in the gitignored
+`config.local.json`, so `stripLocalOnlyFiles()` removes it from every build — **verified: absent
+from `dist`**. Publishing it means moving the file to `public/trip-photos/` and adding the entry to
+the committed `config.json`. That is a decision about putting children's faces on a public site
+from a public repo, so it is the school's to make and has **not** been made. Committed
+`config.json` carries `"tripPhotos": {}` plus a `_tripPhotos` note saying so.
 
 `Do/Dont's` is one column holding both sides, so it renders as a **single list**, not the
 eight-tab schema's Do/Don't pair — hence the extra `doDonts` field alongside the legacy
@@ -438,7 +535,28 @@ Diagnose it that way round: run the same probe on both, compare panel by panel, 
 look at the bundle. Verified the bundle hash matches the local build, so a stale-cache theory
 needs evidence before it is worth chasing.
 
-### The guideline text exists ONLY in the local fixture — read this before "fixing" it
+### Guideline text now ships as a committed FALLBACK — recorded 2026-08-14, built earlier
+This was missing from the skill entirely; found while reading the tree, and it **supersedes the
+"only in the local fixture" claim below**, which was true until commit `32f9ddc` ("Print guideline
+text from a fallback file when the sheet cell has none").
+
+`src/data/guidelineFallback.js` + the **committed, shipping** `public/trip-guidelines.json` supply
+Safety / Do-Dont's / Things-to-carry text per grade (`g7` is the only entry today). `useTrip` calls
+`applyGuidelineFallback(assembled, gradeId)` after assembly. Two rules make it a fallback rather
+than content:
+- a column is filled **only** when the sheet gave no text for it, so the moment management types
+  into the cell their words win with no code change;
+- filling a column also **drops that column's poster card**, because the page must not offer a link
+  to what it is already printing.
+
+Loaded from `public/` rather than bundled — same reasoning as `config.json`: the text can be
+corrected by editing one deployed file. Confirmed present in `dist`. So **production shows Grade 7's
+guideline text today without the school pasting anything**, which is the opposite of what the next
+two sections say; they describe the situation before that commit and are kept for the reasoning.
+The school should still fill the cells — the `_confirm` key in the JSON says the text is a year old
+and needs their sign-off.
+
+### Historical: the guideline text existed ONLY in the local fixture
 `public/local-roster/trip-app.csv` (gitignored) is the published sheet with Grade 7's three chip
 cells replaced by that text, wired up via `csvUrls.trips` in `config.local.json`. **The live
 sheet has never had guideline text**: its Safety / Do-Dont's / Things-to-carry cells hold poster
@@ -475,17 +593,17 @@ to switch on the tab look like different pages"). It had been one scrolling page
 scroll-spy for part of that day; before that it was tabs. It is tabs now, and clicking a tab
 **must never scroll the page** — only the panel swaps.
 
-- `TripPage` owns the tab state, not `TripBody`, because the hero's "View photos" button has to
-  reach it. State is held **by section id, never by index**: the tab list is derived from the
-  data, so a remembered index lands on a different tab in another grade. `active` is derived —
+- `TripPage` owns the tab state, not `TripBody`. State is held **by section id, never by index**:
+  the tab list is derived from the data, so a remembered index lands on a different tab in another
+  grade. `active` is derived —
   `sections.some(s => s.id === chosen) ? chosen : sections[0]?.id` — so a tab that does not exist
   in the newly opened grade silently falls back to the first instead of rendering nothing.
-  Verified: choosing "Things to carry" on g7 then opening g9 lands on Overview.
 - Only the active panel is mounted, keyed on the tab id so the `fade-in` replays per switch.
 - `useActiveSection` (the scroll listener) is **deleted**. Do not reintroduce it.
-- `openTab()` — the hero button only — sets the tab *and* scrolls the nav to the top, since the
-  tab bar sits under a 520px hero and a change 600px below the fold reads as a dead button. That
-  is the one place scrolling is correct.
+- `openTab()` is **deleted too** (2026-08-14), along with the hero buttons that were its only
+  caller. It existed to scroll the tab bar into view from under a 520px hero; the hero is 232px
+  now, so there is nothing to scroll to and **no code path on this page scrolls the window**.
+  Verified: clicking every tab leaves `window.scrollY` unchanged.
 - `revealTab()` scrolls the **strip**, never the page. `.secnav-inner` is a horizontal scroller
   with its scrollbar hidden, so on a phone the selected tab can sit off the right edge with
   nothing on screen looking selected — `focus({preventScroll: true})` alone suppresses that
@@ -494,18 +612,150 @@ scroll-spy for part of that day; before that it was tabs. It is tabs now, and cl
 - Roving `tabIndex`, `role=tablist/tab/tabpanel`, `aria-selected/controls/labelledby`, and
   Arrow/Home/End with wrap-around.
 
-`buildSections(trip, student, photo)` derives the list **from the data** — same rule as the old
-`buildTabs`, and it must stay that way. A section with nothing behind it is never rendered, so a
-half-filled sheet reads as a finished page rather than a row of empty shelves. Order:
-**Overview · Student · Documents · Itinerary · Safety · Travel · Reminders · Things to carry ·
-Photos**. **Overview leads** (moved ahead of Student on 2026-08-13, user's choice) because it
-carries the sheet's Header Text — the school's opening word to parents — and the first tab is the
-one that opens. Each entry carries the `id` the tab selects, and `Section` renders that id — a
-section that bypasses `Section` drops out of the tab bar silently.
+### Nine tabs became FOUR (2026-08-14) — the school's own grouping
+`buildSections(trip, photo)` derives the list **from the data**, and it must stay that way. A
+section with nothing behind it is never rendered, so a half-filled sheet reads as a finished page
+rather than a row of empty shelves. Order:
 
-New section pieces, all fed from the existing trip object:
-- **Student details** — a `kv-list` of only the facts that exist (name, grade, section, batch, trip,
-  dates). Absent for staff, who have no child row.
+The tab's **id is `home` but its label is "Overview"** — renamed 2026-08-14. Do not "tidy" the id to
+match: `is-fill` and the fixed-layout CSS key off `#home`.
+
+| Tab | Holds |
+|---|---|
+| **Overview** (id `home`) | the photograph and **nothing else**. Grade · Batch · Dates, the trip name, and the whole Header Text sit *on* the image. It never scrolls |
+| **Itinerary** | the batch block and the itinerary chip **beside each other** (`.itin-top`), then **Safety and Do's and don'ts side by side** (see below). No section heading: the tab label already says "Itinerary", and the 86px it cost was the difference between fitting and scrolling |
+| **Things to carry** | its own tab since 2026-08-17 — one 1080px card holding the packing checklist, two grid tracks on a wide window |
+| **Orientation** | Parent Orientation and Student Orientation, one row each, the batches beside each other, **compact cards** |
+| **Travel** | a card per batch. Its own tab again (it was briefly folded into Itinerary) |
+| Photos | only when the sheet holds photo URLs or album folders |
+| Reminders | only when the sheet holds coordinator details — unreachable from today's sheet, since `tripApp.js` always returns `reminders: []` |
+
+The **Safety** tab is gone: safety is now one of the three columns inside Itinerary. So are the
+**Student**, standalone **Things to carry** and **Documents** tabs. Student details were dropped
+rather than moved — the Overview image's meta line answers "is this my child's page".
+
+### The three guideline columns — the sheet's chips, side by side
+The school's instruction, verbatim: *"in sheet have links and links have chips show the chips
+parrally dont write according to you … take the chips show here preview parrally after itnary."*
+
+`.chip-row` puts **Safety · Do's and don'ts · Things to carry** in one row under the itinerary
+(`grid-template-columns: repeat(auto-fit, …)`, verified all three sharing the same `top`). Each
+column prefers **the sheet's own chip**, rendered as a `DocCard` with its Drive preview and the
+chip's own name as the label — "Safety guidelines poster", "Do and donts poster", "Things to carry
+poster". Nothing is written on the school's behalf.
+
+A column prints text (`.chip-lines`) **only when it has no chip at all**, so a school that pastes
+real guidance into a cell still gets it printed, per cell, with no code change. Those lists scroll
+inside their own column — one long list must not stretch the row past the window — capped at
+`clamp(150px, 26vh, 430px)`. The cap is **viewport-relative on purpose**: a flat 180px sliced
+sentences in half on a 1080px-tall window while leaving ~300px of the panel empty underneath, which
+is what the user photographed.
+
+The chip cards keep their preview but at **90px, not 150px**, with tighter padding: three full-size
+preview cards put this tab 83px past the window, and the page must not scroll.
+
+**Second pass, 2026-08-17: TWO columns here, packing on its own tab.** The school's instruction was
+"parally show safty and do and donts / things to carry new tab / do and donts make vertically cards /
+all things fit on screen / things to carry show in list form". So:
+- `.chip-row` now carries **Safety and Do's and don'ts only**, half the row each (915px on a
+  full-screen window). Packing was the longest of the three lists and none of the three fitted while
+  they shared a row.
+- **Things to carry is its own tab** (`CarrySection`, id `carry`, placed straight after Itinerary),
+  one card capped at **1080px** — given the full 1847px the thirteen items flowed into four columns
+  of three and stopped reading as a list at all.
+- **Do's and don'ts is `RuleStack`**: one card per rule, stacked vertically, under a DO or DON'T
+  label printed only where the side changes (so an unprefixed sheet gets no labels rather than a
+  heading it did not earn). Green `--green-bg` cards for do's, amber `--red-bg` for don'ts.
+- **A stray grey bullet sat beside every number** in the first pass. `.chip-lines > li::before` and
+  `ul.plain li::before` are equally specific and `ul.plain` is declared later, so it won on source
+  order; `ul.plain.chip-lines` is what actually kills it. The same trap hid `display: block` — a flex
+  container ignores column properties, so the two-column flow silently did nothing.
+
+**Never use CSS multicol inside these lists.** Inside a scroller with a definite height the browser
+keeps adding *overflow columns* until the content fits, sideways: measured at 1280 with
+`column-width: 400px` on a 601px Safety card it produced **three 180px columns and 1226px of
+horizontal scroll**, every sentence wrapped to bits. `column-count` with `column-fill: balance` did
+the same — the definite height wins either way. Two **grid tracks** behind a media query
+(`min-width: 1600px` for Safety, `1100px` for packing) is the fix; a grid has a fixed number of tracks
+and grows downwards, which is what the list's own scrollbar is for.
+
+Measured at 1907×878 (the school's window), Grade 7, staff: Safety **11/11 in two tracks**, Do's and
+don'ts **4/4**, Things to carry **13/13 in two tracks**, `vHidden 0` on all three, and panel scroll 0 /
+window scroll 0 on every tab. At 1280×720 Safety and the rules scroll inside their own cards; at 375px
+everything is single-column and the panel scrolls, window still 0.
+
+**First pass, same day — redesigned to fill the panel** ("take full breath and lenth of screen"). Each column is
+one card: a tinted head (icon square, title, item count) over a plain white list. The colour lives in
+the head, not the body, so the longest column stays legible. Markers are `.chip-mark`: a numbered
+disc for safety, a tick or cross for do's/don'ts (from `splitRule()`, which reads and then strips the
+sheet's `Do:` / `Don't:` prefix), a tick for packing; `.chip-lines > li::before { content: none }`
+kills the inherited `ul.plain` dot or every line carries two markers.
+
+The row **stretches** rather than sitting at a fixed cap: `Section` takes a `className`, the Itinerary
+section gets `is-stretch` (`min-height: 100%`) and `.chip-row` is `flex: 1 1 0`. The list inside must
+also be `flex: 1 1 0` — with `auto` it hands its content height up the chain and the panel overflowed
+by 843px. Height for it was bought by putting the batch block and the itinerary card **beside** each
+other (`.itin-top`) and the batches side by side (`.batch-grid`): 306 → 167px at 1280×720, so the
+columns went 217 → 356px, and 758px at 1920×1080. Below 980px the columns stack, take their natural
+height and let the panel scroll — sharing one row's height between three stacked columns left each a
+69px head and no list at all.
+
+**The previews are blank today, and that is the sharing blocker, not a bug.** All three poster files
+answer 401 anonymously, so `drive.google.com/thumbnail?id=…` cannot render them; the card shows an
+empty tile (or `DocCard`'s icon fallback once `onError` fires) and its link leads a parent to a Google
+sign-in page. Measured 2026-08-14: `naturalWidth === 0` on all three. Nothing in the code will fix
+this — the school must set those files to "Anyone with the link → Viewer".
+
+### The guideline text fallback is switched OFF
+`useTrip` no longer calls `applyGuidelineFallback`. Turned off 2026-08-14 for "**dont write according
+to you**": for a chip-only cell it injected `public/trip-guidelines.json`'s text *and dropped that
+column's poster card*, so production printed guidance nobody in the sheet had written and hid the
+school's own poster — the exact opposite of what was asked.
+
+**This reverses the 2026-08-12/13 position that "text is what the school wants on the page, not
+links".** Both instructions are real; the later one wins. `guidelineFallback.js` and
+`public/trip-guidelines.json` are left in place, unused, so restoring one call in `useTrip` undoes
+it. They are dead code until that decision is settled — flag them, do not silently delete them.
+
+**Known dead code, held deliberately (2026-08-14).** Folding safety into a chip column removed
+`SafetySection`, `RulePanel`, `CarryBlock`, `TravelBlock` and `splitGuideline`, which orphaned their
+CSS: `.acc*` (the numbered safety accordion), `.rule-panel` / `.rule-head` (green/amber Do–Don't
+panels), `.check-grid` / `.check-item` (the packing checklist), `.sub-block` / `.sub-head`,
+`.two-col`. About 60 lines, ~2.5KB, still shipping. It is kept because it is exactly what a
+text-first layout would need if the guideline decision above is reversed, and because deleting it
+would mean re-verifying a page that currently measures clean. **Delete it once the school confirms
+chips-not-text is final** — `git show HEAD:src/styles/global.css` recovers it either way, the repo
+is tracked.
+
+**The batches block moved off Overview** into Itinerary, per the school's notes. And the 2026-08-13
+rule "do not put the Header Text back on the hero" is now moot rather than reversed: **there is no
+page hero at all.** The Header Text lives on the Overview tab's photograph, headline *and*
+paragraphs, and there is no panel of body copy beneath it — that panel is what used to make this tab
+scroll.
+
+Each entry carries the `id` the tab selects. `Section` now **omits its whole head** when given no
+title/eyebrow/subtitle/aside — Home is a photograph with the school's own words on it, and an empty
+`h3` above that was 20px of dead space. `.section` gained `gap: 24px` because a tab is now several
+blocks rather than one.
+
+Section pieces, all fed from the existing trip object:
+- **Orientation** — `OrientationSection` groups by category and renders one `.orient-row` per kind,
+  so B1 and B2 sit side by side (verified: equal `getBoundingClientRect().top`). `DocCard` takes
+  `batchTag` and shows "B1"/"B2" as an absolutely-positioned chip, which is why `.doc-card` is
+  `position: relative` — positioned rather than in the flow so it sits over a Drive thumbnail as
+  readily as over the icon tile. The card's label stays the chip's own name from the sheet.
+
+  These cards are **`compact`** (2026-08-14, "orintation cards make small dont make ui scroolable"):
+  `DocCard`'s `compact` prop drops the 150px Drive preview and tightens the box to an icon plus two
+  lines. That preview was what pushed this tab 234px past the window; it now fits with none.
+  `hideMeta` drops the category line, which the group heading above already states.
+
+  **`.orient-row` is flex with a fixed basis, never `auto-fit` + `1fr`.** With `1fr` tracks, `auto-fit`
+  collapses the empty ones and hands the whole row to the survivors: measured at 1920, a lone card was
+  **1860px wide** and a pair were 930px each — the widest things on the page, in the tab where the ask
+  was to make them small. `flex: 0 1 270px; max-width: 320px` keeps them small and left-aligned
+  (measured 270px). `.chip-row` is capped the same way at 520px, so a grade with only one guideline
+  filled does not get one card spanning the window.
 - **Safety** as the design's numbered accordion. `splitGuideline()` opens a line only when it names
   its measure first ("Adult supervision: a ratio of…"); a line that is one plain sentence renders as
   a `div`, not a button, so nothing pretends to expand. The regex demands whitespace after the
@@ -519,8 +769,6 @@ New section pieces, all fed from the existing trip object:
   cannot parse stays one line. Coordinator phone/email become `tel:`/`mailto:` links.
 - **Photos** as a CSS-columns masonry; `PhotoTile` still swaps to a typed tile on `onError`, and
   videos get a round play badge instead of a broken `<img>`.
-- The hero's **View photos** button scrolls to the Photos section and **View itinerary** appears
-  only when an itinerary document has a real URL — with today's chip-only sheet it is correctly absent.
 
 `DocCard` now matches the design: 44px tinted icon square, 18px title, coloured action line. The
 Drive thumbnail is still shown when it loads, so the preview capability was not dropped.
@@ -595,13 +843,65 @@ because no OAuth client id has ever been set and typing is the only path that wo
 ## The Header Text column, and where it renders
 `Header Text` / `Starting Text` reaches the app as `trip.overview` (aliases in
 `OVERVIEW_ALIASES`, `tripApp.js`). `splitHeader()` in `TripPage.jsx` cuts it at the first
-newline: the headline ("A Journey Beyond the Classroom") renders as `.overview-lead`, the
-paragraphs as `.overview-text`, **both inside the Overview tab**. A first line over 200
-characters is not treated as a headline — the whole cell renders as body text — so a school that
-types one long paragraph is still right.
+newline: the headline ("A Journey Beyond the Classroom") renders as `.home-lead` and the paragraphs
+as `.home-body-text` — **both on the photograph**, inside `.home-banner-text`, on the Overview tab.
+A first line over 200 characters is not treated as a headline: the whole cell renders as body text,
+so a school that types one long paragraph is still right.
 
-It briefly sat on the hero photo instead (2026-08-13). The user moved it into Overview and put
-Overview first. **Do not put it back on the hero**; the hero carries the trip name and dates only.
+**All of it goes over the image, and there is no panel beneath.** That panel existed for half of
+2026-08-14 and was removed the same day — it was what made this tab scroll, and the instruction was
+"overview have only images". The scrim (`.home-banner.has-photo::after`) was deepened to 0.93 at the
+foot to carry the full text; if the Header Text ever grows much beyond the ~450 characters measured
+today, this is the thing that will need re-checking.
+
+Where the text has lived, in order: the page hero (2026-08-13) → an Overview panel beside a second
+copy of the photo (2026-08-13) → on the single photograph, hero deleted (2026-08-14). The rule that
+survived all three: **it is never in two places, and the page never grows a bare-text hero.**
+
+## Junior and middle school say "Coming soon" — they are not openable
+`isComingSoon(id)` in `lib/grades.js` holds a hard set: **jk, sk, g1…g6**. Set 2026-08-14 ("Grade
+cards show coming soon till Grade 6"). Those cards render as a plain `div`, never a disabled
+`<button>` — there is nothing behind them, so they must not take focus or invite a click. `.pick-cta`
+reads "Coming soon", the line reads "Trip not announced yet", and `.pick-card.is-soon` desaturates
+the colour head.
+
+`TripPage` honours it too: `useTrip` is passed `enabled: allowed && !soon`, so one of these grades
+reached by URL shows a "Coming soon" empty state and **issues no fetch** — verified by wrapping
+`window.fetch` on `/trip/g3`: zero calls. Same rule as an unauthorised grade.
+
+**It is a hard list on purpose, not an "is the trip empty" check.** The reason these grades are
+empty is the unread `JS` worksheet (see above), and an emptiness test would equally silence a grade
+whose content merely failed to load. When the JS tab is finally read, shrink this set — do not
+replace it with a data probe.
+
+## The picker cards carry the trip's NAME, not the words "Trip plan"
+Set 2026-08-14. `useTripTitles()` calls `fetchTripSets()` **once** for the whole picker and maps
+grade → `Destination`; `loadWorkbook` caches by URL, so this shares the download the trip page
+would make anyway. It reads either sheet shape (`titlesFrom`).
+
+`titles` is `null` until it lands and the line renders as a single space, not "Loading…", so the
+grid does not change height when the names arrive. A failure is **not** an error state — it warns
+and returns `{}`, and the cards fall back to "Not published yet" while still opening the trip. A
+name is a nicety; the card must work without it. Live: g7 Jaipur-Abhaneri-Ranthambore, g8
+Jabalpur-Panchmarhi, g10 Jodhpur & Jaisalmer; g9/g11/g12 read "Not published yet".
+
+## Both Grade 7 rows say "Batch 1" in the sheet — the app now compensates
+Measured 2026-08-14: the content sheet's two Grade 7 rows **both** begin `Batch 1:` (12-19 December
+and 13-20 December). The second should say Batch 2. Taking the sheet at face value did two visible
+kinds of damage: the Orientation tab showed two identically-labelled cards, and because the label is
+part of `documentsFrom`'s de-duplication key (`category|cell|batch`), two batches that also shared a
+file name would collapse into one card and **a whole batch's deck would vanish**.
+
+`batchLabels(rows)` is now the single source of batch names — used by `documentsFrom`, `batches` and
+`travel` alike, replacing three separate `batchLabel` calls. It trusts the sheet's text unless that
+text **repeats within the grade**, in which case position wins (`Batch ${i + 1}`). A single-row
+group is left alone: nothing can collide, and renumbering would invent a batch. `batchLabelsCollided`
+reports it **once** per assembly, naming the fix — the warn used to sit inside `batchLabels` and
+said the same thing four times.
+
+This is a workaround for a sheet typo, not a replacement for fixing it. **The school should still
+correct the cell**; a parent whose section matches only the mislabelled row still sees "Batch 1",
+because one row carries no collision to detect.
 
 ## Grades are named, never coded, on screen
 "Grade 7", not "G7". `gradeById(id).full` is the only thing a parent should read — in the top
@@ -1042,8 +1342,20 @@ Raised in `docs/DATA-HANDOVER.md`; none answered yet. Do not assume any of these
 - Keep `docs/SHEET-SCHEMA.md` in step with `normalize.js`; it is what the school works from.
 - Dummy data changes go in `scripts/generate_sample_data.py` and get re-run. Never hand-edit
   `sample-data/*.xlsx` or `public/sample-sheets/*.csv` — they are build outputs.
-- **This directory is not a git repository.** Nothing deleted here is recoverable, so confirm
-  before removing anything not regenerable by a script or a build.
+- **`schoolTrips/` IS a git repository** and pushes to a public GitHub remote — corrected
+  2026-08-14, having said the opposite since 2026-08-07. A tracked file is recoverable, so
+  `git ls-files <path>` is the check before deleting one. What is *not* recoverable is anything
+  gitignored: `public/local-roster/`, `config.local.json`, `.env`. Confirm before removing those.
+  (The parent directory `C:\SchoolRepo` is not a repo; that is probably where the old note came
+  from.)
+- **`.claude/launch.json` exists twice.** `schoolTrips/.claude/launch.json` is used when the session
+  opens in `schoolTrips/`; `C:\SchoolRepo\.claude\launch.json` (added 2026-08-14) is used when it
+  opens at the parent, and runs `npm --prefix schoolTrips run dev`. The preview tool reads only the
+  primary working directory's copy, so a session started at `C:\SchoolRepo` cannot see the inner one.
+- **The browser console buffer is per-tab and survives reloads**, so stale HMR errors read as live
+  ones. `useAuth must be used inside <AuthProvider>` from a Fast Refresh invalidation is the usual
+  false alarm. Check the `?t=` build stamp on the stack frames, and confirm in a **new tab** — that
+  is the only way to get a clean buffer.
 - Two exports have no external caller and are kept on purpose: `matchFolderFiles`
   (exported so folder matching can be checked without a network call) and `GRADES` (the
   canonical domain list `gradeById` reads). Do not "clean" either away.
@@ -1052,6 +1364,111 @@ Raised in `docs/DATA-HANDOVER.md`; none answered yet. Do not assume any of these
 - `legacy/trip-explorer.html` is frozen reference. Do not edit it.
 
 ## Changelog
+- 2026-08-17 (second pass, same day) — **Safety and Do's/Don'ts side by side; Things to carry became
+  its own tab.** Tab list is now Overview · Itinerary · **Things to carry** · Orientation · Travel ·
+  Photos. Do's and don'ts is a **vertical stack of tinted cards** (`RuleStack`) under DO / DON'T
+  labels, packing is a checklist in a 1080px-capped card, and Safety flows into **two grid tracks**
+  above 1600px. Fixed the stray grey bullet beside every number — `ul.plain li::before` beat
+  `.chip-lines > li::before` on source order at equal specificity, and the same trap had been
+  silently discarding `display: block`. **Do not reach for CSS multicol in these lists:** in a
+  scroller with a definite height the browser adds overflow columns *sideways* (measured: three 180px
+  columns and 1226px of horizontal scroll on a 601px card), and `column-fill: balance` does not stop
+  it. Grid tracks behind a media query is the working shape. Verified at 1907×878: 11/11, 4/4 and
+  13/13 items all on screen, no panel or window scroll on any tab; 1280×720 and 375×812 degrade to
+  internal and panel scrolling respectively.
+- 2026-08-17 — **The three guideline columns redesigned to fill the panel** ("redesign this look
+  good attractive take full breath and lenth of screen"). Each is now one card: a tinted head strip
+  (icon square, title, item count; green / navy / amber) over a plain white list whose markers are
+  drawn by `.chip-mark` — a **numbered disc** for safety, a **tick or cross** for do's and don'ts, a
+  tick for packing. `splitRule()` reads the sheet's `Do:` / `Don't:` prefix to pick the marker and
+  then strips it. Height: `.section.is-stretch` (a new `className` prop on `Section`) is
+  `min-height: 100%` and `.chip-row` is `flex: 1 1 0`, so the row takes every px the itinerary
+  leaves. To give it more, the batch block and the itinerary card were put **beside** each other in
+  `.itin-top`, and the batches themselves side by side in `.batch-grid`. Measured at 1280×720:
+  top block 306 → 167px, guideline row 217 → **356px**; at 1920×1080 the row is **758px** and the
+  columns 608px wide, showing 8/11, 4/4 and 11/13 items with **no panel scroll and no window
+  scroll**. Below 980px the columns take their natural height and the panel scrolls (stacked, they
+  were sharing one row's height and each got a 69px head and nothing else).
+  **Three flex traps, all found by measurement, all worth remembering:** (1) `flex: 1 1 auto` on
+  `.chip-lines` made the list contribute its content height up the chain — the row became 1061px and
+  the panel overflowed by 843; a **zero basis** is what makes a scroller take what it is given
+  instead of defining it. (2) `height: 100%` on a card inside an `align-items: stretch` parent feeds
+  itself — the block settled at 265px, taller than either part needed. (3) `.orient-row`'s 270px
+  basis wrapped staff's **two** itinerary cards onto a second line, and the wrap, not the card, was
+  the 265px. Also: a rule for `.panel` placed above `.panel.is-tight` loses on source order at equal
+  specificity — `.itin-top > .panel.is-tight` is why the padding override sticks.
+- 2026-08-14 (fourth pass, same day) — **Fixed two layout bugs the user caught in screenshots that my
+  own measurements had declared clean.** (1) `.secnav` was still `position: sticky`, and since
+  `overflow: hidden` makes `.app.is-fixed` a scrollport, `top: 66px` pushed the bar 66px down out of
+  its flow slot — leaving an **84px empty band** under the header and laying the bar **over the
+  panel**, slicing the "Orientation" heading and the first batch row. Now `position: static`; gap
+  84 → 18, no overlap on any tab. (2) `.chip-lines` was capped at a flat 180px, which cut guideline
+  sentences in half on a 1080px-tall window while leaving ~300px of panel empty below —
+  now `clamp(150px, 26vh, 430px)` (281px at 1080). (3) `.orient-row`'s `auto-fit` + `1fr` grid gave a
+  lone card the **whole 1860px row** and a pair 930px each — the cards the school had asked to be made
+  small were the widest elements on the page; it is flex with a 270px basis now. **The lesson is the
+  measurement, not the CSS:**
+  `overflow: hidden` makes `scrollWidth - innerWidth` read 0 regardless of whether the layout fits, so
+  every "zero overflow" number from the previous pass was meaningless. The fixed layout must be checked
+  by walking `.sections *` and comparing each element's rect against the viewport. Re-verified that way
+  at **1280×720 and 1920×1080, on both data paths** (fixture text and live workbook chips): 0 clipped
+  elements, no nav/panel overlap, 18px gap, window scroll 0, panel scroll 0, first heading fully
+  visible on all five tabs. Build clean. **Not pushed.**
+- 2026-08-14 (third pass, same day) — **The sheet's chips shown side by side; Travel split back out;
+  nothing scrolls on desktop.** `TopLine` deleted (the last row above the tabs — the top bar already
+  carries it), which forced `TopBar` to show "My child" for one-child parents who would otherwise have
+  been stranded. Itinerary is now batches → itinerary chip → **Safety · Do's and don'ts · Things to
+  carry in one row**, each showing the sheet's own chip as a preview card labelled with the chip's own
+  name, printing text only where a column has no chip. **`applyGuidelineFallback` is no longer
+  called** — for a chip cell it was injecting `trip-guidelines.json`'s text and suppressing the
+  school's poster, which is precisely "writing according to you"; this reverses the 2026-08-12
+  text-over-links position, and the module + JSON are left unused rather than deleted. The Safety tab
+  is gone (folded into that row), **Travel is its own tab again**, Orientation cards use a new
+  `compact` DocCard (no 150px preview) and the Itinerary section heading was dropped — the three
+  together took Orientation from 234px of overflow to none and Itinerary from 166px to none. Verified
+  at 1280×720 on **both** data paths — the local fixture (text) and, by temporarily dropping
+  `csvUrls.trips`, the live published workbook (chips, since restored): **window scroll 0 and panel
+  scroll 0 on all five tabs**, zero horizontal overflow, the three columns confirmed sharing one row,
+  chips labelled "Safety guidelines poster" / "Do and donts poster" / "Things to carry poster" and
+  each linking out. Build clean, no console errors. **Caveat measured and unchanged: all three poster
+  files are private (401), so `naturalWidth === 0` and the previews render empty until the school
+  shares them.** At 375px the panels do scroll — three columns stack — while the window still does
+  not. **Not pushed.**
+- 2026-08-14 (second pass, same day) — **Hero and fact bar deleted; the trip page became a
+  fixed-height view that never scrolls the window.** The user crossed both out on a screenshot and
+  asked for their content on the Overview image: grade · batch · dates now sit there as `.home-meta`,
+  with the trip name and the **whole** Header Text, and the body-copy panel underneath is gone.
+  `App.jsx` sets `is-fixed` on `/trip/` routes — `100dvh`, `min-height: 0` down the chain, and the
+  site footer dropped (~117px was the difference between fitting and not). The Home tab was relabelled
+  **Overview** (id stays `home`). `heroDates` now strips the `Batch N:` prefix in the all-batches case
+  too, since staff were reading "Batch 1: 12-19 December · Batch 1: 13-20 December" off the sheet's
+  own duplicated text. **Found and fixed a silent content-loss bug in the process:** with `.sections`
+  as a flex column, the panel's `scrollHeight === clientHeight` while content painted outside the box,
+  so **Safety's last four measures could not be reached by any means** — `.sections` is `display:
+  block` when it scrolls, flex only for Overview via an explicit `is-fill` class. Verified at 1280×720
+  and 375×812: `window` scroll **0 on every tab** at both sizes, zero horizontal overflow, one image
+  on the page, Overview 538/538 and 582/582 with no scroll, Safety 917 and Itinerary 1649 both
+  scrollable with their last child reachable, back link present on every tab, `/children` still
+  scrolls normally and keeps its footer, `/trip/g3` still "Coming soon". Build clean, **no console
+  errors** in a fresh tab. **Not pushed.**
+- 2026-08-14 — **Rebuilt the trip page from the school's handwritten notes: nine tabs to four, and
+  a real photograph instead of a searched one.** Grades JK–6 became non-clickable "Coming soon"
+  cards that issue no fetch (`isComingSoon`); picker cards carry the trip's name from the sheet
+  (`useTripTitles`, one fetch for the whole grid); the 520px Wikipedia hero became a 232px bare
+  header, with `lib/destinationPhoto.js`, the credit chip, the hero action buttons, `openTab()` and
+  the Confirmed pill all deleted; the school's own photo moved to a new **Home** tab carrying the
+  Header Text headline over it, with the second copy of the image gone; Itinerary absorbed travel,
+  do's/don'ts and things-to-carry; Orientation shows Parent and Student decks with **B1 and B2 side
+  by side** (`DocCard` gained `batchTag`). Found and fixed a real data-loss path while verifying:
+  the sheet labels **both** Grade 7 rows "Batch 1", and since the label is part of `documentsFrom`'s
+  de-dup key, a shared file name would have silently dropped one batch's deck — `batchLabels()` now
+  breaks ties by position and warns once. Verified in a clean tab at 1440 and 375: five tabs, one
+  image on the page, zero horizontal overflow on every tab, `window.scrollY` unchanged by every tab
+  click, `/trip/g3` → "Coming soon" with **0 fetches**, staff → 14 cards (8 soon), parent
+  `p.aadhyan.khunt@fsksurat.in` → card named "Jaipur-Abhaneri-Ranthambore" → their own batch's
+  dates. `npm run build` clean; **no console errors** (the `useAuth` ones in the old tab were stale
+  HMR scrollback). **The G7 photograph is deliberately uncommitted** — see the photograph section.
+  **Not pushed.**
 - 2026-08-14 — **Chip links switched on for the three text columns, reversing yesterday's rule.**
   Asked to fix "Safety text missing on Netlify"; confirmed first that it is data, not the deploy —
   fetched the live published CSV and Grade 7's Safety / Do-Dont's / Things-to-carry cells still

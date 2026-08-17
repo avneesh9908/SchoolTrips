@@ -137,8 +137,9 @@ function documentsFrom(
 ) {
   const out = []
   const seen = new Set()
+  const labels = labelWithBatch ? batchLabels(rows) : []
   rows.forEach((row, i) => {
-    const batch = labelWithBatch ? batchLabel(row, i, rows.length) : ''
+    const batch = labelWithBatch ? labels[i] : ''
     for (const col of columns) {
       const cell = val(row, ...col.aliases)
       if (!cell) continue
@@ -159,12 +160,17 @@ function documentsFrom(
         lostLinks.push(`${col.category}: "${cell}"`)
         // The chip's own name is the best label there is — it says which grade,
         // batch and destination the file is for.
-        out.push({ grade: '', label: cell, url: '', category: col.category, pending: true })
+        out.push({ grade: '', label: cell, url: '', category: col.category, batch, pending: true })
         continue
       }
 
       out.push({
         grade: '',
+        // Which batch this file belongs to, kept as its own field so the page can
+        // group a category's files and show the batches side by side. Reading it
+        // back out of the label is not possible: a chip's label is whatever the
+        // school named the file.
+        batch,
         // A chip names the file itself ("G7 B1 … Parent's Orientation"), which
         // says more than the column ever could; a bare URL has no name, so the
         // column and batch have to supply one.
@@ -212,6 +218,41 @@ function batchLabel(row, i, total) {
   const m = dates.match(/batch\s*\d+/i)
   if (m) return m[0].replace(/\s+/g, ' ')
   return total > 1 ? `Batch ${i + 1}` : ''
+}
+
+/**
+ * One label per row of a grade's group, with collisions broken by position.
+ *
+ * The sheet's own text is trusted first, and normally that is right. But Grade
+ * 7 currently has **both** of its rows reading "Batch 1:" (measured 2026-08-14 —
+ * the second should say Batch 2), and taking that at face value does two
+ * visible kinds of damage: the Orientation tab shows two cards labelled
+ * identically, and because the label is part of `documentsFrom`'s de-duplication
+ * key, two batches that also share a file name collapse into one card and a
+ * whole batch's deck disappears.
+ *
+ * Position is the only thing that still distinguishes the rows once the text
+ * does not, so it wins when the text repeats. A single-row group is left alone:
+ * there is nothing to collide with, and renumbering it would invent a batch.
+ */
+function batchLabels(rows) {
+  const raw = rows.map((row, i) => batchLabel(row, i, rows.length))
+  if (rows.length < 2) return raw
+
+  const seen = new Map()
+  for (const label of raw) seen.set(label, (seen.get(label) || 0) + 1)
+
+  // Silent on purpose: this runs once per document column as well as for the
+  // batch list itself, so warning here said the same thing four times. The
+  // caller reports it once instead.
+  return raw.map((label, i) => (!label || seen.get(label) === 1 ? label : `Batch ${i + 1}`))
+}
+
+/** True when the sheet's own batch text repeated and position had to take over. */
+function batchLabelsCollided(rows) {
+  if (rows.length < 2) return false
+  const raw = rows.map((row, i) => batchLabel(row, i, rows.length))
+  return new Set(raw.filter(Boolean)).size !== raw.filter(Boolean).length
 }
 
 /**
@@ -289,13 +330,23 @@ export function assembleTripApp(gradeId, rows, { section } = {}) {
    * what tells a parent which batch their child is in, so it gets its own block
    * rather than being flattened into a one-line subtitle.
    */
+  const mineLabels = batchLabels(mine)
+
+  if (batchLabelsCollided(mine)) {
+    console.warn(
+      `[trip app] ${gradeId}: more than one row carries the same batch name, so batches are being ` +
+        'numbered by position instead. Correct the Dates/Sections cell in the sheet — the second ' +
+        'batch should say "Batch 2".'
+    )
+  }
+
   const batches = mine
     .map((row, i) => {
       const cell = val(row, ...DATE_ALIASES)
       if (!cell) return null
       const lines = cell.split('\n').map((l) => l.trim()).filter(Boolean)
       return {
-        label: batchLabel(row, i, mine.length),
+        label: mineLabels[i],
         headline: lines[0] || '',
         detail: lines.slice(1).join('\n'),
       }
@@ -307,7 +358,7 @@ export function assembleTripApp(gradeId, rows, { section } = {}) {
   const travel = mine
     .map((row, i) => ({
       grade: gradeId,
-      leg: batchLabel(row, i, mine.length) || 'Travel',
+      leg: mineLabels[i] || 'Travel',
       trainNo: '',
       departure: '',
       platform: '',

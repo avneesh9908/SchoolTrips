@@ -18,6 +18,24 @@ export const GRADES = [
 const FALLBACK = { id: 'unknown', label: '?', full: 'Grade', color: '#767066', icon: 'map' }
 
 /**
+ * Junior and middle school, up to Grade 6, have no trip a parent can open yet:
+ * their rows live on the content sheet's second worksheet ("JS "), which every
+ * read path skips because it only ever takes the first one. Until that is read,
+ * a card for one of these grades leads to "Nothing published yet" — a dead end
+ * that reads as a broken app rather than as work in progress.
+ *
+ * So they are labelled "Coming soon" and are not openable. This is a deliberate
+ * statement about the grade, not about the fetch: it must not be replaced by an
+ * "is the trip object empty" check, which would also silence a grade whose
+ * content simply failed to load.
+ */
+const COMING_SOON = new Set(['jk', 'sk', 'g1', 'g2', 'g3', 'g4', 'g5', 'g6'])
+
+export function isComingSoon(id) {
+  return COMING_SOON.has(id)
+}
+
+/**
  * Sheets are filled in by humans, so grade arrives in every shape imaginable:
  * "7", "Grade 7", "grade-7", "VII", "JK". Everything funnels through here so the
  * rest of the app only ever deals with a canonical id.
