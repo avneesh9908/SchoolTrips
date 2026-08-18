@@ -10,7 +10,7 @@ export function initials(name) {
 }
 
 export function TopBar() {
-  const { isAuthenticated, isAdmin, session, students, activeStudent, selectStudent, logout } = useAuth()
+  const { isAuthenticated, isAdmin, isStudent, session, students, activeStudent, selectStudent, logout } = useAuth()
   const navigate = useNavigate()
 
   const signOut = () => {
@@ -23,7 +23,7 @@ export function TopBar() {
     navigate('/children')
   }
 
-  const who = session?.parentName || (isAdmin ? 'Staff' : 'Parent')
+  const who = session?.parentName || (isAdmin ? 'Staff' : isStudent ? 'Student' : 'Parent')
 
   return (
     <header className="topbar">
@@ -47,7 +47,9 @@ export function TopBar() {
                 the trip page. */}
             {!isAdmin && activeStudent && (
               <button className="ghostbtn" onClick={switchChild}>
-                {students.length > 1 ? 'Switch child' : 'My child'}
+                {/* A student signing in with their own address has exactly one row, and
+                    "My child" would be addressing the wrong person. */}
+                {isStudent ? 'My trip' : students.length > 1 ? 'Switch child' : 'My child'}
               </button>
             )}
             <button className="ghostbtn" onClick={signOut}>Sign out</button>
@@ -58,7 +60,7 @@ export function TopBar() {
                 <span className="r">
                   {activeStudent
                     ? `${activeStudent.name} · ${gradeById(activeStudent.grade).full}`
-                    : isAdmin ? 'Staff account' : 'Parent account'}
+                    : isAdmin ? 'Staff account' : isStudent ? 'Student account' : 'Parent account'}
                 </span>
               </span>
               <span className="avatar">{initials(who)}</span>

@@ -106,6 +106,14 @@ export default function Login() {
                 disabled={busy}
               />
             </div>
+            {/* The rule, said up front. It is the only place it CAN be said: a failed
+                sign-in has to give the same answer whatever the reason, or anyone
+                typing addresses could learn which are on the school's roll. */}
+            <p className="field-note">
+              Parents sign in with the email address or mobile number the school has on file.
+              <strong> From Grade 7</strong>, a student may also sign in with their own school
+              email. In <strong>Grade 6 and below</strong>, a parent signs in.
+            </p>
             <button className="btn" type="submit" disabled={busy}>
               {busy ? 'Checking…' : 'Continue'}
             </button>

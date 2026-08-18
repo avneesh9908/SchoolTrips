@@ -193,6 +193,14 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible {
   background: #fff; color: var(--ink);
 }
 .field input:focus { outline: none; border-color: var(--accent); }
+/* The sign-in rule, under the field it applies to. */
+.field-note {
+  margin: -2px 0 16px; font-size: 12.5px; line-height: 1.55; color: var(--muted);
+  background: var(--wash); border: 1px solid var(--line);
+  border-radius: var(--r-chip); padding: 10px 13px;
+}
+.field-note strong { color: var(--ink); font-weight: 700; }
+
 .btn {
   width: 100%; padding: 15px 20px; border: none; border-radius: var(--r-chip);
   background: var(--navy); color: #fff; font: inherit; font-weight: 700; font-size: 15.5px;

@@ -16,17 +16,25 @@ import { normalizePhone } from '../lib/phone.js'
  * parent in. Hence lists rather than single fields; it is also what lets
  * mothers log in with their own number.
  *
- * A student's OWN email is deliberately not collected: it is not a parent
- * credential. `pick`/`collectAll` match whole normalized header names, so a
- * column called `StudentEmailID` can never be mistaken for `Email`.
+ * A student's OWN email is collected too, since 2026-08-17 — but into its own
+ * `studentEmails` field, never into `emails`. The two are not interchangeable: a
+ * parent contact opens any grade, while a student address opens Grade 7 and above
+ * only (the school's rule; see `allowsStudentLogin`). Pooling them would apply the
+ * wrong rule to whichever one matched. `pick`/`collectAll` match whole normalized
+ * header names, so `StudentEmailID` can never be mistaken for `Email` either way.
  *
- * An emergency contact is also excluded on purpose — it is often a neighbour or
+ * An emergency contact is still excluded on purpose — it is often a neighbour or
  * relative, and should not grant access to a child's trip details.
  */
 export function toStudent(row, i) {
   const emails = collectAll(row,
     'parentsemailid', 'parentsemail', 'parentemail', 'parentsemailaddress',
     'fatheremail', 'motheremail', 'guardianemail', 'email',
+  ).map((e) => e.trim().toLowerCase())
+
+  const studentEmails = collectAll(row,
+    'studentemailid', 'studentemail', 'studentsemailid', 'studentmailid',
+    'childemail', 'pupilemail',
   ).map((e) => e.trim().toLowerCase())
 
   const phones = collectAll(row,
@@ -42,6 +50,7 @@ export function toStudent(row, i) {
     section: pick(row, 'section', 'division'),
     parentName: pick(row, 'fathername', 'father', 'mothername', 'guardianname', 'parentname'),
     emails: [...new Set(emails)],
+    studentEmails: [...new Set(studentEmails)],
     phones: [...new Set(phones)],
   }
 }

@@ -1,9 +1,10 @@
 import { csvToObjects } from '../../src/data/csv.js'
 import { toStudent } from '../../src/data/normalize.js'
-import { classifyIdentifier } from '../../src/lib/identity.js'
+import { classifyIdentifier, matchStudent } from '../../src/lib/identity.js'
 
 /**
- * Resolves a parent's login against the school roster, server-side.
+ * Resolves a login against the school roster, server-side — a parent's, or from
+ * Grade 7 up a student's own.
  *
  * Why this exists: the roster feed sends no CORS headers, so a browser cannot
  * read it at all; and it carries addresses, dates of birth, blood groups and
@@ -79,21 +80,38 @@ export async function resolveParent(rawIdentifier) {
   }
 
   const roster = await loadRoster()
-  const matches = roster.filter((s) =>
-    s.grade && (kind === 'email' ? s.emails.includes(value) : s.phones.includes(value))
-  )
+  // `matchStudent` carries the grade rule: a parent contact opens any grade, a
+  // student's own address only Grade 7 and above.
+  const matched = roster
+    .map((s) => ({ student: s, as: matchStudent(s, { kind, value }) }))
+    .filter((m) => m.as)
 
-  if (matches.length === 0) {
-    // Same message either way — telling a caller that an address exists but has
-    // no children would leak which addresses are on the school's roll.
-    return { status: 404, body: { error: 'No student is registered against this.' } }
+  if (matched.length === 0) {
+    // Same reply for an address nobody knows, an address with no children, and a
+    // junior student's own address: distinguishing them would let anyone typing
+    // addresses learn which are on the school's roll. The rule itself is on the
+    // login screen, and repeating it here is safe because it is said whatever the
+    // reason for the failure was.
+    return {
+      status: 404,
+      body: {
+        error:
+          'No student is registered against this. Students in Grade 6 and below cannot sign in ' +
+          "themselves — please use a parent's email address or registered mobile number.",
+      },
+    }
   }
+
+  const matches = matched.map((m) => m.student)
+  // A student signing in is greeted by their own name; a parent by theirs.
+  const signedInAs = matched[0].as
 
   return {
     status: 200,
     body: {
       role: 'parent',
-      parentName: matches[0].parentName,
+      signedInAs,
+      parentName: signedInAs === 'student' ? matches[0].name : matches[0].parentName,
       // Deliberately minimal: no emails, phones, addresses, DOB or blood group
       // ever cross this boundary.
       students: matches.map((s) => ({

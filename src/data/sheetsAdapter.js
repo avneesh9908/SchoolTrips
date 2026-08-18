@@ -8,6 +8,7 @@ import {
   toStudent, toTrip, toItineraryRow, toDocument,
   toGuideline, toReminder, toTravelLeg, toMedia,
 } from './normalize'
+import { matchStudent } from '../lib/identity.js'
 
 /**
  * Reads Google Sheets straight from the browser via the CSV export endpoint.
@@ -145,11 +146,16 @@ export const sheetsAdapter = {
         return { role: 'admin', students: [] }
       }
       const roster = await this.fetchStudents()
+      // Same matcher as the server, so the grade rule cannot differ between the
+      // two paths (a parent contact opens any grade; a student's own address only
+      // Grade 7 and above).
+      const matched = roster
+        .map((s) => ({ student: s, as: matchStudent(s, { kind, value }) }))
+        .filter((m) => m.as)
       return {
         role: 'parent',
-        students: roster.filter((s) =>
-          kind === 'email' ? s.emails.includes(value) : s.phones.includes(value)
-        ),
+        signedInAs: matched[0]?.as || 'parent',
+        students: matched.map((m) => m.student),
       }
     }
 
@@ -166,6 +172,7 @@ export const sheetsAdapter = {
     const data = await res.json()
     return {
       role: data.role || 'parent',
+      signedInAs: data.signedInAs || 'parent',
       // The server sends only id/name/grade/section; fill the shape the app expects.
       students: (data.students || []).map((s) => ({
         ...s,

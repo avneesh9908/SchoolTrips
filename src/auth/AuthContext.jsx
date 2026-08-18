@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useCallback, useMemo, useEffect } from 'react'
 import { getAdapter } from '../data'
-import { classifyIdentifier, normalizeEmail } from '../lib/identity'
+import { classifyIdentifier, normalizeEmail, matchStudent } from '../lib/identity'
 import { ALL_GRADE_IDS, isAdminEmailLocally, nameFromEmail } from './roles.js'
 
 const AuthContext = createContext(null)
@@ -16,7 +16,9 @@ function readSession() {
 }
 
 const NO_MATCH =
-  'We could not find a student registered against this. Please check with the school office that your details are on record.'
+  'We could not find a student registered against this. Students in Grade 6 and below cannot sign in ' +
+  "themselves — please use a parent's email address or registered mobile number. If your details should " +
+  'be on record, please check with the school office.'
 
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(readSession)
@@ -32,7 +34,7 @@ export function AuthProvider({ children }) {
    * here and nowhere else — no screen ever takes a grade from the URL or from
    * user input.
    */
-  const startSession = useCallback((students, { via, identifier, displayName, role }) => {
+  const startSession = useCallback((students, { via, identifier, displayName, role, signedInAs }) => {
     // Staff have no child row; their scope is every grade.
     if (role === 'admin') {
       setSession({
@@ -52,6 +54,10 @@ export function AuthProvider({ children }) {
 
     setSession({
       role: 'parent',
+      // Who is holding the credential, not what they may see: a student signing in
+      // with their own address (Grade 7 and above) gets exactly the access their
+      // parent would. It is recorded so the top bar can say whose account this is.
+      signedInAs: signedInAs === 'student' ? 'student' : 'parent',
       via,
       identifier,
       parentName: displayName || valid[0].parentName,
@@ -74,16 +80,20 @@ export function AuthProvider({ children }) {
       const result = await adapter.lookup({ kind, value })
       // A bare array is the older adapter shape.
       return Array.isArray(result)
-        ? { students: result, role: undefined }
-        : { students: result.students || [], role: result.role }
+        ? { students: result, role: undefined, signedInAs: 'parent' }
+        : { students: result.students || [], role: result.role, signedInAs: result.signedInAs }
     }
 
+    // Last resort, for an adapter with no `lookup` of its own. Same matcher as the
+    // other two paths, so the grade rule holds here too.
     const roster = await adapter.fetchStudents()
+    const matched = roster
+      .map((s) => ({ student: s, as: matchStudent(s, { kind, value }) }))
+      .filter((m) => m.as)
     return {
-      students: roster.filter((s) =>
-        kind === 'email' ? s.emails.includes(value) : s.phones.includes(value)
-      ),
+      students: matched.map((m) => m.student),
       role: undefined,
+      signedInAs: matched[0]?.as || 'parent',
     }
   }, [])
 
@@ -110,8 +120,8 @@ export function AuthProvider({ children }) {
         return
       }
 
-      const { students, role } = await resolveIdentity({ kind, value })
-      startSession(students, { via: kind, identifier: value, role })
+      const { students, role, signedInAs } = await resolveIdentity({ kind, value })
+      startSession(students, { via: kind, identifier: value, role, signedInAs })
     } finally {
       setBusy(false)
     }
@@ -131,13 +141,13 @@ export function AuthProvider({ children }) {
         return
       }
 
-      const { students, role } = await resolveIdentity({ kind: 'email', value })
+      const { students, role, signedInAs } = await resolveIdentity({ kind: 'email', value })
       if (role !== 'admin' && students.length === 0) {
         throw new Error(
           `${value} is not on the school's records. Please sign in with the email address the school has on file, or contact the office.`
         )
       }
-      startSession(students, { via: 'google', identifier: value, displayName: name, role })
+      startSession(students, { via: 'google', identifier: value, displayName: name, role, signedInAs })
     } finally {
       setBusy(false)
     }
@@ -165,6 +175,7 @@ export function AuthProvider({ children }) {
       selectStudent,
       isAuthenticated: !!session,
       isAdmin: session?.role === 'admin',
+      isStudent: session?.signedInAs === 'student',
       students: session?.students || [],
       activeStudent,
       /** The single grade this session may read. Null until a child is chosen. */

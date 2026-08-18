@@ -36,6 +36,36 @@ export function isComingSoon(id) {
 }
 
 /**
+ * From which grade a student may sign in with their OWN school address.
+ *
+ * The school's rule, 2026-08-17: "grade 6 only access through the parent id,
+ * after grade 6 both parent and student access his and her email id". So a
+ * junior or middle-school child's trip is reachable only through a parent's
+ * credential, and from Grade 7 up the student's own address opens it as well.
+ *
+ * Deliberately NOT `isComingSoon`, even though that set happens to hold the same
+ * eight grades today. That one is about content not being published yet and will
+ * shrink the moment the sheet's junior worksheet is read; this one is about who
+ * may sign in, and it must not move with it.
+ */
+export const STUDENT_LOGIN_FROM_GRADE = 7
+
+/** 0 for the two kindergartens, 1-12 for the numbered grades, -1 for anything else. */
+export function gradeNumber(id) {
+  if (id === 'jk' || id === 'sk') return 0
+  const m = /^g(\d{1,2})$/.exec(String(id || ''))
+  return m ? Number(m[1]) : -1
+}
+
+/**
+ * Fails closed: a row whose grade could not be read (`normalizeGradeId` returned
+ * '') scores -1 and never grants a student login.
+ */
+export function allowsStudentLogin(id) {
+  return gradeNumber(id) >= STUDENT_LOGIN_FROM_GRADE
+}
+
+/**
  * Sheets are filled in by humans, so grade arrives in every shape imaginable:
  * "7", "Grade 7", "grade-7", "VII", "JK". Everything funnels through here so the
  * rest of the app only ever deals with a canonical id.

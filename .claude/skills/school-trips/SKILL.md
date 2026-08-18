@@ -65,6 +65,31 @@ One login box takes **either an email address or a mobile number**;
   `0`, spaces, dashes, Excel-numeric cells.
 - **A student row is reachable by whichever of the two columns is filled in.** Both blank
   → the child is reachable by nobody. This is the answer to "why can't this parent log in".
+- **From Grade 7, the student's own address works too** (2026-08-17, the school's rule:
+  "grade 6 only access through the parent id, after grade 6 both parent and student access his
+  and her email id"). `StudentEmailID` is collected into its own `studentEmails` field —
+  **never pooled into `emails`**, because the two carry different rights — and
+  `allowsStudentLogin(grade)` gates it at `STUDENT_LOGIN_FROM_GRADE = 7`. A student sees exactly
+  what their parent would; the credential decides who is holding the account, not what the
+  account may see.
+- **`matchStudent(student, {kind, value})` in `lib/identity.js` is the ONE place that rule
+  lives**, and all three resolving paths call it: the server function, `sheetsAdapter.lookup`'s
+  no-server fallback and `AuthContext`'s last-resort filter. Each of those used to carry its own
+  `s.emails.includes(value)` line; three copies of an access rule is how one of them ends up
+  wrong. It returns `'parent'`, `'student'` or `''`, and a parent contact wins even where it
+  equals the student's own, so a shared family address never loses a junior grade.
+- **`allowsStudentLogin` is NOT `isComingSoon`**, though both hold the same eight grades today.
+  Coming-soon is about content that is not published yet and shrinks when the sheet's junior
+  worksheet is read; this is about who may sign in. `gradeNumber()` returns -1 for a grade that
+  could not be read, so an unreadable row fails closed.
+- **A refused junior student gets the same reply as an unknown address**, deliberately: a
+  distinct "you are too young" would confirm to anyone typing addresses that this one is on the
+  school's roll. The rule is stated on the login screen instead (`.field-note`), where saying it
+  costs nothing, and the failure message repeats it unconditionally — safe precisely because it
+  is said whatever the reason for the failure was.
+- The session records `signedInAs` (`parent` | `student`), which is what puts "Student account"
+  and "My trip" in the top bar instead of "Parent account" and "My child". It is a label, not a
+  permission.
 - The session holds `students`, `grades` (derived from the matched rows), `activeStudentId`,
   plus `via` (`email` | `phone` | `google`) and `identifier`. **Grade is derived in
   `AuthContext` and nowhere else** — no screen reads a grade from the URL or user input.
@@ -1669,9 +1694,13 @@ HTTPS host). Checked 2026-08-11; only row 1 was fetched, never the records.
   out blank and **nobody could log in**. `toStudent` now uses `collectAll` and returns
   `emails: []` / `phones: []`, so any one of a family's credentials works — which is also how
   mothers get access. `parentName` replaced `fatherName`.
-- `StudentEmailID` and `EmergencyContactNo` are excluded on purpose: a child's own address is
-  not a parent credential, and an emergency contact is often a neighbour. `pick`/`collectAll`
-  match whole normalized header names, so `StudentEmailID` can never collide with `Email`.
+- `StudentEmailID` **is now read, into its own field** (2026-08-17) and grants access from
+  Grade 7 up — see the access-control section. Until then it was excluded as "not a parent
+  credential", which was right for the rule as it stood. `EmergencyContactNo` is still excluded
+  on purpose: it is often a neighbour or a relative. `pick`/`collectAll` match whole normalized
+  header names, so `StudentEmailID` can never collide with `Email` in either direction.
+  **Unverified against the live feed:** whether the school actually fills that column for grades
+  7-12. If it is blank, student sign-in simply never matches — no error, no access.
 
 ## The school's real Drive folder — do NOT publish it
 `drive.google.com/drive/folders/1kBYDyPs-2nAW-l2sEf7Czz5RaevzrxgQ` — "Educational trips
@@ -1790,6 +1819,24 @@ Raised in `docs/DATA-HANDOVER.md`; none answered yet. Do not assume any of these
 - `legacy/trip-explorer.html` is frozen reference. Do not edit it.
 
 ## Changelog
+- 2026-08-17 (seventeenth pass, same day) — **Students may sign in from Grade 7; Grade 6 and below
+  stay parent-only.** The school's rule, implemented as one matcher — `matchStudent` in
+  `lib/identity.js` — that the server function, the client fallback and `AuthContext`'s last-resort
+  filter all call, replacing three separate `s.emails.includes(value)` lines. `StudentEmailID` is
+  collected into `studentEmails`, kept out of `emails` because the two carry different rights, and
+  gated by `allowsStudentLogin` / `STUDENT_LOGIN_FROM_GRADE`, which is deliberately independent of
+  `isComingSoon`. A refused junior student gets the same reply as an unknown address so the endpoint
+  still cannot be used to enumerate the roll; the rule is explained on the login screen instead.
+  Sessions carry `signedInAs`, and the top bar says "Student account" / "My trip".
+  Verified three ways: ten cases through the real csv/normalize/identity modules (parent by email and
+  by mobile, G7/G9/G12 students, mixed case, G5 and Senior KG refused, unknown refused); the server's
+  `resolveParent` against a stubbed roster feed — correct statuses, `signedInAs`, the student greeted
+  by their own name, and **no DOB, blood group, address, phone or email in any response**; and the
+  real login path in the browser by temporarily adding a synthetic `StudentEmailID` column to the
+  gitignored fixture (since restored) — a Grade 7 student signed in to their own row with "My trip",
+  a Grade 5 student was refused, and the student could open `/trip/g7` but got "Not your child's
+  grade" with **0 fetches** on `/trip/g8`. Build clean, console clean in a fresh tab (the `useAuth`
+  errors in the old tab were the documented Fast-Refresh false alarm).
 - 2026-08-17 (sixteenth pass, same day) — **Pushed and live.** `489271b` on `main` carried the whole
   day: the one-page centred trip layout with its four alternates behind `TRIP_LAYOUT`, the Fraunces +
   Manrope type change, the phone menu, the section order, the density pass, the Batch 2 labelling fix and
