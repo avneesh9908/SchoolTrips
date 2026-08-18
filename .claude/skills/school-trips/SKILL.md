@@ -393,13 +393,13 @@ and would otherwise leave a white gap.
 `TripPage` both read it and putting it in either makes them import each other. **Currently `'stage'`, and
 pushed live** — `489271b` on `main`, 2026-08-17, which Netlify auto-deployed.
 
-All five were asked for on **2026-08-17**, in this order, and the school went tabs → one page → tabs →
-one page in a single day. Nothing here is settled; do not delete a variant to tidy up.
+All five were asked for on **2026-08-17**, and the school went tabs → one page → tabs → one page → tabs
+again in a single day. Nothing here is settled; do not delete a variant to tidy up.
 
 | value | asked as | shape |
 |---|---|---|
+| `'stage-tabs'` | *"now first convert this tabs wise"* (**current**) | tabs, page scrolls |
 | `'stage'` | *"remove tabs like different page make single page with header"* | ONE page, jump nav |
-| `'stage-tabs'` | *"same page scrollable … after the tab click switch scroll the web page"* | tabs, page scrolls |
 | `'stage-fit'` | *"cover whole page, fit on screen"* | tabs, nothing scrolls |
 | `'flow'` | *"all things in one page make webpage scrollable with header"* | one page, older styling |
 | `'fixed'` | 2026-08-14 *"I don't want scrollbar anywhere"* | underline tabs, nothing scrolls |
@@ -477,7 +477,16 @@ stacked beneath it in the centred column, and the pill bar is a **jump nav of re
 - **No scroll-spy**, same as `TripFlow`: `useActiveSection` was deleted on 2026-08-13 and a listener
   repainting the nav every frame is not worth a highlight. The nav says where you can go, not where you
   are.
-- **On a phone the strip becomes a MENU** (`StageJumpNav`, 2026-08-17: "in phone view tabs like menu make
+- **One nav serves every stage layout** — `StageNav`, which renders a row of pills on a wide window and
+  a menu on a phone, in TAB mode when it is given `current` and JUMP mode when it is not. It was written
+  for the one-page layout first and the tabbed renderer kept its own inline strip, so **the first time
+  tabs came back the phone menu silently went with them** — the school's own complaint, reintroduced by
+  a layout switch. Merging them is what makes the switch safe. The differences are only: buttons with
+  the `tablist` roles, arrow keys and roving `tabIndex` versus real anchors (so a pasted `#sec-travel`
+  still works); a trigger that names the CURRENT tab versus one that says "Sections"; and a marked
+  selection in the menu, which only the tabbed modes have. The `tab` roles stay on the strip alone, so
+  the two shapes never both claim to be the tablist.
+- **On a phone the strip becomes a MENU** (2026-08-17: "in phone view tabs like menu make
   responsive"). At 375px the pill strip held **652px of sections in 373px of window**, so four of the six
   sat off the right edge behind a scroller whose scrollbar is hidden — nothing on screen said they were
   there. Below 720px a "Sections" button opens a card of full-width rows instead; Escape, a tap outside
@@ -485,8 +494,8 @@ stacked beneath it in the centred column, and the pill bar is a **jump nav of re
   **Both shapes are rendered and CSS picks one** — a JS breakpoint would need a resize listener and would
   render the wrong one on first paint. The 720px switch is where the strip stops fitting: measured 652px
   against 661px of available width at 721px, and 373px at 375px.
-  The tabbed variants keep the scrolling strip; their nav is a `role=tablist` with arrow-key handling and
-  is a different component.
+  In the tabbed modes the trigger shows the section you are on and the open list marks it, because there
+  one section is showing and the reader needs to know which.
 - The **site footer comes back** here (and in `'flow'`): the page is long already, so the footer is how
   it ends rather than 117px that costs a tab its fit.
 - **Density, after the school photographed the empty half of it** ("this is like take more space",
@@ -1837,6 +1846,20 @@ Raised in `docs/DATA-HANDOVER.md`; none answered yet. Do not assume any of these
 - `legacy/trip-explorer.html` is frozen reference. Do not edit it.
 
 ## Changelog
+- 2026-08-17 (nineteenth pass, same day) — **Back to tabs** ("now first convert this tabs wise"), which
+  is `TRIP_LAYOUT = 'stage-tabs'` — but switching alone would have thrown away the phone menu, since
+  `TripStage` still had its own inline pill strip while the menu lived in the one-page nav. So the two
+  navs were merged into one `StageNav` with a tab mode and a jump mode: same pills, same phone menu, and
+  in tab mode the trigger names the section you are on and the open list marks it. **A line-range replace
+  was needed to do it** — a brace-matching script cut the old component short and left a stray `}) {`,
+  which is worth remembering: `git checkout --` the file and redo it by explicit boundaries rather than
+  patching the wreckage. Verified at 1907×878: six tabs, one panel at a time, the active tab and the
+  hidden menu label both following the selection, arrow keys / Home / End / wrap-around and roving
+  `tabIndex` all intact with the window never scrolling, only Things to carry scrolling the page (162px,
+  its deck). At 375×812: strip hidden, trigger reading the current section, six 44px rows inside the
+  window, choosing one switching the panel and closing the menu. `'stage'` re-checked and still a
+  one-page layout with anchors, a "Sections" trigger and jumps landing flush. Build clean, console clean
+  in a fresh tab — the 500s in the old one were the file mid-refactor.
 - 2026-08-17 (eighteenth pass, same day) — **"A Grade 7 student's address is refused" — it was the
   local fixture, not the code.** The school sent the roster row beside the refusal. Probed the live
   endpoint with that exact address first: production answered **200 with `signedInAs: 'student'`**,

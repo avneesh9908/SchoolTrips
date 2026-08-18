@@ -1555,8 +1555,18 @@ ul.plain li::before { content: '•'; flex: none; font-weight: 800; color: var(-
     border-radius: 12px; font-size: 15px; font-weight: 700; color: var(--ink);
     text-decoration: none;
   }
-  .stage-menu-list a:active { background: var(--wash); }
-  .stage-menu-list a + a { border-top: 1px solid var(--rule); }
+  /* The menu carries buttons in the tabbed layouts and anchors on the one-page one. */
+  .stage-menu-list button {
+    display: flex; align-items: center; width: 100%; min-height: 44px; padding: 10px 14px;
+    border: none; background: transparent; border-radius: 12px;
+    font: inherit; font-size: 15px; font-weight: 700; color: var(--ink);
+    text-align: left; cursor: pointer;
+  }
+  .stage-menu-list a:active, .stage-menu-list button:active { background: var(--wash); }
+  .stage-menu-list > * + * { border-top: 1px solid var(--rule); }
+  /* Which section is showing. The jump nav has no current item — every section is on
+     the page — so this only ever paints in the tabbed layouts. */
+  .stage-menu-list .is-current { background: var(--navy); color: #fff; }
 }
 
 @media (prefers-reduced-motion: reduce) {

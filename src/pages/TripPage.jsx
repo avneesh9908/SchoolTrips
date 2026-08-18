@@ -394,23 +394,38 @@ function scrollToBlock(el) {
 }
 
 /**
- * The jump nav, in both of its shapes: a row of pills on a wide window and a **menu**
- * on a phone.
+ * The section nav, in both of its shapes and both of its modes.
  *
- * Asked for on 2026-08-17 ("in phone view tabs like menu make responsive"). At 375px the
- * pill strip held 652px of sections in 373px of window, so four of the six sat off the
- * right edge behind a scroller whose scrollbar is hidden — nothing on screen said there
- * was more to reach. A menu says it in one word.
+ * SHAPES — a row of pills on a wide window, a **menu** on a phone. Asked for on
+ * 2026-08-17 ("in phone view tabs like menu make responsive"): at 375px the pill
+ * strip held 652px of sections in 373px of window, so four of the six sat off the
+ * right edge behind a scroller whose scrollbar is hidden, with nothing on screen
+ * saying they were there. Both shapes are rendered and CSS picks one — a JS
+ * breakpoint would need a resize listener and would render the wrong one on first
+ * paint — and whichever is hidden is `display: none`, so it leaves the
+ * accessibility tree with it.
  *
- * Both shapes are rendered and CSS picks one, which is deliberate: a JS breakpoint would
- * need a resize listener and would render the wrong one for a frame on first paint.
- * Whichever is hidden is `display: none`, so it is out of the accessibility tree too.
+ * MODES — pass `current` for TABS (the `stage-tabs` / `stage-fit` layouts) or omit
+ * it for the one-page JUMP nav. They differ in three ways and share everything
+ * else, which is the reason this is one component: the phone menu was written for
+ * the jump nav first, and leaving the tabbed layouts on the bare scroller would
+ * have reintroduced the exact problem the school reported.
+ *
+ *   - tabs use buttons and carry the `tablist` roles, arrow keys and roving
+ *     `tabIndex`; the jump nav uses real anchors, so a pasted `#sec-travel` works;
+ *   - the menu's trigger names the CURRENT tab, because in a tablist one section is
+ *     showing and the reader needs to know which. In the jump nav nothing is
+ *     current — every section is on the page — so it just says "Sections";
+ *   - only the tab strip marks a selection. Deliberately no scroll-spy in the jump
+ *     nav: `useActiveSection` was deleted on 2026-08-13 and a listener repainting
+ *     the nav every frame is not worth a highlight.
  */
-function StageJumpNav({ sections, onJump }) {
+function StageNav({ sections, current, onSelect, onJump }) {
   const [open, setOpen] = useState(false)
+  const tabs = !!current
 
-  // Close on Escape or a tap outside — the two things a menu is expected to do, and
-  // both listeners exist only while it is open.
+  // Escape and a tap outside — the two things a menu is expected to do. Both
+  // listeners exist only while it is open.
   useEffect(() => {
     if (!open) return
     const onKey = (e) => { if (e.key === 'Escape') setOpen(false) }
@@ -423,25 +438,49 @@ function StageJumpNav({ sections, onJump }) {
     }
   }, [open])
 
-  const link = (s, extra) => (
-    <a
-      key={s.id}
-      className={extra}
-      href={`#sec-${s.id}`}
-      onClick={(e) => {
-        onJump(e, s.id)
-        setOpen(false)
-      }}
-    >
-      {s.label}
-    </a>
-  )
+  const choose = (s) => {
+    onSelect(s.id)
+    setOpen(false)
+  }
 
   return (
     <nav className="stage-nav">
-      <div className="stage-nav-inner" aria-label="Jump to a section">
-        {sections.map((s) => link(s, 'stage-tab'))}
-      </div>
+      {tabs ? (
+        <div
+          className="stage-nav-inner"
+          role="tablist"
+          aria-label="Trip sections"
+          onKeyDown={tabKeys(sections, current, onSelect)}
+        >
+          {sections.map((s) => (
+            <button
+              key={s.id}
+              id={`tab-${s.id}`}
+              role="tab"
+              aria-selected={s.id === current.id}
+              aria-controls={`panel-${s.id}`}
+              tabIndex={s.id === current.id ? 0 : -1}
+              className={s.id === current.id ? 'stage-tab is-active' : 'stage-tab'}
+              onClick={() => onSelect(s.id)}
+            >
+              {s.label}
+            </button>
+          ))}
+        </div>
+      ) : (
+        <div className="stage-nav-inner" aria-label="Jump to a section">
+          {sections.map((s) => (
+            <a
+              key={s.id}
+              className="stage-tab"
+              href={`#sec-${s.id}`}
+              onClick={(e) => { onJump(e, s.id); setOpen(false) }}
+            >
+              {s.label}
+            </a>
+          ))}
+        </div>
+      )}
 
       <div className="stage-menu">
         <button
@@ -452,18 +491,40 @@ function StageJumpNav({ sections, onJump }) {
           onClick={() => setOpen((v) => !v)}
         >
           <Icon name="menu" stroke="currentColor" />
-          <span className="t">Sections</span>
-          {/* The chevron turns over when the list opens. It has a wrapper so the CSS can
-              hook `.chev` rather than `svg:last-child`, which would silently move to
-              whatever element is added after it next. */}
+          <span className="t">{tabs ? current.label : 'Sections'}</span>
+          {/* The chevron turns over when the list opens. It has a wrapper so the CSS
+              can hook `.chev` rather than `svg:last-child`, which would silently move
+              to whatever element is added after it next. */}
           <span className="chev"><Icon name="chevron" stroke="currentColor" /></span>
         </button>
 
-        {/* Mounted only when open: there is nothing to animate and a hidden list that
-            still answers to a tap through the page above it is worse than no list. */}
+        {/* Mounted only when open: there is nothing to animate, and a hidden list that
+            still answers a tap through the page above it is worse than no list.
+            The items are plain buttons or links — the `tab` roles stay on the strip
+            alone, so the two shapes never both claim to be the tablist. */}
         {open && (
           <div className="stage-menu-list" id="stage-menu-list">
-            {sections.map((s) => link(s))}
+            {sections.map((s) =>
+              tabs ? (
+                <button
+                  key={s.id}
+                  type="button"
+                  className={s.id === current.id ? 'is-current' : undefined}
+                  aria-current={s.id === current.id ? 'true' : undefined}
+                  onClick={() => choose(s)}
+                >
+                  {s.label}
+                </button>
+              ) : (
+                <a
+                  key={s.id}
+                  href={`#sec-${s.id}`}
+                  onClick={(e) => { onJump(e, s.id); setOpen(false) }}
+                >
+                  {s.label}
+                </a>
+              )
+            )}
           </div>
         )}
       </div>
@@ -502,7 +563,7 @@ function TripStagePage({ sections }) {
 
   return (
     <>
-      <StageJumpNav sections={sections} onJump={jump} />
+      <StageNav sections={sections} onJump={jump} />
 
       <div className="stage-page">
         {sections.map((s) => {
@@ -592,29 +653,7 @@ function TripStage({ sections, current, onSelect }) {
 
   return (
     <>
-      <nav className="stage-nav">
-        <div
-          className="stage-nav-inner"
-          role="tablist"
-          aria-label="Trip sections"
-          onKeyDown={tabKeys(sections, current, select)}
-        >
-          {sections.map((s) => (
-            <button
-              key={s.id}
-              id={`tab-${s.id}`}
-              role="tab"
-              aria-selected={s.id === current.id}
-              aria-controls={`panel-${s.id}`}
-              tabIndex={s.id === current.id ? 0 : -1}
-              className={s.id === current.id ? 'stage-tab is-active' : 'stage-tab'}
-              onClick={() => select(s.id)}
-            >
-              {s.label}
-            </button>
-          ))}
-        </div>
-      </nav>
+      <StageNav sections={sections} current={current} onSelect={select} />
 
       {/* `is-cover` is the one section that is not a centred card but the whole
           window: it drops the column's width cap and the page gutter so the
