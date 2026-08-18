@@ -193,12 +193,17 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible {
   background: #fff; color: var(--ink);
 }
 .field input:focus { outline: none; border-color: var(--accent); }
-/* The sign-in rule, under the field it applies to. */
+/* The sign-in rule, under the field it applies to — the school's own two lines. */
 .field-note {
-  margin: -2px 0 16px; font-size: 12.5px; line-height: 1.55; color: var(--muted);
-  background: var(--wash); border: 1px solid var(--line);
-  border-radius: var(--r-chip); padding: 10px 13px;
+  margin: -2px 0 16px; padding: 11px 14px; list-style: none;
+  font-size: 12.5px; line-height: 1.55; color: var(--muted);
+  background: var(--wash); border: 1px solid var(--line); border-radius: var(--r-chip);
+  display: flex; flex-direction: column; gap: 7px;
 }
+/* A dash rather than a bullet: at 12.5px in a tinted box a disc reads as noise, and
+   `list-style: none` above has already turned the marker off. */
+.field-note > li { display: flex; gap: 8px; text-wrap: pretty; }
+.field-note > li::before { content: '–'; flex: 0 0 auto; color: var(--soft); font-weight: 700; }
 .field-note strong { color: var(--ink); font-weight: 700; }
 
 .btn {
@@ -1124,6 +1129,15 @@ ul.plain li::before { content: '•'; flex: none; font-weight: 800; color: var(-
 
 @media (max-width: 1080px) {
   .photo-masonry { columns: 2; }
+}
+
+/* The school's two-line sign-in rule added ~130px to the card, which put its foot 5px
+   past a 1280x720 window and gave the login page a pointless 5px scroll. The card gives
+   up padding on a short screen rather than the words. */
+@media (max-height: 820px) {
+  .login-form { padding: 32px 24px; }
+  .auth-card { padding: 32px 30px; }
+  .auth-card .lede { margin-bottom: 22px; }
 }
 
 @media (max-width: 900px) {

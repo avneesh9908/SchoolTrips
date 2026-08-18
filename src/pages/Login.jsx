@@ -77,8 +77,8 @@ export default function Login() {
 
           <h2>Welcome to School Trips</h2>
           <p className="lede">
-            Sign in with the email address or mobile number the school has on record for you. You
-            will only see the trip details for your own child's grade.
+            Parents should sign in using the email address or mobile number registered with the
+            school. You will only see the trip details for your own child's grade.
           </p>
 
           {error && <div className="form-error">{error}</div>}
@@ -106,14 +106,21 @@ export default function Login() {
                 disabled={busy}
               />
             </div>
-            {/* The rule, said up front. It is the only place it CAN be said: a failed
-                sign-in has to give the same answer whatever the reason, or anyone
-                typing addresses could learn which are on the school's roll. */}
-            <p className="field-note">
-              Parents sign in with the email address or mobile number the school has on file.
-              <strong> From Grade 7</strong>, a student may also sign in with their own school
-              email. In <strong>Grade 6 and below</strong>, a parent signs in.
-            </p>
+            {/* The school's own wording, given verbatim on 2026-08-17. This is the only
+                place the rule CAN be stated: a failed sign-in has to give the same
+                answer whatever the reason, or anyone typing addresses could learn which
+                are on the school's roll. "EY" is the school's name for the two
+                kindergarten years, which `allowsStudentLogin` treats as grade 0. */}
+            <ul className="field-note">
+              <li>
+                <strong>EY to Grade 6:</strong> Parent login is required.
+              </li>
+              <li>
+                <strong>Grade 7 onwards:</strong> Students may sign in using their school email
+                address, and parents may also sign in using their registered email address or
+                mobile number.
+              </li>
+            </ul>
             <button className="btn" type="submit" disabled={busy}>
               {busy ? 'Checking…' : 'Continue'}
             </button>

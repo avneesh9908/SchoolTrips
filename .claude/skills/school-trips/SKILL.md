@@ -87,6 +87,15 @@ One login box takes **either an email address or a mobile number**;
   school's roll. The rule is stated on the login screen instead (`.field-note`), where saying it
   costs nothing, and the failure message repeats it unconditionally — safe precisely because it
   is said whatever the reason for the failure was.
+- **The login copy is the school's own wording, given verbatim on 2026-08-17** — do not reword it:
+  a lede reading "Parents should sign in using the email address or mobile number registered with
+  the school", then two lines under the field, "**EY to Grade 6:** Parent login is required" and
+  "**Grade 7 onwards:** Students may sign in using their school email address, and parents may
+  also sign in using their registered email address or mobile number". **"EY"** is the school's
+  name for the two kindergarten years, which `gradeNumber` scores 0 and the rule therefore treats
+  as parent-only, so the copy and the code agree without a special case. Those ~130px pushed the
+  card 5px past a 1280x720 window, so `@media (max-height: 820px)` trims the card's padding rather
+  than the words.
 - The session records `signedInAs` (`parent` | `student`), which is what puts "Student account"
   and "My trip" in the top bar instead of "Parent account" and "My child". It is a label, not a
   permission.
