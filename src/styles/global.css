@@ -616,6 +616,68 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible {
 .orient-row { display: flex; flex-wrap: wrap; gap: 14px; }
 .orient-row > * { flex: 0 1 270px; max-width: 320px; min-width: 0; }
 
+/* ---------- orientation: a slide-sized preview in the box ----------
+   "Make box big like screen preview in box like ppt docs or slide preview, all things
+   fit on screen" (2026-08-17). The decks were 270px cards with no medium at all — a
+   compaction from the 2026-08-14 fitted layout that made them unreadable as previews.
+
+   Sizing is width-driven from a HEIGHT budget, which is the only way to bound both axes
+   without distorting the ratio: `aspect-ratio` derives whichever dimension is not set,
+   so setting the width to the smaller of the column and `budget x 16/9` keeps the frame
+   exactly 16:9 and inside both limits. Setting both — or setting one and clamping the
+   other with `max-*` — is what produced the 1.499 frames on the guideline decks.
+
+   The budget is in `dvh` so the section fits the window on any screen, and `dvh` not
+   `vh` because on a phone `vh` is the address bar's tallest state. */
+/* The height budget for the frame: what the window has left after the two sticky bars,
+   the section head, the group label and the card's own chrome — about 470px of fixed cost
+   that does NOT scale with the window, which is why a plain `40dvh` fitted a tall screen
+   and overflowed a 620px one. Clamped so it neither disappears on a short screen nor
+   dominates a large one. */
+.orient-row > .doc-card.is-preview {
+  --orient-h: clamp(150px, calc(100dvh - 470px), 460px);
+  /* The BASIS carries the frame's width, and that is not decoration: with `flex: 0 1 auto`
+     the card sized itself to its content while the frame inside asked for `min(100%, …)`
+     of the card — circular, and the browser resolved it against the label's max-content
+     width instead, so the frame came out 302px when 434 was available. A definite basis
+     breaks the loop; `max-width: 100%` and shrink still let two cards share a column. */
+  flex: 0 1 calc(var(--orient-h) * 16 / 9 + 52px);
+  max-width: 100%;
+}
+.doc-preview {
+  display: block; width: min(100%, calc(var(--orient-h) * 16 / 9)); aspect-ratio: 16 / 9;
+  border-radius: var(--r-tile); border: 1px solid var(--line);
+  background: var(--wash); overflow: hidden;
+  display: grid; place-items: center;
+}
+/* `contain`, never `cover`: this is a whole slide, and cropping it loses the half of the
+   deck's title that makes it recognisable. */
+.doc-preview .doc-thumb {
+  width: 100%; height: 100%; object-fit: contain; border: none; border-radius: 0;
+  background: var(--card);
+}
+/* The fallback fills the same frame, so a private deck leaves a slide-shaped box rather
+   than a 46px icon beside a slide-sized neighbour. */
+.doc-preview .doc-icon { width: 56px; height: 56px; border-radius: var(--r-chip); }
+.doc-preview .doc-icon svg { width: 26px; height: 26px; }
+/* Two batches must share the column, not stack in it. A flex line WRAPS before it
+   shrinks, and each card's basis is nearly the full column, so staff's four decks went to
+   four rows and pushed the page 403px. `nowrap` makes them shrink to half instead — and it
+   is scoped to rows that actually hold previews, so the itinerary's compact card in the
+   same class keeps its wrapping. Wrap comes back below 980px, where the groups stack and
+   two cards abreast would be ~160px wide. */
+.orient-row:has(> .doc-card.is-preview) { flex-wrap: nowrap; }
+@media (max-width: 980px) {
+  .orient-row:has(> .doc-card.is-preview) { flex-wrap: wrap; }
+}
+.doc-frame { width: 100%; height: 100%; border: 0; display: block; background: var(--card); }
+/* A framed card is a div, so it needs the hover the anchor used to give it, and its
+   label has to stop looking like a link inside a card that is not one. */
+.doc-card.is-framed { cursor: default; }
+.doc-card.is-framed:hover { transform: none; box-shadow: var(--shadow-hero); border-color: var(--line); }
+.doc-label.is-link { color: var(--ink); text-decoration: none; }
+.doc-label.is-link:hover { color: var(--accent); }
+
 /* ---------- the guideline columns, side by side ----------
    Safety · Do's and don'ts · Things to carry, in parallel under the itinerary.
    Each column shows the sheet's own chip as a preview card, and prints text only

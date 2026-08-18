@@ -39,16 +39,21 @@ const PENDING_KIND = {
  */
 export function DocCard({
   label, url, category, batchTag = '', pending = false, compact = false, hideMeta = false,
-  eager = false,
+  eager = false, preview = false,
 }) {
-  const { kind, thumb, open } = describeDoc(url)
+  const { kind, thumb, embed, open } = describeDoc(url)
   const [broken, setBroken] = useState(false)
   const showImage = thumb && !broken && !pending && !compact
 
   // The sheet names the file but carries no link (a smart chip). Showing the
   // card anyway is the point — a parent can see the deck exists and ask for it —
   // but it must not look clickable when there is nothing to open.
-  const cls = compact ? 'doc-card is-compact' : 'doc-card'
+  // `is-preview` is what lets the CSS size these cards from their frame instead of the
+  // 270px/420px basis the icon-only cards want — and it has to be a class rather than a
+  // `:has(.doc-preview)` selector so the itinerary's compact card in the same
+  // `.orient-row` is not caught by it.
+  const cls =
+    (compact ? 'doc-card is-compact' : 'doc-card') + (preview ? ' is-preview' : '')
 
   if (pending) {
     const pendingKind = PENDING_KIND[category] || 'file'
@@ -64,22 +69,56 @@ export function DocCard({
     )
   }
 
+  const medium = showImage ? (
+    <img
+      className="doc-thumb"
+      src={thumb}
+      alt={`Preview of ${label}`}
+      loading={eager ? 'eager' : 'lazy'}
+      onError={() => setBroken(true)}
+    />
+  ) : (
+    <span className="doc-icon">
+      <Icon name={kind} />
+    </span>
+  )
+
+  if (preview && embed) {
+    return (
+      <div className={`${cls} is-framed`}>
+        {batchTag && <span className="doc-batch">{batchTag}</span>}
+        {/* The frame is live, so the reader pages through the deck in place. The card
+            cannot be an `<a>` around it — an iframe is interactive content and an anchor
+            may not contain any — so the label carries the link instead, which is also
+            what stops a click on slide 2 from navigating away. */}
+        <span className="doc-preview">
+          {/* Not lazy: the card only mounts when its section is opened, so the frame is on
+              screen the moment it exists and a lazy load is pure delay — the same reason
+              the guideline decks and the poster thumbnails are eager. */}
+          <iframe className="doc-frame" src={embed} title={label} allowFullScreen />
+        </span>
+        <a className="doc-label is-link" href={open} target="_blank" rel="noopener noreferrer">
+          {label}
+        </a>
+        <span className="doc-meta">{hideMeta ? 'Open ↗' : `${category || KIND_LABEL[kind]} ↗`}</span>
+      </div>
+    )
+  }
+
   return (
     <a className={cls} href={open} target="_blank" rel="noopener noreferrer">
       {batchTag && <span className="doc-batch">{batchTag}</span>}
-      {showImage ? (
-        <img
-          className="doc-thumb"
-          src={thumb}
-          alt={`Preview of ${label}`}
-          loading={eager ? 'eager' : 'lazy'}
-          onError={() => setBroken(true)}
-        />
-      ) : (
-        <span className="doc-icon">
-          <Icon name={kind} />
-        </span>
-      )}
+      {/* `preview` puts the medium in a fixed-ratio frame — a slide-sized box that a
+          reader can actually read, asked for on 2026-08-17 ("make box big like screen
+          preview in box like ppt docs or slide preview").
+          The wrapper is the point: Drive's thumbnail endpoint returns an HTML sign-in
+          page rather than an image for a file that is not link-shared, so the `<img>`
+          errors and falls back to the icon — and without a wrapper of its own size, that
+          card would collapse to 46px while its neighbour stayed slide-sized, leaving the
+          row visibly ragged for a reason no parent could guess. Measured 2026-08-17: 5 of
+          the 7 orientation decks in the sheet are private, so this is the common case,
+          not the edge one. */}
+      {preview ? <span className="doc-preview">{medium}</span> : medium}
       <span className="doc-label">{label}</span>
       <span className="doc-meta">{hideMeta ? 'Open ↗' : `${category || KIND_LABEL[kind]} ↗`}</span>
     </a>

@@ -1170,9 +1170,50 @@ Section pieces, all fed from the existing trip object:
   `position: relative` — positioned rather than in the flow so it sits over a Drive thumbnail as
   readily as over the icon tile. The card's label stays the chip's own name from the sheet.
 
-  These cards are **`compact`** (2026-08-14, "orintation cards make small dont make ui scroolable"):
-  `DocCard`'s `compact` prop drops the 150px Drive preview and tightens the box to an icon plus two
-  lines. That preview was what pushed this tab 234px past the window; it now fits with none.
+  **Since 2026-08-17 each card carries a LIVE, slide-sized preview** ("make box big like screen preview
+  in box like ppt docs or slide preview, all things fit on screen"), which reverses the `compact`
+  treatment below. `DocCard`'s new `preview` prop frames the deck itself — `describeDoc().embed`, which
+  is `/embed` for Slides and `/preview` for a Doc, Sheet or Drive file — inside a fixed 16:9
+  `.doc-preview` box, with the Drive thumbnail and then the typed icon as fallbacks in the SAME box, so
+  a card whose file will not load stays slide-shaped instead of collapsing to a 46px icon beside a
+  slide-sized neighbour.
+
+  A framed card is a `<div>`, not an `<a>`: an iframe is interactive content and an anchor may not
+  contain any, and it is also what stops a click on slide 2 from navigating away. The label carries the
+  link instead.
+
+  **Three sizing lessons, all measured:**
+  - The frame is width-driven from a HEIGHT budget — `width: min(100%, calc(var(--orient-h) * 16 / 9))`
+    with no height set — which is the only way to bound both axes and keep the ratio exact. Same rule as
+    the guideline decks; setting both axes is what produced ar 1.499 there.
+  - **The card needs a definite flex basis**, `calc(var(--orient-h) * 16 / 9 + 52px)`. With
+    `flex: 0 1 auto` the card sized to its content while the frame asked for `min(100%, …)` of the card
+    — circular, and the browser resolved it against the label's max-content width, so the frame came out
+    302px where 434 was available.
+  - **`flex-wrap: nowrap` on a row of previews**, because a flex line wraps BEFORE it shrinks: staff's
+    four decks each had a basis of nearly the full column, so they went to four rows and pushed the page
+    403px. With nowrap they shrink to half the column instead. Wrap returns below 980px, where the groups
+    stack and two abreast would be ~160px wide.
+  - `--orient-h` is `clamp(150px, calc(100dvh - 470px), 460px)`: ~470px of the window is fixed cost
+    (two sticky bars, section head, group label, card chrome) that does not scale, so a plain `40dvh`
+    fitted a tall window and overflowed a 620px one.
+
+  Measured, no page scroll and every frame exactly ar 1.778: **1907×878** parent 637×358, staff 285×160
+  ×4 in two rows of two; **1280×720** 442×249; **1280×620** 265×149 (the floor); **375×812** 285×160
+  stacked, page scrolling as a phone does, no horizontal overflow. All four frames fire their load event
+  (checked with a capture listener, since `load` does not bubble).
+
+  **What a parent actually SEES in the box is the sharing question, and it is mostly bad.** Measured
+  2026-08-17 anonymously: of the 7 orientation decks in the sheet, **2 are viewable and 5 answer 401** —
+  both Grade 7 parent decks work, both Grade 7 student decks and all three Grade 8/10 parent decks do
+  not. A private file's frame shows Google's request-access page, and **nothing in the browser can tell
+  the difference**: the frame is cross-origin and its load event fires either way, so this cannot be
+  detected and fallen back from. The fix is the school sharing those five files "anyone with the link →
+  Viewer".
+
+  The older `compact` treatment (2026-08-14, "orintation cards make small dont make ui scroolable")
+  dropped the medium entirely to save 234px of height on the fitted layout. `DocCard` still supports it
+  and the itinerary card still uses it.
   `hideMeta` drops the category line, which the group heading above already states.
 
   **`.orient-row` is flex with a fixed basis, never `auto-fit` + `1fr`.** With `1fr` tracks, `auto-fit`
@@ -1846,6 +1887,22 @@ Raised in `docs/DATA-HANDOVER.md`; none answered yet. Do not assume any of these
 - `legacy/trip-explorer.html` is frozen reference. Do not edit it.
 
 ## Changelog
+- 2026-08-17 (twentieth pass, same day) — **Orientation decks now preview live in a big 16:9 box**
+  ("make box big like fix screen preview in box like ppt docs or slde prviw all things fit on screen"),
+  reversing the 2026-08-14 `compact` cards. New `describeDoc().embed` (`/embed` for Slides, `/preview`
+  for Docs/Sheets/Drive files) and a `preview` prop on `DocCard` that frames it, with the thumbnail and
+  the typed icon as fallbacks inside the same fixed-ratio box. A framed card is a `<div>` because an
+  anchor may not contain an iframe. Three measured sizing lessons are written up above: the frame is
+  width-driven from a height budget, the card needs a definite basis or the percentage width resolves
+  against the label's max-content width (302px instead of 434), and a preview row needs `nowrap` because
+  flex wraps before it shrinks (staff's four decks made four rows and 403px of scroll).
+  **Two things this environment could not verify, and one it disproved:** Drive thumbnails are blocked
+  in the preview pane — every `drive.google.com` / `lh3.googleusercontent.com` image errors while a
+  control favicon loads — so the thumbnail path is unverifiable here; framing docs.google.com does work
+  (all four frames fire `load`); and the earlier "the pane blocks Google" reading was wrong, it blocks
+  images and not frames. **Also measured, and the real blocker: 5 of the 7 orientation decks answer 401
+  anonymously**, so those boxes will show Google's request-access page until the school shares them, and
+  no client-side check can detect it. Build clean, console clean.
 - 2026-08-17 (nineteenth pass, same day) — **Back to tabs** ("now first convert this tabs wise"), which
   is `TRIP_LAYOUT = 'stage-tabs'` — but switching alone would have thrown away the phone menu, since
   `TripStage` still had its own inline pill strip while the menu lived in the one-page nav. So the two

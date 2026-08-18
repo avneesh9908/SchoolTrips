@@ -822,8 +822,19 @@ function OrientationSection({ docs }) {
           <div className="orient-group" key={g.category}>
             <h4>{g.category}</h4>
             <div className="orient-row">
+              {/* Big, with a slide preview in the box (2026-08-17). `compact` — which
+                  dropped the medium entirely to save height on the 2026-08-14 fitted
+                  layout — is gone; `eager` because the deck IS the content of this
+                  section, so a lazy load is pure delay. */}
               {g.items.map((d, i) => (
-                <DocCard key={`${d.label}-${i}`} {...d} batchTag={shortBatch(d.batch)} compact hideMeta />
+                <DocCard
+                  key={`${d.label}-${i}`}
+                  {...d}
+                  batchTag={shortBatch(d.batch)}
+                  hideMeta
+                  preview
+                  eager
+                />
               ))}
             </div>
           </div>
