@@ -1572,8 +1572,16 @@ Two gitignored pieces make this work without ever committing PII or breaking the
   because `config.json` is committed and Netlify auto-deploys, so pointing *it* at a local
   path ships a broken site — and reverting it each time silently sent local testing back to
   demo data. Logs `[config] config.local.json applied` when active.
-- **`public/local-roster/`** holds a column-reduced copy of the roster (19 PII columns
-  stripped) for offline work.
+- **`public/local-roster/`** holds a column-reduced copy of the roster (19 of the feed's 29
+  columns stripped) for offline work. It keeps `StudentID, Name, Grade, section, StudentEmailID,
+  ParentsEmailID, FathersMobileNo, MothersMobileNo, FatherName, MotherName` — **`StudentEmailID`
+  was added on 2026-08-17** and its absence is worth remembering as a failure mode: a Grade 7
+  student's real address was refused locally while working perfectly on production, purely because
+  the local copy predated the column. **When the app grows a new roster column, refresh this copy
+  or dev will disagree with production and look like a bug.** Rebuilt with a short script against
+  `https://nucleus.fountainheadschools.org/CSVDATA/StudentData.csv` — the host and path are in the
+  committed `vite.config.js` proxy, so no secret is needed; `ROSTER_CSV_URL` in `.env` is empty
+  locally and only Netlify's copy is set.
 - **The Vite dev proxy** `/roster → nucleus.fountainheadschools.org/CSVDATA` (vite.config.js)
   re-serves the live feed same-origin, which is the only way a browser can read it.
   `csvUrls: { students: "/roster/StudentData.csv" }` points one source at it while the rest
@@ -1699,8 +1707,9 @@ HTTPS host). Checked 2026-08-11; only row 1 was fetched, never the records.
   credential", which was right for the rule as it stood. `EmergencyContactNo` is still excluded
   on purpose: it is often a neighbour or a relative. `pick`/`collectAll` match whole normalized
   header names, so `StudentEmailID` can never collide with `Email` in either direction.
-  **Unverified against the live feed:** whether the school actually fills that column for grades
-  7-12. If it is blank, student sign-in simply never matches — no error, no access.
+  **Measured against the live feed 2026-08-17: `StudentEmailID` is filled in 2618 of 2618 rows**,
+  so every student in the school has one. `ParentsEmailID`, both mobiles and both parent names are
+  equally complete; only `section` has a gap (2617/2618).
 
 ## The school's real Drive folder — do NOT publish it
 `drive.google.com/drive/folders/1kBYDyPs-2nAW-l2sEf7Czz5RaevzrxgQ` — "Educational trips
@@ -1819,6 +1828,17 @@ Raised in `docs/DATA-HANDOVER.md`; none answered yet. Do not assume any of these
 - `legacy/trip-explorer.html` is frozen reference. Do not edit it.
 
 ## Changelog
+- 2026-08-17 (eighteenth pass, same day) — **"A Grade 7 student's address is refused" — it was the
+  local fixture, not the code.** The school sent the roster row beside the refusal. Probed the live
+  endpoint with that exact address first: production answered **200 with `signedInAs: 'student'`**,
+  so the rule shipped correctly and only local dev disagreed — `public/local-roster/students.csv`
+  predated the `StudentEmailID` column, so no student address could match there. Measured the live
+  feed while confirming: 29 columns, 2618 rows, and **`StudentEmailID` filled in every one of them**,
+  which closes the open question from the previous pass. Rebuilt the local copy with the same 19
+  columns stripped plus `StudentEmailID` (still gitignored, still 10 columns). Re-verified locally:
+  the Grade 7 student signs in as `student` with "My trip", a **Junior KG student's own address is
+  refused** while that child's parent address signs in as `parent` for grade `jk`. No code change —
+  the lesson is that a stale local roster copy reads exactly like a broken feature.
 - 2026-08-17 (seventeenth pass, same day) — **Students may sign in from Grade 7; Grade 6 and below
   stay parent-only.** The school's rule, implemented as one matcher — `matchStudent` in
   `lib/identity.js` — that the server function, the client fallback and `AuthContext`'s last-resort
