@@ -57,10 +57,15 @@
   --shadow-card: 0 22px 48px -22px rgba(19, 28, 62, 0.34);
   --shadow-hero: 0 18px 44px -34px rgba(19, 28, 62, 0.3);
 
-  /* One family for body, a serif for the display headings the design uses on
-     the hero, the dashboard title and the overview. */
-  --font-display: 'Instrument Serif', Georgia, 'Times New Roman', serif;
-  --font-body: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  /* One family for body, a serif for the display headings — the trip title, the
+     dashboard title, the login headline and every section heading on the stage.
+     Changed 2026-08-17 at the school's request ("change font"): Fraunces replaces
+     Instrument Serif and Manrope replaces Plus Jakarta Sans. Fraunces is a warmer,
+     heavier serif, so `--display-weight` is 600 where the old face wanted 400 —
+     Instrument Serif's 400 was already a display weight, Fraunces' is a text one. */
+  --font-display: 'Fraunces', Georgia, 'Times New Roman', serif;
+  --font-body: 'Manrope', system-ui, -apple-system, sans-serif;
+  --display-weight: 600;
 
   /* Measured height of the sticky top bar, and the `top:` of the sticky section
      nav. Re-measure if the bar's padding or font size changes — a stale value
@@ -72,4 +77,10 @@
      the same two values, so changing them here moves all of them together. */
   --shell-w: 100%;
   --shell-pad: 30px;
+
+  /* The trip page's centred column. The rest of the app runs the full width of
+     the window; the stage deliberately does not — a centred axis is the whole
+     point of that layout, and two decks side by side across 1900px stop reading
+     as one page. Overview is the exception and bleeds past it to the edges. */
+  --stage-w: 1400px;
 }

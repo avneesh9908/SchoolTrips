@@ -4,6 +4,29 @@ import { RequireAuth, RequireStudent } from './auth/RequireAuth'
 import Login from './pages/Login'
 import ChildPicker from './pages/ChildPicker'
 import TripPage from './pages/TripPage'
+import { TRIP_LAYOUT } from './lib/layout'
+
+/**
+ * Route class per trip layout. `is-stage` carries the design and the second class says
+ * how it meets the window: `is-scroll` lets the page grow, `is-fit` locks it to one
+ * screen. `'flow'` is absent on purpose — it is an ordinary scrolling page and takes
+ * no class at all.
+ */
+const APP_CLASS = {
+  stage: 'app is-stage is-scroll',
+  'stage-tabs': 'app is-stage is-scroll',
+  'stage-fit': 'app is-stage is-fit',
+  fixed: 'app is-fixed',
+}
+
+/**
+ * The layouts that drop the site footer, which is every one that fits a tab to the
+ * window or close to it: ~117px of chrome was the difference between fitting and not,
+ * and even where the page may scroll, the footer alone would put a scrollbar on a tab
+ * that otherwise ends exactly at the fold. The one-page layouts keep it — there the
+ * page is long already and the footer is how it ends.
+ */
+const NO_FOOTER = new Set(['stage-tabs', 'stage-fit', 'fixed'])
 
 export default function App() {
   const { pathname } = useLocation()
@@ -11,17 +34,14 @@ export default function App() {
   // shared header and footer would only repeat it.
   const bare = pathname === '/login'
 
-  /**
-   * The trip page is a fixed-height view: it fills the window exactly and the
-   * window never scrolls (the school's instruction, 2026-08-14 — "I don't want
-   * scrollbar anywhere"). The footer goes with the scroll, because ~117px of
-   * chrome is the difference between fitting and not — and its one line of copy
-   * points at the trip page, which is where the reader already is.
-   */
-  const fixed = pathname.startsWith('/trip/')
+  // Which trip layout is in force — see `lib/layout.js` for the five of them, and the
+  // two tables above for the class each one wears and whether it keeps the footer.
+  const mode = pathname.startsWith('/trip/') ? TRIP_LAYOUT : ''
+  const appClass = APP_CLASS[mode] || 'app'
+  const footer = !bare && !NO_FOOTER.has(mode)
 
   return (
-    <div className={fixed ? 'app is-fixed' : 'app'}>
+    <div className={appClass}>
       {!bare && <TopBar />}
 
       <Routes>
@@ -31,7 +51,7 @@ export default function App() {
         <Route path="*" element={<Navigate to="/children" replace />} />
       </Routes>
 
-      {!bare && !fixed && <SiteFooter />}
+      {footer && <SiteFooter />}
     </div>
   )
 }

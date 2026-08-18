@@ -18,7 +18,7 @@ a:hover { color: var(--link-hover); }
 /* The serif is the display face: hero titles, the dashboard heading and the
    overview. Everything else is Plus Jakarta Sans. */
 .display {
-  font-family: var(--font-display); font-weight: 400; letter-spacing: -0.02em;
+  font-family: var(--font-display); font-weight: var(--display-weight); letter-spacing: -0.02em;
 }
 
 .app { min-height: 100vh; display: flex; flex-direction: column; }
@@ -143,7 +143,7 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible {
 }
 .login-copy { display: flex; flex-direction: column; gap: 26px; }
 .login-copy h2 {
-  margin: 0; font-family: var(--font-display); font-weight: 400;
+  margin: 0; font-family: var(--font-display); font-weight: var(--display-weight);
   font-size: clamp(38px, 4.6vw, 62px); line-height: 1.02;
   letter-spacing: -0.015em; text-wrap: pretty;
 }
@@ -233,7 +233,7 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible {
 .crumbs { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--soft); }
 .crumbs .here { color: var(--accent); }
 .dash-head h2 {
-  margin: 12px 0 8px; font-family: var(--font-display); font-weight: 400;
+  margin: 12px 0 8px; font-family: var(--font-display); font-weight: var(--display-weight);
   font-size: clamp(34px, 4vw, 48px); line-height: 1.05; letter-spacing: -0.02em;
 }
 .dash-head .lede { margin: 0; font-size: 16px; color: var(--muted); }
@@ -439,6 +439,47 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible {
    each other and settled at 265px again. */
 .itin-top > .itin-docs > * { flex: 1 1 150px; max-width: none; }
 .sections:focus { outline: none; }
+
+/* ---------- the one-page layout (TRIP_LAYOUT === 'flow') ----------
+   Every section stacked and the window scrolling, asked for 2026-08-17. The
+   fixed-height view's whole mechanism has to be undone here, and undoing it is
+   mostly a matter of giving back the natural heights it took away: `.chip-row`,
+   the lists, the rule stack and the slide frames all size themselves from a panel
+   with a definite height, and on a scrolling page there is no such height — left
+   alone they collapse to nothing. These are the same rules the ≤980px breakpoint
+   already applies for the same reason. */
+/* Spacing: 32 above the rule and 32 below it, not 46 + 40. At 86px the blocks read
+   as separate pages that happen to share a scrollbar, and on a 900px window a
+   third of the screen could be the gap between two sections. */
+.sections.is-flow { display: flex; flex-direction: column; gap: 32px; padding: 24px 0 40px; }
+.flow-block { scroll-margin-top: calc(var(--header-h) + 58px); }
+/* Matched to `.section h3` — same size, same family, same tracking. These sit in
+   the same column as the headings the section components render, so a serif here
+   and a sans there made one page look like two. */
+.flow-block > .flow-title {
+  margin: 0 0 16px; font-size: 30px; font-weight: 700;
+  letter-spacing: -0.02em; line-height: 1.2;
+}
+.flow-block + .flow-block { border-top: 1px solid var(--rule); padding-top: 32px; }
+/* Overview is a photograph told to fill the window in the fixed view; here it is
+   a band at the top of a page that continues below it. */
+.is-flow .home-banner { flex: 0 0 auto; min-height: 420px; }
+.is-flow .section.is-stretch { min-height: 0; }
+.is-flow .section.is-stretch > .chip-row, .is-flow .carry-card { flex: 0 0 auto; min-height: 0; }
+.is-flow .chip-lines, .is-flow .chip-docs, .is-flow .rule-stack { flex: 0 0 auto; overflow: visible; }
+.is-flow .chip-slides { flex: 0 0 auto; }
+.is-flow .google-slides-preview { height: auto; width: 100%; }
+.is-flow .google-slides-preview iframe { height: auto; }
+.is-flow .chip-col .doc-card { flex: 0 0 auto; }
+.is-flow .chip-col .doc-thumb { flex: 0 0 auto; height: 320px; }
+/* The strip is a jump nav now, not a tablist — links rather than buttons, and no
+   one of them is "current", since every section is on the page. */
+.secnav-inner a {
+  flex: 0 0 auto; padding: 13px 2px; font-size: 14.5px; font-weight: 700;
+  color: var(--muted); text-decoration: none; border-bottom: 2px solid transparent;
+  white-space: nowrap;
+}
+.secnav-inner a:hover { color: var(--ink); border-bottom-color: var(--line-2); }
 /* A tab now holds several blocks rather than one — the Itinerary tab carries the
    batches, the day plan, travel, do's and don'ts and the packing list — so the
    section itself spaces its children instead of each block owning a margin. */
@@ -512,7 +553,7 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible {
 }
 .home-meta span + span::before { content: '·'; margin-right: 10px; opacity: 0.7; }
 .home-banner-text h3 {
-  margin: 0; font-family: var(--font-display); font-weight: 400; color: #fff;
+  margin: 0; font-family: var(--font-display); font-weight: var(--display-weight); color: #fff;
   font-size: clamp(26px, 2.6vw, 36px); letter-spacing: -0.015em; line-height: 1.1;
 }
 .home-lead {
@@ -1082,6 +1123,510 @@ ul.plain li::before { content: '•'; flex: none; font-weight: 800; color: var(-
   .login-art { min-height: 300px; }
   .login-art-body { padding: 34px 28px 36px; gap: 22px; }
   .login-form { padding: 40px 22px; }
+}
+
+/* ================================================================
+   THE STAGE — the trip page, redesigned (TRIP_LAYOUT === 'stage')
+   ================================================================
+   The school's brief, 2026-08-17: "redesign whole page, centre all things, change
+   font, change style, cover whole page, fit on screen, totally redesign".
+
+   Four decisions come out of that, and each is a group of rules below.
+
+   1. ONE CENTRED AXIS. The rest of the app runs the full width of the window; the
+      stage is a `--stage-w` column centred in it, and every head, row and card
+      sits on that line. Multi-line guidance stays LEFT-aligned inside its card —
+      a wrapped sentence is read from a straight left edge, and those lists are the
+      one thing on this page a parent has to read rather than look at.
+   2. IT FILLS THE WINDOW AND THE WINDOW NEVER SCROLLS — the same mechanism as the
+      2026-08-14 fixed view (100dvh, `min-height: 0` down the chain, no footer).
+      What is new is that the panel centres its section vertically as well.
+   3. OVERVIEW COVERS EVERYTHING. The photograph bleeds past the page gutter to all
+      four edges with the school's own words centred on it, rather than sitting as
+      a rounded card inside the column.
+   4. A NEW FACE. Fraunces carries every heading here, not just the trip title.
+
+   It comes in two variants, and `.app` carries which one: **`.is-scroll`** (the
+   current one) lets the page grow past the window and scroll, **`.is-fit`** locks it
+   to one screen and never scrolls anything but a card's own list. Everything below
+   that is keyed on `.is-stage` alone is the design and applies to both; the two
+   variant blocks at the end are only the difference between growing and clipping.
+
+   Verify `.is-fit` the way the fixed layout has to be verified: `overflow: hidden`
+   makes the window report that everything fits whether it does or not, so walk the
+   elements and compare each rect against the viewport. `.is-scroll` is the easier
+   one — `documentElement.scrollHeight` tells the truth there. */
+
+.app.is-stage {
+  /* Two soft washes on the centre line. Against the flat page colour a 1400px
+     column of white cards floated on ~250px of nothing either side; centred
+     gradients make those margins part of the composition instead. */
+  background:
+    radial-gradient(120% 78% at 50% -8%, #eaeffd 0%, rgba(234, 239, 253, 0) 58%),
+    radial-gradient(96% 62% at 50% 108%, #fdf4e8 0%, rgba(253, 244, 232, 0) 56%),
+    var(--bg);
+}
+/* `min-height: 0` is deliberately NOT here — it belongs to `.is-fit`, which wants
+   this chain to refuse to grow. On a scrolling page the same declaration is a bug:
+   a flex item with a zero basis and `min-height: 0` settles at the container's
+   height while its content paints outside it, so the page never grows and the
+   overflow is unreachable. `min-height: auto` (the default) makes each link in the
+   chain at least as tall as its content, which is what lets `.app` grow. */
+.app.is-stage .page { padding: 0; display: flex; }
+.app.is-stage .shell { display: flex; flex-direction: column; flex: 1; }
+/* Loading, "Not your child's grade", "Coming soon" and "Nothing published yet"
+   all render without the stage around them, so they need centring of their own —
+   otherwise the box stretches across the top of an otherwise empty window. */
+.app.is-stage .state { margin: auto; max-width: 640px; width: 100%; }
+
+/* ---------- the tab strip: a centred segmented control ---------- */
+.stage-nav { flex: 0 0 auto; display: flex; justify-content: center; padding: 16px 0 2px; }
+.stage-nav-inner {
+  display: flex; gap: 3px; max-width: 100%; padding: 5px;
+  overflow-x: auto; scrollbar-width: none;
+  background: rgba(255, 255, 255, 0.88); backdrop-filter: blur(12px);
+  border: 1px solid var(--line); border-radius: var(--r-pill);
+  box-shadow: 0 14px 34px -22px rgba(19, 28, 62, 0.4);
+}
+.stage-nav-inner::-webkit-scrollbar { display: none; }
+.stage-tab {
+  flex: 0 0 auto; padding: 10px 17px; border: none; border-radius: var(--r-pill);
+  background: transparent; font: inherit; font-size: 13.5px; font-weight: 700;
+  color: var(--muted); cursor: pointer; white-space: nowrap;
+  transition: background 0.18s ease, color 0.18s ease;
+}
+.stage-tab:hover { color: var(--navy); background: var(--wash); }
+.stage-tab.is-active, .stage-tab.is-active:hover { background: var(--navy); color: #fff; }
+
+/* ---------- the panel ---------- */
+.stage { flex: 1; min-height: 0; display: flex; justify-content: center; padding: 16px 0 24px; }
+.stage:focus { outline: none; }
+.stage-inner {
+  width: 100%; max-width: var(--stage-w); min-height: 0;
+  display: flex; flex-direction: column;
+  animation: fade-in 0.38s ease both;
+}
+/* `margin-block: auto`, NOT `justify-content: center`. Auto margins give up their
+   space when there is none — a section taller than the space then starts at its top
+   and reads downwards, where centring would have cut off both ends of it with no way
+   to reach either. */
+.stage-inner > .section { flex: 0 0 auto; margin-block: auto; gap: 20px; }
+
+/* ---------- centred heads ---------- */
+.is-stage .section-head { text-align: center; }
+.is-stage .section-head.with-aside { display: block; }
+.is-stage .section-head > div { max-width: 780px; margin-inline: auto; }
+/* Sized against the window's HEIGHT as well as its width: height is what decides
+   whether a section fits, so a short window gets a smaller heading rather than a
+   scrollbar. */
+.is-stage .section h3 {
+  font-family: var(--font-display); font-weight: var(--display-weight);
+  font-size: clamp(25px, min(2.5vw, 4.2vh), 38px); letter-spacing: -0.01em; line-height: 1.12;
+}
+/* A short rule under the heading. Centred, the old eyebrow-and-title block lost
+   the left edge that used to anchor it, and this gives the eye something to sit on. */
+.is-stage .section-head > div::after {
+  content: ''; display: block; width: 44px; height: 3px; border-radius: 2px;
+  background: var(--amber); margin: 14px auto 0;
+}
+.is-stage .section-aside { display: block; margin-top: 10px; }
+
+/* ---------- Overview: the photograph covers the window ---------- */
+.stage.is-cover { padding: 12px 0 0; margin-inline: calc(-1 * var(--shell-pad)); }
+.stage.is-cover .stage-inner { max-width: none; }
+.stage.is-cover .stage-inner > .section { flex: 1; margin-block: 0; }
+.is-stage .home-banner { border-radius: 0; align-items: center; justify-content: center; }
+/* A vignette, not the bottom-weighted scrim the card version used — and this one
+   was measured, not eyeballed, because centring the text moved it into the
+   lightest part of the old gradient. Compositing the scrim over the Grade 7
+   photograph's own pixels and taking the worst sample under each block:
+
+     scrim, at 1280x720   title    lead    body
+     bottom-weighted       2.96    6.07    4.00
+     this one              3.49    8.94    5.13
+
+   The title needs 3:1 (it is 47–64px) and the body needs 4.5:1; the old one missed
+   both. Re-checked at 1907x878, where the crop differs: 3.95 / 5.46 / 5.53.
+
+   The radial layer darkens the middle where the words are and leaves the corners
+   alone, so the picture is still a picture. The text-shadow is the second belt: it
+   costs nothing and it covers whatever photograph the school supplies next, which
+   nobody is going to re-measure. */
+.is-stage .home-banner.has-photo::after {
+  background:
+    radial-gradient(74% 58% at 50% 50%, rgba(11, 17, 33, 0.34) 0%, rgba(11, 17, 33, 0.16) 62%, rgba(11, 17, 33, 0) 100%),
+    linear-gradient(180deg, rgba(11, 17, 33, 0.5) 0%, rgba(11, 17, 33, 0.36) 44%, rgba(11, 17, 33, 0.86) 100%);
+}
+.is-stage .home-banner-text h3,
+.is-stage .home-lead,
+.is-stage .home-body-text { text-shadow: 0 2px 16px rgba(11, 17, 33, 0.62); }
+.is-stage .home-banner-text {
+  align-items: center; text-align: center; gap: 14px;
+  max-width: 1080px; margin: 0 auto; padding: 40px clamp(20px, 4vw, 56px);
+}
+/* Grade · Batch · Dates become glass pills on the centre line. The interpunct
+   that separated them was a left-aligned device. */
+.is-stage .home-meta { justify-content: center; gap: 8px; }
+.is-stage .home-meta span {
+  padding: 7px 14px; border-radius: var(--r-pill); letter-spacing: 0.1em;
+  background: rgba(255, 255, 255, 0.14); border: 1px solid rgba(255, 255, 255, 0.28);
+  backdrop-filter: blur(8px);
+}
+.is-stage .home-meta span + span::before { content: none; margin: 0; }
+.is-stage .home-banner-text h3 { font-size: clamp(30px, min(4.6vw, 7.6vh), 64px); line-height: 1.03; }
+.is-stage .home-lead {
+  font-size: clamp(15.5px, min(1.5vw, 2.5vh), 21px); line-height: 1.45;
+  max-width: 62ch; margin-inline: auto;
+}
+.is-stage .home-body-text {
+  font-size: clamp(13px, min(1.05vw, 1.85vh), 15.5px); line-height: 1.6;
+  max-width: 76ch; margin-inline: auto;
+}
+
+/* ---------- everything else, on the same axis ---------- */
+.is-stage .itin-top, .is-stage .chip-row, .is-stage .orient-row,
+.is-stage .travel-grid, .is-stage .batch-grid { justify-content: center; }
+.is-stage .panel { border-radius: 26px; }
+.is-stage .batch-row { flex-direction: column; align-items: center; text-align: center; gap: 8px; }
+.is-stage .orient-group > h4 { text-align: center; }
+/* The card's own contents centre too — icon over label over action line. */
+.is-stage .doc-card { align-items: center; text-align: center; border-radius: 22px; }
+.is-stage .chip-col { border-radius: 26px; }
+/* Icon left, count right, title centred between the two. */
+.is-stage .chip-head h4 { text-align: center; }
+/* `width: 100%` is not redundant beside the auto margins — it is what makes them
+   work. An auto inline margin on a flex item overrides the container's stretch, so
+   the card fell back to its fit-content width and took the deck down with it:
+   measured 168×94. An explicit width is definite, `max-width` clamps it, and the
+   margins then centre what is left over. */
+.is-stage .carry-card { width: 100%; margin-inline: auto; }
+/* A lone card must not span the window just because its grid track can: both of
+   these grids are `auto-fit` + `1fr`, which hands a single item the whole row.
+   Measured at 1440, Grade 7's one travel card was 1380px wide with four short
+   centred lines in it, and the two photo albums were 680px each — the same guard
+   `.chip-row > :only-child` and `.orient-row` already carry.
+
+   For travel, cap the CARD and leave the track alone. `auto-fit` counts how many
+   tracks fit from the track's MAX size, so `minmax(340px, 720px)` made exactly one
+   720px track in a 1220px row: staff's two batches stacked and the panel scrolled
+   693 into 545. With the max left at `1fr` the count comes from the 340px minimum
+   (two tracks of 599 for a pair), and `width: 100%` + `max-width` + auto margins
+   hold a lone card to 720 in the middle of the row it was handed. The album grid
+   has no such pair to protect, so a capped track is the simpler answer there. */
+.is-stage .travel-card {
+  width: 100%; max-width: 720px; margin-inline: auto;
+  border-radius: 26px; text-align: center;
+}
+.is-stage .doc-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 420px)); justify-content: center;
+}
+.is-stage .travel-top { justify-content: center; }
+.is-stage .travel-route { text-align: left; }
+.is-stage .comm, .is-stage .reminder-list { text-align: center; }
+.is-stage .comm .contacts a, .is-stage .comm .contacts span { justify-content: center; }
+/* The exception to the centre line, and it is deliberate: guidance is read from a
+   straight left edge. Only the card it sits in is centred. */
+.is-stage .chip-lines > li, .is-stage .rule-card, .is-stage .carry-list > li { text-align: left; }
+/* The two-track flow keys off the WINDOW's width, which no longer tells you the
+   card's: at 1907px that breakpoint fires while the stage holds Safety to ~690px,
+   and two tracks of ~330px wrap every sentence to bits. One track here. */
+.is-stage ul.plain.chip-lines:not(.carry-list) { display: block; }
+/* Centred, with a rule above instead of a bar down the left — a left border is a
+   left-aligned device too. */
+.is-stage .pending-note {
+  border-left: none; border-top: 1px solid var(--line);
+  padding: 12px 0 0; margin: 4px auto 0; max-width: 640px; text-align: center;
+}
+
+/* ================================================================
+   .is-scroll — the stage on a page that scrolls (the current variant)
+   ================================================================
+   *"same page scrollable make after the tab click switch scroll the web page"*,
+   2026-08-17. The design is untouched; what changes is what a tab does when it holds
+   more than a screenful. It grows the page, the window scrolls, and
+   `scrollToPanel()` puts the reader at the top of the panel on every tab switch.
+
+   Two consequences worth stating:
+   - **Every tab is still at least a screenful**, so Overview covers the window
+     exactly as it did and a short tab does not float in a half-empty page. Only
+     content past that point produces a scrollbar — which is why the site footer
+     stays off this route (see `App.jsx`): it alone would scroll every tab.
+   - **Nothing inside a card scrolls any more.** In `.is-fit` a long safety list gets
+     its own hidden scroller because the panel cannot grow; here it runs down the
+     page, which is the instruction. Each rule below hands back a natural height the
+     fitted variant had taken away — the same list `.is-flow` restores, for the same
+     reason: these boxes size themselves from a panel with a definite height and
+     collapse to nothing without one. */
+/* One screenful with no arithmetic. Subtracting the two bars by hand
+   (`calc(100dvh - var(--header-h) - <nav>)`) needs the nav's height as a token, and
+   the nav measures **69px** against the 68 that reading its padding suggests — two
+   px of sub-pixel line-height, which is enough to put a scrollbar on Overview. The
+   flex chain already knows the answer: `.app` is at least the window tall, so a
+   `flex: 1 1 auto` panel takes exactly the space the header and the bar leave.
+   `min-height: auto` is the other half — at 0 the panel would settle at that
+   leftover height and paint any excess outside itself, which is the whole trap this
+   variant exists to avoid.
+   `dvh` not `vh`: on a phone `100vh` is the address bar's tallest state, so a
+   vh-sized page scrolls by the height of the bar with nothing to show for it. */
+.is-stage.is-scroll { min-height: 100dvh; }
+.is-stage.is-scroll .stage { flex: 1 1 auto; min-height: auto; }
+/* The tab bar has to stay reachable from the foot of a long tab, and as a full-bleed
+   translucent band rather than a pill floating over moving content — text sliding
+   past either side of a bare pill reads as a mistake, not as a design. */
+.is-scroll .stage-nav {
+  position: sticky; top: var(--header-h); z-index: 40;
+  margin-inline: calc(-1 * var(--shell-pad));
+  background: rgba(250, 251, 253, 0.82); backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--line);
+}
+/* Overview: at least the screen, taller if the school's Header Text needs it.
+   `min-height: auto` is doing real work on both of these — the base rules set it to
+   0 so the fitted variant could clip, and at 0 a flex item may shrink under its own
+   content, which then paints outside the box and does not count toward the page's
+   scrollHeight. That is the 2026-08-14 silent-content-loss trap, one layer up. */
+.is-scroll .stage.is-cover .stage-inner > .section,
+.is-scroll .home-banner { min-height: auto; }
+/* Natural heights, exactly as `.is-flow` restores them. */
+.is-scroll .stage-inner > .section.is-stretch { min-height: 0; margin-block: auto; }
+.is-scroll .section.is-stretch > .chip-row, .is-scroll .carry-card { flex: 0 0 auto; min-height: 0; }
+.is-scroll .chip-lines, .is-scroll .chip-docs, .is-scroll .rule-stack { flex: 0 0 auto; overflow: visible; }
+.is-scroll .chip-slides { flex: 0 0 auto; }
+.is-scroll .google-slides-preview { width: 100%; height: auto; }
+.is-scroll .chip-col .doc-card { flex: 0 0 auto; }
+.is-scroll .chip-col .doc-thumb { flex: 0 0 auto; height: 320px; }
+
+/* ================================================================
+   The SINGLE PAGE — `TRIP_LAYOUT = 'stage'`, the current default
+   ================================================================
+   *"remove tabs like different page make single page with header"*, 2026-08-17, and the
+   fourth answer to the same question in one day. No tablist: Overview is a full-bleed
+   cover and every other section is stacked beneath it in the centred column, with the
+   pill bar demoted to a jump nav.
+
+   It runs on `.is-scroll`, so every natural-height rule above applies unchanged. The
+   only new geometry is the column cap, the separation between blocks, and the cover. */
+.stage-page { display: flex; flex-direction: column; }
+/* The column cap sits on the BLOCK rather than on a wrapper around them all, which is
+   what lets the cover opt out of it and reach the window's edges. */
+.stage-block {
+  width: 100%; max-width: var(--stage-w); margin-inline: auto; padding: 40px 0;
+  /* A hash in the address bar scrolls without the click handler, so a block still needs
+     a margin for the sticky bars. Approximate on purpose: `scrollToBlock` measures them
+     properly, and this only has to stop a pasted link landing a heading underneath. */
+  scroll-margin-top: calc(var(--header-h) + 78px);
+}
+.stage-block + .stage-block { border-top: 1px solid var(--rule); }
+.stage-block > .section { gap: 20px; }
+/* The cover: edge to edge, nothing above it, and most of the first screen rather than
+   all of it. Leaving the next heading peeking is what tells a reader there is more page
+   below — the whole complaint about the tabbed version was that it looked finished at
+   the fold. `flex: 0 0 auto` matters: with the basis at 0 the banner would take exactly
+   `min-height` and clip its own text on a short window, where an `auto` basis makes the
+   height the LARGER of the text and the screenful. */
+.stage-block.is-cover {
+  /* `width: auto` is not cosmetic here: with the `width: 100%` every other block
+     carries, the cover measured the column's 1205px and the negative margins merely
+     slid it 30px left, leaving a 30px strip of canvas down the right-hand edge. An auto
+     width lets the flex stretch resolve it as the container plus both margins. */
+  width: auto; max-width: none; margin-inline: calc(-1 * var(--shell-pad)); padding: 12px 0 0;
+}
+.stage-block.is-cover + .stage-block { border-top: none; }
+.is-stage .stage-block.is-cover .home-banner { flex: 0 0 auto; min-height: 72dvh; }
+/* Matched to `.is-stage .section h3`, amber rule included: these headings and the ones
+   the section components render themselves sit in the same column, and two heading
+   styles in one column made one page look like two. */
+.stage-block > .stage-block-title {
+  margin: 0 0 20px; text-align: center;
+  font-family: var(--font-display); font-weight: var(--display-weight);
+  font-size: clamp(25px, min(2.5vw, 4.2vh), 38px); letter-spacing: -0.01em; line-height: 1.12;
+}
+.stage-block > .stage-block-title::after {
+  content: ''; display: block; width: 44px; height: 3px; border-radius: 2px;
+  background: var(--amber); margin: 14px auto 0;
+}
+/* The block's own heading already says "Things to carry", so the card's head under it
+   was the same words twice — visible in the school's screenshot. Dropped only where the
+   card frames a deck: there the head carries nothing else, since the count pill appears
+   for a printed list and not for a deck. The deck gets the 63px. */
+.stage-page .carry-card.has-slides > .chip-head { display: none; }
+
+/* The jump nav wears the same pill as the tabs did, minus the underline the global `a`
+   rule would give it. None of them is ever "current": every section is on the page, and
+   a scroll-spy is the thing this project has twice decided against. */
+.stage-nav-inner a.stage-tab { text-decoration: none; }
+
+/* ---------- density (2026-08-17, "this is like take more space") ----------
+   The school photographed the Orientation and Travel blocks: two labels and two small
+   cards stacked down the middle, then one travel card with four short lines in it,
+   between them most of two screens of empty page. The content is right; the spacing
+   and the stacking were wrong. Nothing here changes what is on the page. */
+
+/* Parent and student decks side by side (the wrapper is new markup in
+   `OrientationSection`), and each card allowed to fill its half rather than sitting at
+   a 270px basis in the middle of it. `auto-fit` so one group alone still fills the row
+   instead of leaving a hole where the other would be. */
+.orient-groups {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 18px;
+}
+/* The stacked spacing has to go, or the grid gap and the margin both apply. */
+.orient-groups > .orient-group + .orient-group { margin-top: 0; }
+.is-stage .orient-row > * { flex: 1 1 240px; max-width: 420px; }
+
+/* Vertical rhythm on the single page: 40px of block padding plus a 24px section gap put
+   ~90px of nothing around every heading. 28 and 16 read as the same page and give ~130px
+   back over six blocks. */
+.stage-block { padding: 28px 0; }
+.stage-block > .stage-block-title { margin: 0 0 14px; }
+.stage-block > .section { gap: 16px; }
+.is-stage .section-head > div::after { margin: 10px auto 0; }
+/* A card with four short prose lines does not need 30px of padding on every side. */
+.is-stage .travel-card { padding: 22px 24px; }
+.is-stage .travel-top { margin-bottom: 12px; }
+.is-stage .orient-group { gap: 8px; }
+
+/* ---------- the jump nav on a phone: a menu, not a scroller ----------
+   "In phone view tabs like menu make responsive", 2026-08-17. At 375px the pill strip
+   held 652px of sections in 373px of window: four of the six sat off the right edge
+   behind a scroller with `scrollbar-width: none`, so nothing on screen said they were
+   there. Both shapes are in the DOM and this is what picks one — no resize listener, and
+   the hidden one is out of the accessibility tree with it. */
+.stage-menu { display: none; }
+
+@media (max-width: 720px) {
+  .stage-nav-inner { display: none; }
+  /* The gutter comes back: `.is-scroll .stage-nav` is full-bleed for the band, so the
+     control inside it needs the page's own padding. */
+  .stage-nav { padding: 10px var(--shell-pad); }
+  .stage-menu { display: block; position: relative; width: 100%; max-width: 460px; }
+
+  .stage-menu-btn {
+    display: flex; align-items: center; gap: 10px; width: 100%;
+    padding: 12px 16px; border-radius: var(--r-pill);
+    background: rgba(255, 255, 255, 0.94); border: 1px solid var(--line);
+    box-shadow: 0 10px 26px -20px rgba(19, 28, 62, 0.45);
+    font: inherit; font-size: 14.5px; font-weight: 700; color: var(--navy);
+    cursor: pointer; -webkit-tap-highlight-color: transparent;
+  }
+  .stage-menu-btn .t { flex: 1; text-align: left; }
+  .stage-menu-btn svg { width: 18px; height: 18px; flex: 0 0 auto; display: block; }
+  /* A wrapper rotates rather than `svg:last-child`, which would follow whatever element
+     is added after the chevron next. Verifying this in the preview pane needs the
+     transition switched off first: transitions never progress there (nothing composites),
+     so a transitioned `transform` always reads back as its starting value — with it off,
+     the rotation measures matrix(-1, 0, 0, -1, 0, 0). */
+  .stage-menu-btn .chev {
+    flex: 0 0 auto; display: block; color: var(--soft); transition: transform 0.2s ease;
+  }
+  .stage-menu-btn[aria-expanded='true'] .chev { transform: rotate(180deg); }
+  .stage-menu-btn[aria-expanded='true'] { border-color: var(--accent); }
+
+  .stage-menu-list {
+    position: absolute; z-index: 2; top: calc(100% + 8px); left: 0; right: 0;
+    display: flex; flex-direction: column; padding: 8px;
+    background: var(--card); border: 1px solid var(--line-2);
+    border-radius: 20px; box-shadow: 0 26px 54px -26px rgba(19, 28, 62, 0.5);
+    animation: fade-in 0.16s ease both;
+  }
+  /* 44px minimum, because this is the one control on the page a thumb has to hit. */
+  .stage-menu-list a {
+    display: flex; align-items: center; min-height: 44px; padding: 10px 14px;
+    border-radius: 12px; font-size: 15px; font-weight: 700; color: var(--ink);
+    text-decoration: none;
+  }
+  .stage-menu-list a:active { background: var(--wash); }
+  .stage-menu-list a + a { border-top: 1px solid var(--rule); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stage-menu-list { animation: none; }
+  .stage-menu-btn .chev { transition: none; }
+}
+
+/* ================================================================
+   .is-fit — the same stage locked to one screen (`TRIP_LAYOUT = 'stage-fit'`)
+   ================================================================
+   Nothing scrolls: the route is exactly `100dvh`, the panel is the only scroller and
+   only when a tab genuinely cannot fit, and a long guideline list scrolls inside its
+   own card. `min-height: 0` down the whole chain, or a flex child refuses to shrink
+   below its content and the overflow reappears at the window. `dvh` never `vh` — on
+   a phone `100vh` is the address bar's tallest state. */
+.app.is-stage.is-fit { height: 100dvh; min-height: 0; overflow: hidden; }
+.app.is-stage.is-fit .page { min-height: 0; overflow: hidden; }
+.app.is-stage.is-fit .shell { min-height: 0; }
+.is-fit .stage-inner {
+  height: 100%; overflow-y: auto; overflow-x: hidden; scrollbar-width: none;
+}
+.is-fit .stage-inner::-webkit-scrollbar { display: none; }
+.is-fit .stage.is-cover .stage-inner { overflow: hidden; }
+.is-fit .stage.is-cover .stage-inner > .section { min-height: 0; }
+/* A stretching section fills the panel instead of centring in it: the guideline
+   cards and the slide frames inside are sized from a definite height. `min-height`,
+   not `height`, so a tall one still grows and the panel scrolls. */
+.is-fit .stage-inner > .section.is-stretch { min-height: 100%; margin-block: 0; }
+/* The deck frame has to be sized from BOTH axes in this variant, and neither
+   `height: 100%; width: auto` nor `width: 100%; max-height: 100%` can do that:
+   `aspect-ratio` derives the second axis from the first, and a `max-*` clamp on that
+   second axis does not feed back — it distorts the box. Measured in the centred
+   column, where the card is ~651px against the fixed layout's ~820px, the width
+   clamp bound first and the frame came out 651×434, ar **1.499**, so Slides
+   letterboxed itself inside 68px of grey. Asking the container how tall it is fixes
+   it: `min()` of the two limits is a definite width, the ratio gives the height, and
+   the frame can overflow neither. `container-type: size` is safe on `.chip-slides`
+   here because its height comes from the flex line and not from its contents — which
+   is exactly why the ≤980px block below has to switch it off again. */
+.is-fit .chip-slides { container-type: size; }
+.is-fit .google-slides-preview {
+  width: min(100%, calc(100cqh * 16 / 9)); height: auto; max-width: 100%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stage-inner { animation: none; }
+}
+
+/* Below this width the guideline cards stack, and a stacked card has no fixed
+   height for its list or its slide frame to size against — the shared ≤980px block
+   above already hands those back their natural heights. What is left is the panel:
+   it stops trying to fill and simply scrolls, which is what a phone does on this
+   page anyway. The window still never scrolls. */
+/* The sticky pair has to be undone on a phone. `.stage-nav` pins at
+   `top: var(--header-h)` — 66px, the DESKTOP bar — while the real bar wraps to three
+   rows and stands at ~176px there, so the tab bar would pin itself underneath the
+   header and disappear. The bar's mobile height depends on how long the parent's name
+   is, so it cannot be a token either. Letting the header scroll away and pinning the
+   tab bar at the very top is both simpler and the better phone pattern: the thing you
+   need while reading stays, the thing you need once does not. */
+@media (max-width: 720px) {
+  .app.is-stage.is-scroll .topbar { position: static; }
+  .is-scroll .stage-nav { top: 0; }
+  /* Padding for the phone nav is set with the menu itself, above. */
+  /* The header scrolls away here, so only the tab bar has to be cleared. */
+  .stage-block { padding: 22px 0; scroll-margin-top: 78px; }
+  .stage-block.is-cover { padding: 10px 0 0; }
+}
+
+@media (max-width: 980px) {
+  .stage { padding: 12px 0 18px; }
+  .stage-inner > .section.is-stretch { min-height: 0; }
+  .is-stage .home-banner-text { padding: 28px 18px; gap: 10px; }
+  /* Both of these MUST be undone here, and the first one bites hard: asking a
+     stacked card how tall it is answers zero. `container-type: size` carries size
+     containment, so the container's height may not depend on its contents — and
+     once `.chip-slides` is `flex: 0 0 auto` there is nothing else for that height
+     to come from. `100cqh` went to 0 and every deck measured **2×2px**. Width is
+     the only honest constraint once the cards stack, which is what the shared
+     ≤980px rules above already switch back to. (`.is-scroll` never sets either, so
+     this is `.is-fit`'s cleanup — it is written against `.is-stage` only so a stray
+     third variant cannot inherit the collapse.) */
+  .is-stage .chip-slides { container-type: normal; }
+  .is-stage .google-slides-preview { width: 100%; height: auto; }
+}
+
+/* A short window — a 1280×620 browser, or a phone in landscape. The nav and the
+   panel give up their padding before the content gives up any of its own. */
+@media (max-height: 620px) {
+  .stage-nav { padding: 10px 0 0; }
+  .stage-tab { padding: 8px 14px; font-size: 12.5px; }
+  .stage { padding: 10px 0 14px; }
 }
 
 @media (max-width: 720px) {

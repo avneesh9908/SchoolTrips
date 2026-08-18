@@ -1,5 +1,6 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
+import { TRIP_LAYOUT } from '../lib/layout'
 import { useAuth } from '../auth/AuthContext'
 import { useTrip } from '../data/useTrip'
 import { gradeById, isComingSoon } from '../lib/grades'
@@ -151,19 +152,23 @@ function heroDates(trip) {
 }
 
 /**
- * Four tabs, in the order the school set out (2026-08-14), down from nine —
- * fewer tabs and shorter panels, because the ask was less page to scroll:
+ * The sections, in the order the school set on 2026-08-17 — the order a parent
+ * reads them in, not the order the sheet's columns happen to be in:
  *
- *   Home        the photograph, carrying the sheet's Header Text
- *   Itinerary   the day-by-day detail, and with it travel, do's and don'ts and
- *               things to carry — "all three things show on the one tab"
- *   Orientation the parent and student decks, each batch beside the other
- *   Safety      the safety guidelines
+ *   Overview        the photograph, carrying the sheet's Header Text
+ *   Orientation     the parent and student decks — what a parent does FIRST
+ *   Itinerary       the batch, the day plan, and Safety and Do's/Don'ts beside it
+ *   Travel details  a card per batch
+ *   Things to carry the packing deck or list — last thing before the trip
+ *   Photos          only when the sheet holds photos or album folders
+ *   Reminders       only when it holds coordinator details
  *
- * Photos stays as a fifth tab when the sheet holds any, and Reminders as a
- * sixth when it holds coordinator details; neither is reachable from today's
- * sheet, and a tab with nothing behind it is never rendered — that rule is what
- * keeps a half-filled sheet reading as a finished page.
+ * This list is the single source of the order: the jump nav, the block order on the
+ * one-page layout and the tab order in the tabbed ones all read it. **To reorder the
+ * page, move a `push` in this function and nothing else.**
+ *
+ * A section with nothing behind it is never rendered, which is what keeps a
+ * half-filled sheet reading as a finished page rather than a row of empty shelves.
  *
  * Two kinds of content, kept apart on purpose (the school's instruction):
  *   - Orientation decks, photos and the itinerary link are FILES → cards that
@@ -216,14 +221,26 @@ function buildSections(trip, photo, grade) {
     },
   ].filter((c) => c.slides || c.docs.length || c.lines.length)
 
-  // Packing left the Itinerary tab on 2026-08-17 ("things to carry new tab").
+  // Packing left the Itinerary section on 2026-08-17 ("things to carry new tab").
   // It is the longest of the three lists — 13 items against safety's 11 and four
-  // rules — and sharing a row with them meant none of the three fitted. On its
-  // own tab it gets the whole panel and Safety and Do's/Don'ts get half each.
+  // rules — and sharing a row with them meant none of the three fitted. On its own it
+  // gets the full width and Safety and Do's/Don'ts get half each. It sits after Travel
+  // in the order the school set later the same day, so the guideline decks are no
+  // longer adjacent — that is deliberate, not a leftover.
   const carry = {
     docs: byCategory('Things to carry'),
     lines: trip.carry || [],
     slides: slidePreviewFor(grade.id, 'carry'),
+  }
+
+  const orientationDocs = byCategory('Parent orientation', 'Student orientation')
+  if (orientationDocs.length) {
+    out.push({
+      id: 'orientation',
+      label: 'Orientation',
+      titled: true,
+      node: <OrientationSection key="orientation" docs={orientationDocs} />,
+    })
   }
 
   const itineraryDocs = byCategory('Itinerary')
@@ -242,28 +259,23 @@ function buildSections(trip, photo, grade) {
     })
   }
 
+  if (trip.travel.length) {
+    out.push({
+      id: 'travel',
+      // "Travel details", matching the heading the section renders and the name the
+      // school uses for it; the older short "Travel" said one thing in the nav and
+      // another over the cards.
+      label: 'Travel details',
+      titled: true,
+      node: <TravelSection key="travel" legs={trip.travel} />,
+    })
+  }
+
   if (carry.slides || carry.docs.length || carry.lines.length) {
     out.push({
       id: 'carry',
       label: 'Things to carry',
       node: <CarrySection key="carry" docs={carry.docs} lines={carry.lines} slides={carry.slides} />,
-    })
-  }
-
-  const orientationDocs = byCategory('Parent orientation', 'Student orientation')
-  if (orientationDocs.length) {
-    out.push({
-      id: 'orientation',
-      label: 'Orientation',
-      node: <OrientationSection key="orientation" docs={orientationDocs} />,
-    })
-  }
-
-  if (trip.travel.length) {
-    out.push({
-      id: 'travel',
-      label: 'Travel',
-      node: <TravelSection key="travel" legs={trip.travel} />,
     })
   }
 
@@ -273,6 +285,7 @@ function buildSections(trip, photo, grade) {
     out.push({
       id: 'photos',
       label: 'Photos',
+      titled: true,
       node: <PhotosSection key="photos" albums={albums} media={media} title={trip.title} />,
     })
   }
@@ -281,11 +294,344 @@ function buildSections(trip, photo, grade) {
     out.push({
       id: 'reminders',
       label: 'Reminders',
+      titled: true,
       node: <RemindersSection key="reminders" trip={trip} hasComm={hasComm} />,
     })
   }
 
   return out
+}
+
+/**
+ * The one-page layout: every section stacked, the window scrolling, and the tab
+ * strip demoted to a **jump nav** — anchor links, not tabs, because with all the
+ * content present there is nothing to switch between, only somewhere to go.
+ *
+ * Deliberately no scroll-spy. `useActiveSection` was deleted on 2026-08-13 and
+ * this does not bring it back: a listener that repaints the nav on every scroll
+ * frame was the reason it went, and `:target` plus a real anchor gets a reader
+ * where they asked to go without one.
+ *
+ * `scroll-margin-top` on each section (CSS) is what stops the sticky header from
+ * covering the heading a reader just jumped to.
+ */
+function TripFlow({ sections }) {
+  return (
+    <>
+      <nav className="secnav">
+        <div className="secnav-inner" aria-label="Jump to a section">
+          {sections.map((s) => (
+            <a key={s.id} href={`#sec-${s.id}`}>{s.label}</a>
+          ))}
+        </div>
+      </nav>
+
+      <div className="sections is-flow">
+        {sections.map((s) => (
+          <div className="flow-block" id={`sec-${s.id}`} key={s.id}>
+            {/* Only for the sections that carry no heading of their own. Orientation,
+                Travel, Photos and Reminders each render a `Section` head already, and
+                printing the label above it read "Orientation / Before the trip /
+                Orientation" — the same word twice with 40px of nothing between. */}
+            {!s.titled && <h3 className="flow-title">{s.label}</h3>}
+            {s.node}
+          </div>
+        ))}
+      </div>
+    </>
+  )
+}
+
+/**
+ * Arrow keys move between tabs, which is what a tablist is expected to do.
+ * Shared by both tab layouts — the stage and the older strip differ in how they
+ * look, not in how they behave.
+ *
+ * Focus must not scroll the page, but the strip itself has to follow, or the
+ * selected tab can end up off the right edge of a phone with nothing on screen
+ * looking selected.
+ */
+function tabKeys(sections, current, onSelect) {
+  return (e) => {
+    const last = sections.length - 1
+    const i = sections.indexOf(current)
+    let next = null
+    if (e.key === 'ArrowRight') next = i === last ? 0 : i + 1
+    if (e.key === 'ArrowLeft') next = i === 0 ? last : i - 1
+    if (e.key === 'Home') next = 0
+    if (e.key === 'End') next = last
+    if (next === null) return
+    e.preventDefault()
+    onSelect(sections[next].id)
+    document.getElementById(`tab-${sections[next].id}`)?.focus({ preventScroll: true })
+    revealTab(sections[next].id)
+  }
+}
+
+/**
+ * Scrolls smoothly unless the reader has asked for no motion.
+ */
+function smoothScrollTo(top) {
+  const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  window.scrollTo({ top: Math.max(0, top), behavior: still ? 'auto' : 'smooth' })
+}
+
+/**
+ * Puts the top of a block just under whichever bars will still be on screen once the
+ * scroll finishes. On a phone `.topbar` is `static` in this layout, so it scrolls away
+ * and must NOT be subtracted; on a desktop it is sticky and must be. Reading the
+ * computed position is the only honest way to know which — and `--header-h` would be
+ * wrong either way, since the bar wraps to 165px on a phone against the token's 66.
+ */
+function scrollToBlock(el) {
+  if (!el) return
+  const nav = document.querySelector('.stage-nav')
+  const header = document.querySelector('.topbar')
+  const overlays = (node) => node && getComputedStyle(node).position !== 'static'
+  const bars =
+    (overlays(header) ? header.getBoundingClientRect().height : 0) + (nav ? nav.offsetHeight : 0)
+  smoothScrollTo(el.getBoundingClientRect().top + window.scrollY - bars)
+}
+
+/**
+ * The jump nav, in both of its shapes: a row of pills on a wide window and a **menu**
+ * on a phone.
+ *
+ * Asked for on 2026-08-17 ("in phone view tabs like menu make responsive"). At 375px the
+ * pill strip held 652px of sections in 373px of window, so four of the six sat off the
+ * right edge behind a scroller whose scrollbar is hidden — nothing on screen said there
+ * was more to reach. A menu says it in one word.
+ *
+ * Both shapes are rendered and CSS picks one, which is deliberate: a JS breakpoint would
+ * need a resize listener and would render the wrong one for a frame on first paint.
+ * Whichever is hidden is `display: none`, so it is out of the accessibility tree too.
+ */
+function StageJumpNav({ sections, onJump }) {
+  const [open, setOpen] = useState(false)
+
+  // Close on Escape or a tap outside — the two things a menu is expected to do, and
+  // both listeners exist only while it is open.
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e) => { if (e.key === 'Escape') setOpen(false) }
+    const onDown = (e) => { if (!e.target.closest('.stage-menu')) setOpen(false) }
+    document.addEventListener('keydown', onKey)
+    document.addEventListener('pointerdown', onDown)
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      document.removeEventListener('pointerdown', onDown)
+    }
+  }, [open])
+
+  const link = (s, extra) => (
+    <a
+      key={s.id}
+      className={extra}
+      href={`#sec-${s.id}`}
+      onClick={(e) => {
+        onJump(e, s.id)
+        setOpen(false)
+      }}
+    >
+      {s.label}
+    </a>
+  )
+
+  return (
+    <nav className="stage-nav">
+      <div className="stage-nav-inner" aria-label="Jump to a section">
+        {sections.map((s) => link(s, 'stage-tab'))}
+      </div>
+
+      <div className="stage-menu">
+        <button
+          type="button"
+          className="stage-menu-btn"
+          aria-expanded={open}
+          aria-controls="stage-menu-list"
+          onClick={() => setOpen((v) => !v)}
+        >
+          <Icon name="menu" stroke="currentColor" />
+          <span className="t">Sections</span>
+          {/* The chevron turns over when the list opens. It has a wrapper so the CSS can
+              hook `.chev` rather than `svg:last-child`, which would silently move to
+              whatever element is added after it next. */}
+          <span className="chev"><Icon name="chevron" stroke="currentColor" /></span>
+        </button>
+
+        {/* Mounted only when open: there is nothing to animate and a hidden list that
+            still answers to a tap through the page above it is worse than no list. */}
+        {open && (
+          <div className="stage-menu-list" id="stage-menu-list">
+            {sections.map((s) => link(s))}
+          </div>
+        )}
+      </div>
+    </nav>
+  )
+}
+
+/**
+ * ONE page: the photograph as a full-bleed cover, then every section stacked beneath
+ * it in the centred column, and the pill bar demoted to a jump nav.
+ *
+ * Asked for on 2026-08-17 — "remove tabs like different page make single page with
+ * header" — which is the fourth answer the school has given to the same question in a
+ * day (tabs → one page → tabs → one page). The tab layouts are still there behind
+ * `TRIP_LAYOUT`; nothing was deleted to build this.
+ *
+ * The nav's links are real anchors, so a pasted `#sec-travel` works and the hash is
+ * shareable; the click handler exists only to scroll smoothly and to clear the sticky
+ * bars, which `scroll-margin-top` alone cannot do reliably here because the header's
+ * height depends on how far the parent's name wraps.
+ *
+ * Deliberately **no scroll-spy**, exactly as `TripFlow` has none: `useActiveSection`
+ * was deleted on 2026-08-13 and a listener that repaints the nav on every scroll frame
+ * is not worth a highlight. The nav says where you can go, not where you are.
+ */
+function TripStagePage({ sections }) {
+  const jump = (e, id) => {
+    const el = document.getElementById(`sec-${id}`)
+    if (!el) return
+    e.preventDefault()
+    scrollToBlock(el)
+    // The hash still changes, so the address bar and the back button behave as they
+    // would for a plain anchor.
+    history.replaceState(null, '', `#sec-${id}`)
+  }
+
+  return (
+    <>
+      <StageJumpNav sections={sections} onJump={jump} />
+
+      <div className="stage-page">
+        {sections.map((s) => {
+          // Overview is the cover: it bleeds to both edges, carries the school's words
+          // on the photograph, and takes no heading — the picture is the heading.
+          const cover = s.id === 'home'
+          return (
+            <div
+              className={cover ? 'stage-block is-cover' : 'stage-block'}
+              id={`sec-${s.id}`}
+              key={s.id}
+            >
+              {/* Only for the sections that carry no head of their own. Orientation,
+                  Travel, Photos and Reminders each render a `Section` head already, and
+                  printing the label above it read "Orientation / Before the trip /
+                  Orientation" — the same word twice. Any new section that renders its
+                  own head needs `titled: true` in `buildSections`. */}
+              {!cover && !s.titled && <h3 className="stage-block-title">{s.label}</h3>}
+              {s.node}
+            </div>
+          )
+        })}
+      </div>
+    </>
+  )
+}
+
+/**
+ * Puts the top of the panel just under the sticky header and tab bar, so a tab
+ * switch starts the new section at its beginning however far down the last one the
+ * reader had gone.
+ *
+ * Asked for on 2026-08-17: "after the tab click switch scroll the web page". It
+ * **reverses the 2026-08-13 rule** that clicking a tab must never move the page —
+ * that rule existed because the page was one long scroll with a spy on it, and a
+ * tab click that jumped felt like losing your place. Now each tab is its own screen
+ * and the page only scrolls within one, so landing at the top of it is the point.
+ *
+ * Only the `'stage'` layout calls this. `'stage-fit'` and `'fixed'` cannot scroll
+ * the window at all, and `'flow'` uses real anchors.
+ */
+function scrollToPanel() {
+  const panel = document.querySelector('.stage')
+  const nav = document.querySelector('.stage-nav')
+  if (!panel || !nav) return
+  // Both bars are MEASURED, not read from `--header-h`. That token is 66 while the
+  // bar's own rect is 67, which is only a pixel — but on a phone the bar wraps to
+  // three rows and stands at ~176, and subtracting 66 there would scroll the panel's
+  // first heading up underneath it. `.topbar` is sticky at `top: 0`, so its bottom is
+  // its height wherever the page happens to be.
+  const header = document.querySelector('.topbar')
+  const bars = (header ? header.getBoundingClientRect().height : 0) + nav.offsetHeight
+  // rect.top + scrollY is the panel's position in the document.
+  smoothScrollTo(panel.getBoundingClientRect().top + window.scrollY - bars)
+}
+
+/**
+ * The stage: one section at a time, centred on a canvas, each tab at least a
+ * screenful. The school's brief on 2026-08-17 was "redesign whole page, centre all
+ * things, change font, change style, cover whole page, fit on screen", and then
+ * "same page scrollable make after the tab click switch scroll the web page" — so
+ * the design stayed and the window was let go: a tab with more than a screenful of
+ * content grows the page instead of scrolling inside its own panel.
+ *
+ * Two things make it a redesign rather than a restyle of the old tab view:
+ *   - the tab strip is a **centred segmented control** floating on the canvas,
+ *     not a left-aligned underline row, so the page has one axis and everything
+ *     sits on it;
+ *   - **Overview covers the window** — the photograph bleeds past the page gutter
+ *     to all four edges with the school's words centred on it, instead of being a
+ *     rounded card inside the column.
+ *
+ * The section is centred with `margin-block: auto` rather than
+ * `justify-content: center`. Auto margins collapse to zero when the free space is
+ * negative, so a section taller than the window starts at its top and reads
+ * downwards instead of being centred with both ends out of reach.
+ */
+function TripStage({ sections, current, onSelect }) {
+  const cover = current.id === 'home'
+  // Switching a tab also puts the reader at the top of it — see `scrollToPanel`.
+  // Wrapped here rather than inside `onSelect` because the other two tab layouts
+  // share that callback and neither of them may move the window.
+  const select = (id) => {
+    onSelect(id)
+    if (TRIP_LAYOUT === 'stage-tabs') scrollToPanel()
+  }
+
+  return (
+    <>
+      <nav className="stage-nav">
+        <div
+          className="stage-nav-inner"
+          role="tablist"
+          aria-label="Trip sections"
+          onKeyDown={tabKeys(sections, current, select)}
+        >
+          {sections.map((s) => (
+            <button
+              key={s.id}
+              id={`tab-${s.id}`}
+              role="tab"
+              aria-selected={s.id === current.id}
+              aria-controls={`panel-${s.id}`}
+              tabIndex={s.id === current.id ? 0 : -1}
+              className={s.id === current.id ? 'stage-tab is-active' : 'stage-tab'}
+              onClick={() => select(s.id)}
+            >
+              {s.label}
+            </button>
+          ))}
+        </div>
+      </nav>
+
+      {/* `is-cover` is the one section that is not a centred card but the whole
+          window: it drops the column's width cap and the page gutter so the
+          photograph reaches every edge. Keyed on the tab id so the fade replays
+          on each switch. */}
+      <div
+        className={cover ? 'stage is-cover' : 'stage'}
+        key={current.id}
+        id={`panel-${current.id}`}
+        role="tabpanel"
+        aria-labelledby={`tab-${current.id}`}
+        tabIndex={-1}
+      >
+        <div className="stage-inner">{current.node}</div>
+      </div>
+    </>
+  )
 }
 
 /**
@@ -302,26 +648,20 @@ function TripBody({ sections, active, onSelect }) {
     )
   }
 
+  // The two one-page layouts take no tab state at all.
+  if (TRIP_LAYOUT === 'stage') return <TripStagePage sections={sections} />
+  if (TRIP_LAYOUT === 'flow') return <TripFlow sections={sections} />
+
   const current = sections.find((s) => s.id === active) || sections[0]
 
-  // Arrow keys move between tabs, which is what a tablist is expected to do.
-  // Focus must not scroll the page — but the strip itself has to follow, or the
-  // selected tab can end up off the right edge of a phone with nothing on
-  // screen looking selected.
-  const onKeyDown = (e) => {
-    const last = sections.length - 1
-    const i = sections.indexOf(current)
-    let next = null
-    if (e.key === 'ArrowRight') next = i === last ? 0 : i + 1
-    if (e.key === 'ArrowLeft') next = i === 0 ? last : i - 1
-    if (e.key === 'Home') next = 0
-    if (e.key === 'End') next = last
-    if (next === null) return
-    e.preventDefault()
-    onSelect(sections[next].id)
-    document.getElementById(`tab-${sections[next].id}`)?.focus({ preventScroll: true })
-    revealTab(sections[next].id)
+  // Both tabbed stage variants render the same markup — `App` puts `is-scroll` or
+  // `is-fit` on the route and the CSS decides whether the page may grow. Only the
+  // scrolling one moves the window on a tab switch.
+  if (TRIP_LAYOUT === 'stage-tabs' || TRIP_LAYOUT === 'stage-fit') {
+    return <TripStage sections={sections} current={current} onSelect={onSelect} />
   }
+
+  const onKeyDown = tabKeys(sections, current, onSelect)
 
   return (
     <>
@@ -434,16 +774,22 @@ function OrientationSection({ docs }) {
 
   return (
     <Section id="orientation" eyebrow="Before the trip" title="Orientation">
-      {groups.map((g) => (
-        <div className="orient-group" key={g.category}>
-          <h4>{g.category}</h4>
-          <div className="orient-row">
-            {g.items.map((d, i) => (
-              <DocCard key={`${d.label}-${i}`} {...d} batchTag={shortBatch(d.batch)} compact hideMeta />
-            ))}
+      {/* The two kinds of deck sit BESIDE each other. Stacked, a grade with one batch
+          gave this section two labels and two small cards down the middle of a 1400px
+          column — ~350px of which was empty, which is the screenshot the school sent
+          on 2026-08-17. Side by side it is one row. */}
+      <div className="orient-groups">
+        {groups.map((g) => (
+          <div className="orient-group" key={g.category}>
+            <h4>{g.category}</h4>
+            <div className="orient-row">
+              {g.items.map((d, i) => (
+                <DocCard key={`${d.label}-${i}`} {...d} batchTag={shortBatch(d.batch)} compact hideMeta />
+              ))}
+            </div>
           </div>
-        </div>
-      ))}
+        ))}
+      </div>
       <PendingNote docs={docs} />
     </Section>
   )

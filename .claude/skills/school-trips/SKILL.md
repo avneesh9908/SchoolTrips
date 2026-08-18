@@ -354,7 +354,252 @@ the trip page. It now shows for any parent with an active student, labelled "Swi
 `PhotoTile` swaps to a typed tile on `onError`, since a Drive image that is not link-shared 403s
 and would otherwise leave a white gap.
 
-### The trip page is a FIXED-HEIGHT view — the window never scrolls
+### FIVE layouts now, behind one switch — `src/lib/layout.js`
+`TRIP_LAYOUT` picks one and each costs a line to restore. It lives in its own module because `App` and
+`TripPage` both read it and putting it in either makes them import each other. **Currently `'stage'`, and
+the whole switch is still UNCOMMITTED — the school asked to look before deciding.**
+
+All five were asked for on **2026-08-17**, in this order, and the school went tabs → one page → tabs →
+one page in a single day. Nothing here is settled; do not delete a variant to tidy up.
+
+| value | asked as | shape |
+|---|---|---|
+| `'stage'` | *"remove tabs like different page make single page with header"* | ONE page, jump nav |
+| `'stage-tabs'` | *"same page scrollable … after the tab click switch scroll the web page"* | tabs, page scrolls |
+| `'stage-fit'` | *"cover whole page, fit on screen"* | tabs, nothing scrolls |
+| `'flow'` | *"all things in one page make webpage scrollable with header"* | one page, older styling |
+| `'fixed'` | 2026-08-14 *"I don't want scrollbar anywhere"* | underline tabs, nothing scrolls |
+
+`App.jsx` holds two tables: `APP_CLASS` maps the value to a route class (`is-stage is-scroll`,
+`is-stage is-fit`, `is-fixed`, or nothing for `'flow'`), and `NO_FOOTER` lists the layouts that drop the
+site footer — the three that fit a tab to the window. The one-page layouts keep it.
+
+**`TripBody` must dispatch on every value**; it checked only `'stage'` at one point and `'stage-fit'`
+silently fell through to the old underline-tab markup. `'flow'` is superseded by `'stage'` — same shape,
+pre-Fraunces design — and is kept only because it is what the school was shown that morning.
+
+### The STAGE — the current trip page (2026-08-17)
+The design the three `stage*` values share. What differs between them is only how the sections are
+presented: `'stage'` puts them all on one page, `'stage-tabs'` and `'stage-fit'` show one at a time, and
+`.app` carries `is-scroll` or `is-fit` to say whether the page may grow. Read this section for the design
+and the subsections below for the three shapes.
+
+- **One centred axis.** `--stage-w: 1400px` centred in the window — the only part of the app that is
+  not full width, because a centred axis is the point and two decks abreast across 1900px stop reading
+  as one page. Heads, rows, cards and card contents all centre on it. **Multi-line guidance stays
+  left-aligned inside its card** (`.chip-lines > li`, `.rule-card`, `.carry-list > li`): a wrapped
+  sentence is read from a straight left edge, and those lists are the one thing here a parent has to
+  read rather than look at.
+- **The strip is a centred segmented control** (`.stage-nav` / `.stage-tab`) — a white pill bar floating
+  under the header, not the left-aligned underline row. In the tabbed variants it is a real
+  `role=tablist` with roving `tabIndex` and Arrow/Home/End (`tabKeys()`, shared with `'fixed'`, and
+  `revealTab()` still scrolls the strip and never the window); on the single page the same pills are
+  anchors and the tablist roles are gone with the tabs.
+- **Overview is a cover.** Whichever shape it is in, the block drops the width cap and the page gutter
+  (`margin-inline: calc(-1 * var(--shell-pad))`) so the photograph reaches the window's edges, with the
+  school's words centred on it and the meta line as glass pills. In the tabbed variants it fills the
+  panel exactly (1907×730 at 1907×878); on the single page it takes 72dvh and lets the next heading peek.
+- **The canvas** is two soft radial washes on the centre line over `--bg`; flat colour left the column
+  floating on ~250px of nothing either side. Deliberately **not** `background-attachment: fixed` — the
+  washes belong to the page, and fixed backgrounds repaint on every scroll frame and jump on iOS.
+- Section heads are centred under a 44px amber rule, and every heading here is `--font-display`.
+- Display headings size against **`vh` as well as `vw`** — `clamp(25px, min(2.5vw, 4.2vh), 38px)` — so
+  a short window gets a smaller heading instead of a scrollbar.
+
+**In the tabbed variants the section is centred with `margin-block: auto`, NOT
+`justify-content: center`.** Auto margins give up their space when the free space is negative, so a
+section taller than the space starts at its top and reads downwards; centring would have cut off both
+ends with no way to reach either. The single page has no panel to centre in and does not use it.
+
+#### The SINGLE PAGE — `'stage'`, the current default
+*"remove tabs like different page make single page with header"*, 2026-08-17, and the fourth answer the
+school has given to the same question in one day (tabs → one page → tabs → one page). Nothing was
+deleted to build it: `TripStage` and its two variants are still there behind `TRIP_LAYOUT`.
+
+`TripStagePage` renders **no tablist at all**. Overview is a full-bleed cover, every other section is
+stacked beneath it in the centred column, and the pill bar is a **jump nav of real anchors**.
+
+- **The cover takes 72dvh, not the whole screen.** Leaving ~100px of the next heading peeking is what
+  tells a reader there is more page below; the tabbed version's complaint was that it looked finished at
+  the fold. `flex: 0 0 auto` on the banner matters — with the basis at 0 it would take exactly
+  `min-height` and clip its own text on a short window, where an `auto` basis makes the height the
+  larger of the text and the screenful.
+- **`width: auto` on the cover block, not the `width: 100%` the others carry.** With `width: 100%` the
+  cover measured the column's 1205px and the negative margins merely slid it 30px left, leaving a strip
+  of canvas down the right-hand edge. An auto width lets the flex stretch resolve to the container plus
+  both margins.
+- **The blocks carry the column cap themselves** (`max-width: var(--stage-w); margin-inline: auto`)
+  rather than sharing a wrapper, which is what lets the cover opt out and reach the window's edges.
+- **`scrollToBlock()` subtracts only the bars that will still be on screen**, read from their computed
+  `position`. On a phone `.topbar` is `static` in this layout, so it scrolls away and must NOT be
+  subtracted; on a desktop it is sticky and must be. The links keep their real `href`, so a pasted
+  `#sec-travel` works and the hash stays shareable — `history.replaceState` keeps the address bar in
+  step — and `scroll-margin-top` is set as an approximate fallback for that hash path only.
+- **A section with no head of its own gets `.stage-block-title`** — Itinerary and Things to carry, which
+  had been relying on the tab label to name them. It is styled to match `.is-stage .section h3` exactly,
+  amber rule included, so the two kinds of heading cannot be told apart. The cover gets no heading at
+  all: the picture is the heading. **Any new section that renders its own `Section` head needs
+  `titled: true` in `buildSections`**, or its name prints twice.
+- **No scroll-spy**, same as `TripFlow`: `useActiveSection` was deleted on 2026-08-13 and a listener
+  repainting the nav every frame is not worth a highlight. The nav says where you can go, not where you
+  are.
+- **On a phone the strip becomes a MENU** (`StageJumpNav`, 2026-08-17: "in phone view tabs like menu make
+  responsive"). At 375px the pill strip held **652px of sections in 373px of window**, so four of the six
+  sat off the right edge behind a scroller whose scrollbar is hidden — nothing on screen said they were
+  there. Below 720px a "Sections" button opens a card of full-width rows instead; Escape, a tap outside
+  and picking an item all close it, and the listeners exist only while it is open.
+  **Both shapes are rendered and CSS picks one** — a JS breakpoint would need a resize listener and would
+  render the wrong one on first paint. The 720px switch is where the strip stops fitting: measured 652px
+  against 661px of available width at 721px, and 373px at 375px.
+  The tabbed variants keep the scrolling strip; their nav is a `role=tablist` with arrow-key handling and
+  is a different component.
+- The **site footer comes back** here (and in `'flow'`): the page is long already, so the footer is how
+  it ends rather than 117px that costs a tab its fit.
+- **Density, after the school photographed the empty half of it** ("this is like take more space",
+  2026-08-17): block padding 40 → 28 (22 on a phone), section gap 24 → 16, the heading's amber rule 14 →
+  10, the travel card's padding 30 → 22/24, and the orientation groups put side by side. The page went
+  **4110 → 3734px** at 1440×900 with nothing removed from it. If it ever needs to be denser again, the
+  next thing to look at is the per-block heading — eyebrow, serif title and rule cost ~90px each — not
+  the content.
+
+Measured, Grade 7, parent: **1907×878** page 4128px, cover 1892×644 with a 98px peek, blocks centred at
+x=246 w=1400, decks 661×372 / 661×372 / 1370×771 all ar 1.778; **1440×900** page 4110px, decks 644×362 /
+1335×751; **1280×720** page 3813px, cover 1265×530, decks 564×317 / 1175×661; **1280×620** page 3704px,
+cover 446px with the banner text 372px inside it; **375×812** page 3998px, cover 375×595, top bar static
+at 165px and the nav pinned at 0. Every jump lands its block flush under the bars (`blockTop ===
+navBottom`) except the last, which the end of the document clamps — as it should. Zero horizontal
+overflow and nothing painted below `documentElement.scrollHeight` at any size, no internal scrollers
+left anywhere, console clean, and all five `TRIP_LAYOUT` values build and render.
+
+#### `.is-scroll` — the page may scroll (`'stage'` and `'stage-tabs'`)
+- **`scrollToPanel()` in `TripPage` puts the top of the panel just under the two sticky bars on every
+  tab switch.** This **reverses the 2026-08-13 rule** that a tab click must never move the page: that
+  rule existed when the page was one long scroll with a spy on it, where a jump meant losing your place.
+  Now each tab is its own screen, so landing at the top of it is the point.
+- **Both bars are measured, never read from `--header-h`.** The token says 66 while the bar's own rect is
+  67 — a pixel — but on a phone the bar wraps to three rows and stands at **165px**, and subtracting 66
+  there would scroll the first heading up underneath it. `.topbar` is sticky at `top: 0`, so its rect
+  height is right wherever the page is.
+- **One screenful, with no arithmetic.** `calc(100dvh - var(--header-h) - <nav>)` needs the nav height as
+  a token, and the nav measures **69px** against the 68 its padding implies — two sub-pixel px, enough to
+  put a scrollbar on Overview. Instead `.app` is `min-height: 100dvh` and `.stage` is `flex: 1 1 auto`,
+  so the panel takes exactly what the two bars leave. That token was written and then deleted; do not
+  reintroduce it.
+- **`min-height: 0` must NOT be in the chain here**, and that is the one rule most likely to be
+  reintroduced by copying from `.is-fit`. A flex item with a zero basis and `min-height: 0` settles at its
+  container's height while its content paints outside it — so the page never grows and the overflow is
+  unreachable. It is the 2026-08-14 silent-content-loss trap, one layer up. `.page`, `.shell`, `.stage`,
+  the cover section and `.home-banner` all keep `min-height: auto` in this variant.
+- **On a phone the sticky pair is undone**: `.topbar` goes `static` and the tab bar pins at `top: 0`.
+  `.stage-nav` sticks at `var(--header-h)`, a desktop measurement, so on mobile it would pin itself
+  *underneath* the 165px bar and vanish — and the mobile bar's height depends on how long the parent's
+  name is, so it cannot be a token either. Letting the header scroll away and keeping the tab bar is also
+  the better phone pattern.
+- **Nothing inside a card scrolls any more.** Every rule that gave a list, a rule stack, a poster
+  thumbnail or a slide frame its height from a definite-height panel is handed back its natural height —
+  the same list `.is-flow` restores, for the same reason. Consequence: the **decks are bigger** than in
+  the fitted variant, because they are width-driven (1280×720: 564×317 and 1175×661 against 452×254 and
+  804×452), and Things to carry costs a ~210px scroll for it.
+- The site footer stays off (see `App.jsx`): every tab is at least a screenful, so the footer alone would
+  put a scrollbar on tabs that otherwise end exactly at the fold.
+
+#### `.is-fit` — the same stage locked to one screen
+`100dvh`, `overflow: hidden`, `min-height: 0` down the whole chain, the panel as the only scroller, and
+a long guideline list scrolling inside its own card. `is-stretch` sections take `min-height: 100%` here
+because the cards and frames inside them are sized from a definite height.
+
+**Four sizing traps, all found by measurement, all worth remembering:**
+- **`aspect-ratio` does not feed a clamp back into the other axis.** Neither `height: 100%; width: auto`
+  nor `width: 100%; max-height: 100%` fits a 16:9 frame into a box bounded on both sides — whichever
+  axis is specified wins and the `max-*` on the other just distorts the result. In the narrower centred
+  column the width clamp bound first and the decks came out **ar 1.499**. The fix is to ask the
+  container how tall it is: `container-type: size` on `.chip-slides` and
+  `width: min(100%, calc(100cqh * 16 / 9))` on the frame, which is a definite width the ratio can work
+  from and cannot overflow either axis. Exact 1.778 at every viewport since. **`.is-fit` only** —
+  `.is-scroll` has no definite height to ask about and goes width-driven.
+- **…and that container query must be switched OFF below 980px.** `container-type: size` carries size
+  containment, so the container's height may not come from its contents — once the cards stack and
+  `.chip-slides` is `flex: 0 0 auto` there is nothing else for the height to be, `100cqh` reads 0, and
+  every deck measured **2×2px**. `container-type: normal` + width-driven frames in the ≤980px block.
+- **An auto inline margin on a flex item overrides the container's stretch.** `.carry-card` fell back
+  to its fit-content width and took the deck down with it (**168×94**). `width: 100%` is what makes
+  `max-width` + auto margins centre a box instead of shrinking it.
+- **`auto-fit` counts tracks from the track's MAX size.** `minmax(min(340px,100%), 720px)` made exactly
+  **one** 720px track in a 1220px row, so staff's two travel cards stacked and the panel scrolled. Keep
+  the max at `1fr` (count comes from the 340px minimum) and cap the *card*.
+
+**The 1600px two-track rule for `.chip-lines` is disabled on the stage.** That breakpoint keys off the
+*window's* width, which no longer tells you the card's: at 1907px it fires while the stage holds Safety
+to ~690px, and two tracks of ~330px wrap every sentence. One track. `.carry-list` keeps its two tracks —
+that card is capped at 1080px, so the window is a fair proxy for it.
+
+**Screenshots still do not work here, so the Overview scrim was verified by compositing it over the
+photograph's own pixels in a canvas and computing WCAG ratios.** Centring the text moved it into the
+lightest part of the old bottom-weighted gradient: white on it measured **2.96:1 for the title** (needs
+3:1) and **4.00:1 for the body** (needs 4.5:1) at 1280×720. A radial layer over the middle plus a
+text-shadow takes it to 3.49 / 8.94 / 5.13, and 3.95 / 5.46 / 5.53 at 1907×878, with the corners left
+alone so the picture is still a picture. **Re-run that measurement if the scrim or the photograph
+changes** — `getImageData` on a same-origin photo, composite the gradient stops by hand, worst sample
+under each text block.
+
+**Measured — `.is-scroll`**, Grade 7, parent and staff, with the decks and with the text fallback. In
+every case nothing was painted below `documentElement.scrollHeight` (the check that content is reachable
+rather than lost), no horizontal overflow, and no internal scroller left anywhere. Tabs other than the
+ones named end exactly at the fold:
+**1907×878** — only Things to carry scrolls, by 162px (deck 1370×771); Overview exactly 878.
+**1280×720** — Itinerary 64px, Things to carry 210px; decks 564×317 and 1175×661, all ar 1.778.
+**1280×620** — Itinerary 123px, Things to carry 281px, nav 56px, Overview exactly 620 with the banner
+text inside it. **375×812** — top bar static at 165px and the tab bar pinned at 0 once scrolled;
+Itinerary 495px, Orientation 168px, Travel 209px, frames 309×174, `scrollWidth === 375`.
+**Text fallback** (`slidePreviews` temporarily cleared, then restored): Safety's **11 measures run down
+the page in one 645px card with no internal scroller** at 1280×720 and the 11th is fully visible at the
+foot of the page — which is the whole point of this variant. A tab switch from the bottom of a long tab
+asks for exactly the panel's top and lands it flush under the bars (`stage.top === nav.bottom`,
+`nav.top === header.bottom`).
+
+**Measured — `.is-fit`**, same page, zero clipped elements and zero window scroll everywhere:
+**1907×878** all six tabs with no panel scroll at all, decks 661×372 and 1084×610, photo 1907×731;
+**1440×900** 651×366 / 1124×632; **1280×720** 452×254 / 804×452; **1280×620** 326×183 / 677×381;
+**375×812** frames 309×174, panels scrolling internally with the last card reachable.
+
+Common to both: Grade 8 (no photograph, no decks, five tabs) fits at 1440×900 on the navy gradient;
+`/trip/g3` → centred "Coming soon" with **0 fetches**; `/trip/g5` as a Grade 7 parent → centred "Not
+your child's grade", **0 fetches**; `/children` still scrolls and keeps its footer.
+
+### The one-page FLOW layout (`'flow'`)
+Every section stacked in `.sections.is-flow`, each in a `.flow-block` with a serif heading,
+the window scrolling, `is-fixed` off so the **site footer comes back**, and the tab strip demoted to a
+**jump nav of anchor links** — with all the content present there is nothing to switch between, only
+somewhere to go. Deliberately **no scroll-spy**: `useActiveSection` was deleted on 2026-08-13 and this
+does not bring it back; a real anchor gets a reader there without a listener firing every frame.
+
+The one thing that needs undoing per-element: everything in the fixed view sizes itself from a panel
+with a **definite height** — `.chip-row`, `.chip-lines`, `.rule-stack`, `.chip-docs`, the slide frames'
+height-driven 16:9, the poster thumbnail, `.home-banner`'s `flex: 1`. On a scrolling page there is no
+such height and left alone **they collapse to nothing**. `.is-flow` gives each of them its natural
+height back — the same rules the ≤980px breakpoint already applies, for exactly the same reason.
+`scroll-margin-top: calc(var(--header-h) + 58px)` on `.flow-block` is what stops the sticky header and
+nav from covering a heading a reader just jumped to.
+
+**Two things the first cut of it got wrong, fixed the same day:**
+- **Every headed section printed its heading twice.** `OrientationSection`, `TravelSection`,
+  `PhotosSection` and `RemindersSection` each render a `Section` head of their own, so a `.flow-title`
+  above them read "Orientation / Before the trip / Orientation". Those four now carry `titled: true` in
+  `buildSections` and `TripFlow` skips the label for them — **add the flag to any new section that
+  renders its own head.**
+- **Spacing.** 46px gap plus 40px block padding put 86px between sections; on a 900px window a third of
+  the screen could be the gap between two of them. It is 32 + 32 now. And `.flow-title` was the display
+  serif while `.section h3` is sans — two heading styles in one column made one page look like two, so
+  it matches `.section h3` exactly (30px/700/-0.02em).
+
+Measured at 1280×720, Grade 7, staff: page 4011px over a 720px window, six blocks (Overview 473,
+Itinerary 695, Things to carry 847, Orientation 525, Travel 465, Photos 351), all three slide frames
+exactly **ar 1.778**, no column clipping (`hidden=0` everywhere), zero horizontal overflow, footer
+present, "Travel" jump landing its title at y=169 clear of the nav's 113 bottom. At 375×812:
+`scrollWidth === 375`, frames 307×173 at 1.778, clean console. The only elements past the viewport are
+the last two jump links inside `.secnav-inner`, which is a horizontal scroller by design.
+
+### The trip page is a FIXED-HEIGHT view — the window never scrolls (the `'fixed'` layout)
 Set 2026-08-14: *"I don't want scrollbar anywhere."* `App.jsx` puts `is-fixed` on `.app` for any
 `/trip/` path, which makes the route fill the window exactly, and **drops the site footer** — ~117px
 of chrome was the difference between fitting and not, and its one line of copy points at the trip
@@ -622,11 +867,20 @@ safety guideline read like a broken attachment. Real guidance is a sentence and 
 Verified: with the live sheet those three columns now yield nothing at all rather than three
 slugs, and with a fixture carrying real URLs and text all six tabs render correctly.
 
-## The trip page is TABS again — one panel at a time
-**Reverted 2026-08-13 at the user's request** ("after click on tabs any tab dont scroll, I want
-to switch on the tab look like different pages"). It had been one scrolling page with a
-scroll-spy for part of that day; before that it was tabs. It is tabs now, and clicking a tab
-**must never scroll the page** — only the panel swaps.
+## The TAB machinery — still here, but no longer what a parent sees
+**Set 2026-08-13** ("after click on tabs any tab dont scroll, I want to switch on the tab look like
+different pages") and true of the page until the tenth pass on 2026-08-17, when the school asked for the
+tabs to come off ("remove tabs like different page make single page with header"). The default layout is
+now one page with a jump nav; everything in this section still governs `'stage-tabs'`, `'stage-fit'` and
+`'fixed'`, which are one line away, so none of it is dead.
+
+**The "clicking a tab must never scroll the page" half of that rule was reversed on 2026-08-17**
+("after the tab click switch scroll the web page"): on the `'stage'` layout a switch scrolls the window
+to the top of the panel, `scrollToPanel()`. The rule still holds for `'stage-fit'` and `'fixed'`, which
+cannot scroll the window at all — and the reasoning behind it is worth keeping, because it is what makes
+the reversal safe rather than a regression: it was written when the page was one long scroll with a spy
+on it, where a tab click that jumped meant losing your place. A tab that is its own screen has no place
+to lose.
 
 - `TripPage` owns the tab state, not `TripBody`. State is held **by section id, never by index**:
   the tab list is derived from the data, so a remembered index lands on a different tab in another
@@ -647,10 +901,29 @@ scroll-spy for part of that day; before that it was tabs. It is tabs now, and cl
 - Roving `tabIndex`, `role=tablist/tab/tabpanel`, `aria-selected/controls/labelledby`, and
   Arrow/Home/End with wrap-around.
 
-### Nine tabs became FOUR (2026-08-14) — the school's own grouping
-`buildSections(trip, photo)` derives the list **from the data**, and it must stay that way. A
+### The section list and its ORDER — `buildSections`
+`buildSections(trip, photo, grade)` derives the list **from the data**, and it must stay that way. A
 section with nothing behind it is never rendered, so a half-filled sheet reads as a finished page
-rather than a row of empty shelves. Order:
+rather than a row of empty shelves.
+
+**It is also the single source of the ORDER** — the jump nav, the block order on the one-page layout and
+the tab order in the tabbed ones all read this one array. To reorder the page, move a `push` in that
+function and nothing else.
+
+**The order, set by the school on 2026-08-17** ("first it should be overview Orientation Itinerary travel
+details Things to carry photos") — the order a parent works through them, not the order the sheet's
+columns sit in:
+
+1. **Overview** · 2. **Orientation** · 3. **Itinerary** (Safety and Do's/Don'ts inside it) ·
+4. **Travel details** · 5. **Things to carry** · 6. **Photos** · 7. Reminders
+
+It replaced Overview · Itinerary · Things to carry · Orientation · Travel · Photos from 2026-08-14. Two
+consequences that are deliberate, not leftovers: the three guideline decks are **no longer adjacent**
+(Travel sits between Itinerary and Things to carry), and the `travel` section's label is now
+**"Travel details"** to match the heading it renders — the short "Travel" said one thing in the nav and
+another over the cards.
+
+The 2026-08-14 grouping that got the list down from nine sections to four still stands:
 
 The tab's **id is `home` but its label is "Overview"** — renamed 2026-08-14. Do not "tidy" the id to
 match: `is-fill` and the fixed-layout CSS key off `#home`.
@@ -661,7 +934,7 @@ match: `is-fill` and the fixed-layout CSS key off `#home`.
 | **Itinerary** | the batch block and the itinerary chip **beside each other** (`.itin-top`), then **Safety and Do's and don'ts side by side** (see below). No section heading: the tab label already says "Itinerary", and the 86px it cost was the difference between fitting and scrolling |
 | **Things to carry** | its own tab since 2026-08-17 — one 1080px card holding the packing checklist, two grid tracks on a wide window |
 | **Orientation** | Parent Orientation and Student Orientation, one row each, the batches beside each other, **compact cards** |
-| **Travel** | a card per batch. Its own tab again (it was briefly folded into Itinerary) |
+| **Travel details** | a card per batch. Its own section again (it was briefly folded into Itinerary) |
 | Photos | only when the sheet holds photo URLs or album folders |
 | Reminders | only when the sheet holds coordinator details — unreachable from today's sheet, since `tripApp.js` always returns `reminders: []` |
 
@@ -747,12 +1020,25 @@ directly inside the existing webpage."
   which is the difference between "part of the page" and "a website inside a website". The document id
   and publish state are untouched, so **a staff edit in Slides appears on the next page load** with no
   image to replace and no deploy. That is the whole point — do not export these to PNG/JPG.
+- **The three URLs were pasted one position ROTATED, and nothing in the code could tell** (found
+  2026-08-17 from the school's screenshot): Safety framed the do-and-donts deck, Do's and don'ts framed
+  things-to-carry, and Things to carry framed safety. A published deck's URL says nothing about its
+  contents, so this is invisible until someone reads the page — or fetches the URL and looks at its
+  `<title>`, which is the check to run whenever these are edited:
+  `urllib.request` / `curl -s "<url>" | grep -o '<title>[^<]*'` returns `safety-guidelines-poster`,
+  `do-and-donts`, `things-to-carry`. Verified after the fix by matching each card's iframe `src` against
+  the config value **and** the title of the file behind it. The warning is repeated in `config.json`'s own
+  `_slidePreviews` note, since that is where the next person will paste.
 - **The URLs live in `config.slidePreviews`, keyed `"<gradeId>.<section>"` — FLAT, and it must stay
   flat.** `config.js`'s `merge()` walks one level into an object and calls `String()` on each value, so
   a nested `{g7: {safety: …}}` reaches the app as the literal `"[object Object]"`. Keyed per grade
   because Grade 8's parents must never be shown Grade 7's safety deck; only `g7` has entries today,
   and a grade with no entry falls through to the sheet's card or text exactly as before.
-- A deck **replaces** the card, the count pill and the `PendingNote` for that section. The deck is the
+- A deck **replaces** the card, the count pill and the `PendingNote` for that section. On the single page
+  it also replaces the **carry card's own head**: the block heading above it already says "Things to
+  carry", and with no count pill to carry (a deck has no item count) that head was the same words twice.
+  `.stage-page .carry-card.has-slides > .chip-head` is display-none; the printed-list path keeps its head
+  and its count. The deck is the
   school's document, so a link to the same document beside it is noise.
 - **The frame is HEIGHT-driven** (`height: 100%; width: auto; aspect-ratio: 16/9; max-width: 100%`),
   which is the one non-obvious part. Sizing it from width — the natural
@@ -833,7 +1119,10 @@ blocks rather than one.
 
 Section pieces, all fed from the existing trip object:
 - **Orientation** — `OrientationSection` groups by category and renders one `.orient-row` per kind,
-  so B1 and B2 sit side by side (verified: equal `getBoundingClientRect().top`). `DocCard` takes
+  so B1 and B2 sit side by side (verified: equal `getBoundingClientRect().top`). Since 2026-08-17 the two
+  KINDS sit beside each other too, in a `.orient-groups` grid: stacked, a one-batch grade gave the section
+  two labels and two small cards down the middle of a 1400px column, ~350px of it empty. The block went
+  528 → **303px** at 1440×900. `DocCard` takes
   `batchTag` and shows "B1"/"B2" as an absolutely-positioned chip, which is why `.doc-card` is
   `position: relative` — positioned rather than in the flow so it sits over a Drive thumbnail as
   readily as over the icon tile. The card's label stays the chip's own name from the sheet.
@@ -878,9 +1167,18 @@ Everything lives in `src/styles/tokens.css`.
 --navy #1B2560 (buttons, headings on colour)  --accent/--link #2B3A8F (active nav, CTAs)
 --green #157F4B (safety, "Do")  --amber #E08707 (eyebrows, "Don't", avatar)
 ```
-**Two families:** Plus Jakarta Sans for everything, and **Instrument Serif** (`--font-display`,
-weight 400) for the display headings only — login headline, dashboard title, trip hero title,
-overview title. Everything else is 700, not 800, with gentler tracking (-0.01 to -0.02em).
+**Two families, and they changed on 2026-08-17 ("change font"): `--font-display` is **Fraunces** and
+`--font-body` is **Manrope**,** replacing Instrument Serif and Plus Jakarta Sans. Both are variable
+fonts, so the whole weight range is two files from Google. The display face carries the login headline,
+the dashboard title, the trip title and — new with the stage — every section heading on the trip page;
+everything else is Manrope at 700, with gentler tracking (-0.01 to -0.02em).
+
+**`--display-weight: 600` exists because of that swap.** Instrument Serif's 400 was already a display
+weight; Fraunces' 400 is a text weight and looked underset at 48–64px. The four rules that hard-coded
+`font-weight: 400` beside `var(--font-display)` (`.display`, `.login-copy h2`, `.dash-head h2`,
+`.home-banner-text h3`) now read the token, so the next face change is one line. Verified after the
+swap: login headline Fraunces 600/58.9px with no overflow, picker 14 cards all 260–262px, and the
+`'flow'` and `'fixed'` layouts both still measure clean.
 Radii 24/22/20/18/16/15/13, hairline `#E9ECF3` borders, long cool shadows
 (`0 22px 48px -22px rgba(19,28,62,.34)`), and a 4px lift on card hover.
 
@@ -978,7 +1276,7 @@ and returns `{}`, and the cards fall back to "Not published yet" while still ope
 name is a nicety; the card must work without it. Live: g7 Jaipur-Abhaneri-Ranthambore, g8
 Jabalpur-Panchmarhi, g10 Jodhpur & Jaisalmer; g9/g11/g12 read "Not published yet".
 
-## Both Grade 7 rows say "Batch 1" in the sheet — the app now compensates
+## Both Grade 7 rows said "Batch 1" in the sheet — how the app compensates
 Measured 2026-08-14: the content sheet's two Grade 7 rows **both** begin `Batch 1:` (12-19 December
 and 13-20 December). The second should say Batch 2. Taking the sheet at face value did two visible
 kinds of damage: the Orientation tab showed two identically-labelled cards, and because the label is
@@ -992,9 +1290,35 @@ group is left alone: nothing can collide, and renumbering would invent a batch. 
 reports it **once** per assembly, naming the fix — the warn used to sit inside `batchLabels` and
 said the same thing four times.
 
-This is a workaround for a sheet typo, not a replacement for fixing it. **The school should still
-correct the cell**; a parent whose section matches only the mislabelled row still sees "Batch 1",
-because one row carries no collision to detect.
+**FIXED 2026-08-17: labels are computed over the whole group and looked up per row.** The paragraph
+that used to sit here said a parent whose section matched only the mislabelled row would still see
+"Batch 1", "because one row carries no collision to detect" — and the school duly caught it: their child
+is in **Acumen**, which the sheet lists against Batch 2, and the page said Batch 1 on the pill, the
+headline, the orientation cards and the travel block.
+
+The bug was the ORDER of two correct operations. `mine` is filtered to the matched batch first, and
+`batchLabels(mine)` then sees a one-row group and leaves it alone — throwing away the only thing that
+knew this row was the second one. `assembleTripApp` now builds `allLabels = batchLabels(all)` and a
+`labelOf` Map keyed by row, and `batches`, `travel` and `documentsFrom` all read from that;
+`documentsFrom` takes the map as an option rather than deriving labels from the rows it was handed, which
+is what made its `batchTag` wrong too. `batchLabelsCollided(all)` also means the sheet-typo warning now
+reaches a single-batch parent's console, where before it was silent.
+
+**The headline drops a leading `Batch N:` too** (`stripBatchPrefix`). The pill is right beside it, so the
+prefix was repetition when the sheet is right and a flat contradiction when position has corrected the
+pill — "Batch 1: 13-20 December 2026" under a "Batch 2" pill is what the school photographed. Same
+treatment `heroDates` already gave the Overview meta line. A prefix on a *detail* line is left alone
+(Grade 8's second row reads `13-19 December 2026 / Batch 2: Verve, …`) — that line is the sheet's own
+section list, not a duplicate of the pill.
+
+Verified against the fixture, which reproduces the typo exactly (both Grade 7 rows read `Batch 1:`):
+a real **Acumen** parent now sees pill "Batch 2", headline "13-20 December 2026", orientation cards
+**B2 B2**, travel "Batch 2" and Overview meta `Grade 7 · Batch 2 · 13-20 December 2026`; a Cognizance
+parent still sees Batch 1 throughout; staff see both, correctly numbered, on g7, g8 and g10.
+
+This is still a workaround, not a replacement for fixing the sheet — and **the school appears to have
+fixed it** (their screenshot on 2026-08-17 shows `Batch 1:` and `Batch 2:`), in which case the labels
+come straight from the text and position never runs. The app is right either way now.
 
 ## Grades are named, never coded, on screen
 "Grade 7", not "G7". `gradeById(id).full` is the only thing a parent should read — in the top
@@ -1048,7 +1372,16 @@ Exercised on the dev server at 1280×800 and 375×812, reading the local Grade 7
 
 **Screenshots were impossible** — the preview pane was never displayed, so the browser composited no
 frames: `computer{screenshot}` timed out every time, smooth `scrollIntoView` never moved the page
-(instant scrolling did), and `IntersectionObserver` never fired at all. Verify layout there through
+(instant scrolling did), and `IntersectionObserver` never fired at all.
+
+**The same missing frames mean CSS TRANSITIONS never progress there, and this WILL mislead you.** A
+transitioned property reads back as its *starting* value for ever, so a rotation you have just triggered
+computes to `matrix(1, 0, 0, 1, 0, 0)` — identity — and looks broken. Measured 2026-08-17 on the phone
+menu's chevron: with `transition: transform .2s` it read identity even from an inline
+`transform: rotate(180deg) !important`, and with the transition switched off it read
+`matrix(-1, 0, 0, -1, 0, 0)` immediately. **Switch the transition off before measuring anything animated**,
+and do not conclude the property does not apply to the element — an hour went into "SVG cannot be
+transformed", which is not true. Verify layout there through
 `read_page` and measured `getBoundingClientRect()` values, not pictures.
 
 ## Verified working (earlier, pre-redesign)
@@ -1457,6 +1790,145 @@ Raised in `docs/DATA-HANDOVER.md`; none answered yet. Do not assume any of these
 - `legacy/trip-explorer.html` is frozen reference. Do not edit it.
 
 ## Changelog
+- 2026-08-17 (fifteenth pass, same day) — **The jump nav became a menu on phones** ("in phone view tabs
+  like menu make responsive"). At 375px the pill strip was 652px wide in a 373px window with its scrollbar
+  hidden, so two thirds of the sections were unreachable-looking. New `StageJumpNav` renders both shapes
+  and CSS picks one at 720px — the width where the strip stops fitting (652 against 661 of available
+  width at 721px). The phone shape is a "Sections" button with a hamburger and a chevron that turns over,
+  opening a card of six 44px rows; Escape, a tap outside and choosing an item all close it, with the
+  listeners bound only while open. Verified at 375×812: strip hidden, button 339×45, list 339×282 entirely
+  inside the window and painting above the page, no horizontal overflow open or closed, and a pick landing
+  its block flush under the sticky bar with the hash updated. Desktop unchanged at 1907 and 760.
+  **Also learned, and worth more than the menu:** CSS transitions never progress in this preview pane, so
+  a transitioned value always reads back as its starting value — which sent me down a wrong path
+  ("`transform` does not apply to `<svg>`") before switching the transition off proved the rotation was
+  always correct. Written into the verification notes. Build clean, console clean. **Not pushed.**
+- 2026-08-17 (fourteenth pass, same day) — **Section order set by the school**: Overview · Orientation ·
+  Itinerary · Travel details · Things to carry · Photos, replacing the 2026-08-14 order that had Itinerary
+  and packing ahead of Orientation. Two `push` moves in `buildSections`, which is the single source of the
+  order for the jump nav, the one-page block order and both tabbed layouts alike — verified that all of
+  them followed. The `travel` label became **"Travel details"** so the nav agrees with the heading over the
+  cards. Verified at 1907×878 and 375×812: nav and blocks in the asked-for order, every jump landing flush
+  under the sticky bars (Photos clamps at the end of the document, as it must), strip fitting at 652px on
+  desktop and scrolling sideways on a phone, no horizontal overflow, nothing painted below the page, and
+  `'stage-fit'` re-measured with zero clipped elements on all six tabs. Build clean, console clean.
+  **Not pushed.**
+- 2026-08-17 (thirteenth pass, same day) — **The three Google Slides URLs were assigned to the wrong
+  sections, and the duplicated "Things to carry" heading went with the fix.** The school's screenshot showed
+  Safety framing the do-and-donts deck, Do's and don'ts framing things-to-carry and Things to carry framing
+  safety — the three links in `config.slidePreviews` had been pasted one position rotated. Confirmed
+  independently by fetching each published URL and reading its `<title>`
+  (`safety-guidelines-poster` / `do-and-donts` / `things-to-carry`), rotated them back in the committed
+  `public/config.json`, and re-verified by matching every card's iframe `src` to both the config value and
+  the file's title. **A deck's URL says nothing about its contents, so nothing in the code can catch this**
+  — the check is now written into `config.json`'s own note. Also dropped the carry card's head where it
+  frames a deck: the block heading above it says the same words, and the deck took the 63px (page 3753 →
+  3656 at 1907×878). Build clean, console clean. **Not pushed — and this one needs a deploy, not just a
+  sheet edit, because the pointer lives in the deployed config file.**
+- 2026-08-17 (twelfth pass, same day) — **A Batch 2 parent was shown "Batch 1" everywhere; fixed.** The
+  school sent the sheet beside the page: Acumen is listed against Batch 2, and the pill, the headline, the
+  orientation tags and the travel block all said Batch 1. The dates and sections were their child's — only
+  the label was wrong, and it was wrong because `batchLabels` ran on `mine` (already filtered to the one
+  matched row) rather than on the whole group, so the position that distinguishes the rows when the
+  sheet's text repeats had already been discarded. `assembleTripApp` now labels `all` once into a `labelOf`
+  Map that `batches`, `travel` and `documentsFrom` share, `documentsFrom` takes the map instead of
+  deriving its own, `batchLabelsCollided(all)` makes the sheet-typo warning reach a single-batch parent,
+  and `stripBatchPrefix` drops the cell's own "Batch N:" from the headline now that the pill beside it is
+  authoritative. Verified with a real Acumen parent against the fixture that reproduces the typo: pill
+  "Batch 2", headline "13-20 December 2026", cards B2 B2, travel "Batch 2", Overview meta Batch 2 — and a
+  Cognizance parent unchanged on Batch 1, staff still seeing both batches correctly numbered on g7, g8 and
+  g10. Build clean. **Not pushed.**
+- 2026-08-17 (eleventh pass, same day) — **Density pass on the one-page trip view**, after the school
+  sent a screenshot of the Orientation and Travel blocks with the note "this is like take more space":
+  two labels and two small cards stacked down the middle of the column, then a travel card with four short
+  lines in 30px of padding. Nothing was removed from the page. `OrientationSection` gained an
+  `.orient-groups` grid so parent and student decks sit beside each other (block 528 → **303px**), the
+  cards were allowed to fill their half at 420px instead of a 270px basis, block padding went 40 → 28 (22
+  on a phone), the section gap 24 → 16, the heading rule 14 → 10 and the travel card 30 → 22/24. Page
+  **4110 → 3734px** at 1440×900, 3998 → 3868 at 375×812, and `'stage-fit'` re-measured with zero clipped
+  elements on all six tabs — the change makes the fitted variant shorter too. Build clean, console clean.
+  **Not pushed.**
+- 2026-08-17 (tenth pass, same day) — **The tabs came off: the trip page is ONE page in the stage
+  design.** "Remove tabs like different page make single page with header" — the fourth answer to the same
+  question that day, so `TRIP_LAYOUT` is now five values and the tabbed variants were renamed
+  (`'stage-tabs'`, `'stage-fit'`) rather than removed. New `TripStagePage` renders Overview as a
+  full-bleed **72dvh cover** — deliberately not the whole screen, so the next heading peeks and the page
+  does not look finished at the fold — then every section stacked in the centred 1400px column with the
+  pill bar demoted to a **jump nav of real anchors**. Itinerary and Things to carry gained
+  `.stage-block-title`, styled to match the heads the section components render, since they had been
+  relying on a tab label to name them; `titled: true` still suppresses it for the four that head
+  themselves. `scrollToBlock()` subtracts only the bars that will still be on screen, read from their
+  computed `position` — on a phone `.topbar` is `static` in this layout, so subtracting it would scroll
+  the target under nothing. The footer comes back, since a long page ends better with one than without.
+  **One bug found by measurement:** the cover block inherited `width: 100%` from its siblings, so the
+  negative margins slid it 30px left instead of widening it and left a strip of canvas down the right
+  edge — `width: auto` lets the flex stretch resolve it. Verified at 1907×878, 1440×900, 1280×720,
+  1280×620 and 375×812: pages 3.7–4.1k tall, zero horizontal overflow, nothing painted below the
+  document's scrollHeight, no internal scrollers anywhere, decks exactly ar 1.778 (1370×771 for packing at
+  the school's window), every jump landing its block flush under the sticky bars, access control still
+  fetch-free, console clean. All five `TRIP_LAYOUT` values build and were rendered. **Not pushed.**
+- 2026-08-17 (ninth pass, same day) — **The stage was let go of the window: the page scrolls again, and
+  a tab click scrolls it.** Asked as "same page scrollable make after the tab click switch scroll the web
+  page", four hours after "fit on screen" — so the design was kept and only its relationship to the
+  window changed. `TRIP_LAYOUT` gained `'stage-fit'` (the locked variant, unchanged and re-measured
+  clean) and `'stage'` now means the scrolling one; `App` maps the value to `is-stage is-scroll` /
+  `is-stage is-fit` through one object, which also decides the footer. New `scrollToPanel()` puts the top
+  of the panel under the two sticky bars on every switch, **reversing the 2026-08-13 "a tab click must
+  never scroll" rule** for this layout. The payoff is that **nothing inside a card scrolls any more**:
+  Safety's eleven measures run down the page in one 645px card instead of four-at-a-time in a hidden
+  scroller, and the decks are width-driven and bigger (564×317 / 1175×661 at 1280×720 against 452×254 /
+  804×452). **Four things had to be got right and each was caught by measurement:** the two bars are
+  measured rather than read from `--header-h`, which is 66 against a real 67 on desktop and a real
+  **165** on a phone; a `--stage-nav-h` token was written, found to be 68 against a measured **69**, and
+  deleted in favour of letting the flex chain size one screenful; `min-height: 0` had to come **out** of
+  the `.page`/`.shell`/`.stage` chain, because a zero-basis flex item with it settles at its container's
+  height and paints the overflow outside the page where it cannot be reached; and the sticky pair had to
+  be undone on a phone, where `.stage-nav` would otherwise pin itself underneath a 165px header — the
+  header goes `static` there and the tab bar pins at 0. Also fixed on the way: `TripBody` dispatched on
+  `'stage'` only, so `'stage-fit'` fell through to the old underline-tab markup. Verified at 1907×878,
+  1280×720, 1280×620 and 375×812, parent and staff, deck path and text path (`slidePreviews` cleared in
+  `config.local.json` and **restored**), with all four `TRIP_LAYOUT` values exercised: nothing painted
+  below the document's scrollHeight, no horizontal overflow, decks exactly ar 1.778, tab switches landing
+  the panel flush under the bars, access control and the coming-soon short-circuit still issuing no
+  fetch. Build clean, console clean in a fresh tab. **Not pushed.**
+- 2026-08-17 (eighth pass, same day) — **The trip page redesigned as the STAGE, and the app changed
+  typeface.** Brief: "redesign whole page, centre all things, change font, change style, cover whole
+  page, fit on screen, totally redesign after click on grade". `TRIP_LAYOUT` gained a third value and
+  defaults to `'stage'`; `'flow'` and `'fixed'` are untouched and were both re-measured clean.
+  Fraunces + Manrope replace Instrument Serif + Plus Jakarta Sans app-wide, with `--display-weight`
+  added because Fraunces' 400 is a text weight where the old face's was a display one. The page itself:
+  a `--stage-w: 1400px` centred column on a washed canvas, the tab strip rebuilt as a centred segmented
+  pill control, section heads centred under an amber rule, card contents centred, and **Overview
+  bleeding to all four edges** as a full-cover photograph with the school's words centred on it. Long
+  guidance stays left-aligned inside its card, deliberately. Vertical centring is `margin-block: auto`
+  rather than `justify-content`, so a section too tall for the window scrolls from its top instead of
+  being cut off at both ends. **Four sizing bugs were found by measurement and are written up above:**
+  `aspect-ratio` never feeds a clamp back into the other axis (decks at ar 1.499 → fixed with
+  `container-type: size` + `100cqh`), that container query collapses to zero once the cards stack (decks
+  at **2×2px** on a phone), an auto inline margin overrides flex stretch (the packing card at 168×94),
+  and `auto-fit` counts tracks from the track's *max* size (staff's two travel cards stacked). The
+  Overview scrim was **measured, not eyeballed** — screenshots do not composite in this environment, so
+  the gradient was composited over the photograph's own pixels in a canvas: the old bottom-weighted
+  scrim gave the centred title 2.96:1 and the body 4.00:1, both under the WCAG minimum, and the new
+  vignette plus text-shadow gives 3.49 / 8.94 / 5.13. Verified at 1907×878, 1440×900, 1280×720,
+  1280×620 and 375×812, parent and staff, with the deck path and the text path (via a temporary
+  `slidePreviews` clear in `config.local.json`, since **restored**): zero clipped elements, zero window
+  scroll, decks exactly ar 1.778 everywhere, access control and the coming-soon short-circuit both still
+  issuing no fetch. Build clean, console clean in a fresh tab. **Not pushed.**
+- 2026-08-17 (seventh pass, same day) — **One-page scrolling trip layout, added as a switch and left
+  UNCOMMITTED for review** ("all things in one page make webpage scrollable with header"). New
+  `src/lib/layout.js` holds `TRIP_LAYOUT`; `'flow'` stacks every section, restores the footer and turns
+  the tab strip into anchor jump links, `'fixed'` is the 2026-08-14 view unchanged. The work is almost
+  entirely in undoing definite-height assumptions: every guideline list, rule stack, slide frame and the
+  Overview banner size themselves from a fixed-height panel and **collapse to nothing** without one, so
+  `.is-flow` hands back natural heights exactly as the ≤980px breakpoint does. No scroll-spy — anchors
+  only. Verified at 1280×720 and 375×812: 4011px page, six blocks, all frames ar 1.778, no clipping, no
+  horizontal overflow, jump targets clearing the sticky nav, clean console. **Then adjusted** ("make
+  webpage show proper sapce other things header"): the four sections that render their own `Section`
+  head were printing their heading twice, so they carry `titled: true` and `TripFlow` skips the label;
+  inter-section spacing 86px → 64px; `.flow-title` restyled to match `.section h3` instead of being the
+  odd serif in a sans column. Re-measured at 1440×900: zero duplicate headings, 64px separations, page
+  4011 → 3852, jumps clearing the nav by 44–68px, no horizontal overflow at 375, clean console.
 - 2026-08-17 (sixth pass, same day) — **The grade card now carries a photograph and names the trip on
   it.** New `config.tripCardPhotos` map + `tripCardPhotoFor()` (falls back to `tripPhotos`, then to the
   grade's colour and icon); `.pick-photo` fills the head and the icon is dropped where a photo exists;

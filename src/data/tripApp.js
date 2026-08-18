@@ -133,13 +133,17 @@ function documentsFrom(
   rows,
   columns,
   lostLinks,
-  { labelWithBatch = true, fileNamesOnly = false } = {}
+  { labelWithBatch = true, fileNamesOnly = false, labelOf = null } = {}
 ) {
   const out = []
   const seen = new Set()
-  const labels = labelWithBatch ? batchLabels(rows) : []
+  // `labelOf` is keyed by row and the caller builds it from the WHOLE grade group.
+  // Deriving labels from `rows` here was wrong whenever `rows` had been filtered to one
+  // parent's batch: a single row cannot collide with anything, so `batchLabels` trusted
+  // the sheet's text, and a Batch 2 parent's cards came out tagged "B1".
+  const labels = labelWithBatch && !labelOf ? batchLabels(rows) : []
   rows.forEach((row, i) => {
-    const batch = labelWithBatch ? labels[i] : ''
+    const batch = labelWithBatch ? (labelOf ? labelOf.get(row) || '' : labels[i]) : ''
     for (const col of columns) {
       const cell = val(row, ...col.aliases)
       if (!cell) continue
@@ -218,6 +222,11 @@ function batchLabel(row, i, total) {
   const m = dates.match(/batch\s*\d+/i)
   if (m) return m[0].replace(/\s+/g, ' ')
   return total > 1 ? `Batch ${i + 1}` : ''
+}
+
+/** "Batch 2: 13-20 December 2026" -> "13-20 December 2026". */
+function stripBatchPrefix(s) {
+  return String(s || '').replace(/^batch\s*\d+\s*[:–-]\s*/i, '').trim()
 }
 
 /**
@@ -330,9 +339,21 @@ export function assembleTripApp(gradeId, rows, { section } = {}) {
    * what tells a parent which batch their child is in, so it gets its own block
    * rather than being flattened into a one-line subtitle.
    */
-  const mineLabels = batchLabels(mine)
+  /**
+   * Labels are computed over the WHOLE group and then looked up per row — never over
+   * `mine`, which is a single batch whenever a parent's section matched one.
+   *
+   * This is what the school caught on 2026-08-17: their child is in Acumen, which the
+   * sheet lists against Batch 2, and the page said "Batch 1". `batchLabels` deliberately
+   * leaves a one-row group alone, because renumbering a single row would invent a batch —
+   * so filtering first threw away the only thing that knew this row was the second one.
+   * Position survives here because `all` is still both rows.
+   */
+  const allLabels = batchLabels(all)
+  const labelOf = new Map(all.map((row, i) => [row, allLabels[i]]))
+  const mineLabels = mine.map((row) => labelOf.get(row) || '')
 
-  if (batchLabelsCollided(mine)) {
+  if (batchLabelsCollided(all)) {
     console.warn(
       `[trip app] ${gradeId}: more than one row carries the same batch name, so batches are being ` +
         'numbered by position instead. Correct the Dates/Sections cell in the sheet — the second ' +
@@ -347,7 +368,11 @@ export function assembleTripApp(gradeId, rows, { section } = {}) {
       const lines = cell.split('\n').map((l) => l.trim()).filter(Boolean)
       return {
         label: mineLabels[i],
-        headline: lines[0] || '',
+        // The label sits in a pill immediately beside this line, so the cell's own
+        // "Batch 2:" prefix is repetition at best — and a flat contradiction when the
+        // sheet has both rows mislabelled and position has corrected the pill. Same
+        // treatment `heroDates` already gives the Overview meta line.
+        headline: stripBatchPrefix(lines[0] || ''),
         detail: lines.slice(1).join('\n'),
       }
     })
@@ -369,7 +394,7 @@ export function assembleTripApp(gradeId, rows, { section } = {}) {
 
   const lostLinks = []
   const documents = [
-    ...documentsFrom(mine, BATCH_LINK_COLUMNS, lostLinks),
+    ...documentsFrom(mine, BATCH_LINK_COLUMNS, lostLinks, { labelOf }),
     ...documentsFrom(all, COMMON_LINK_COLUMNS, lostLinks, { labelWithBatch: false }),
     // A text column holding a URL — or a chip pointing at one — is a poster.
     ...documentsFrom(all, TEXT_COLUMNS, lostLinks, {
