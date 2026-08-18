@@ -357,7 +357,7 @@ and would otherwise leave a white gap.
 ### FIVE layouts now, behind one switch — `src/lib/layout.js`
 `TRIP_LAYOUT` picks one and each costs a line to restore. It lives in its own module because `App` and
 `TripPage` both read it and putting it in either makes them import each other. **Currently `'stage'`, and
-the whole switch is still UNCOMMITTED — the school asked to look before deciding.**
+pushed live** — `489271b` on `main`, 2026-08-17, which Netlify auto-deployed.
 
 All five were asked for on **2026-08-17**, in this order, and the school went tabs → one page → tabs →
 one page in a single day. Nothing here is settled; do not delete a variant to tidy up.
@@ -1790,6 +1790,16 @@ Raised in `docs/DATA-HANDOVER.md`; none answered yet. Do not assume any of these
 - `legacy/trip-explorer.html` is frozen reference. Do not edit it.
 
 ## Changelog
+- 2026-08-17 (sixteenth pass, same day) — **Pushed and live.** `489271b` on `main` carried the whole
+  day: the one-page centred trip layout with its four alternates behind `TRIP_LAYOUT`, the Fraunces +
+  Manrope type change, the phone menu, the section order, the density pass, the Batch 2 labelling fix and
+  the rotated Slides URLs. Scanned the staged diff first — no addresses, phone-shaped numbers, roster URLs
+  or API keys, and `local-roster/`, `config.local.json` and `.env` all confirmed still gitignored. Netlify
+  auto-deployed within ~40s and production was verified: the live bundle hash matches the local build
+  (`index-DW2l4jPy.js`), `/config.json` serves the corrected deck mapping (each key's published URL now
+  answers with its own title), `/trip-photos/g7.jpg` is 200 `image/jpeg`, and `/local-roster/students.csv`
+  and `/config.local.json` both return the SPA index rather than their contents — **bodies checked, not
+  status codes**, since the SPA rule answers 200 for anything.
 - 2026-08-17 (fifteenth pass, same day) — **The jump nav became a menu on phones** ("in phone view tabs
   like menu make responsive"). At 375px the pill strip was 652px wide in a 373px window with its scrollbar
   hidden, so two thirds of the sections were unreachable-looking. New `StageJumpNav` renders both shapes
