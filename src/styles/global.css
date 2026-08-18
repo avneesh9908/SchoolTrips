@@ -405,12 +405,6 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible {
   scrollbar-width: none; padding-bottom: 22px;
 }
 .app.is-fixed .sections::-webkit-scrollbar { display: none; }
-/* Overview is the one panel that must never scroll — it is a single photograph,
-   told to fill the window rather than to grow past it. */
-.app.is-fixed .sections.is-fill {
-  display: flex; flex-direction: column; overflow: hidden; padding-bottom: 0;
-}
-.app.is-fixed .sections.is-fill .section { flex: 1; min-height: 0; }
 /* Tighter inside the fixed layout, where every gap competes with content for a
    fixed budget of height. */
 .app.is-fixed .section { min-height: 0; gap: 18px; }
@@ -430,18 +424,6 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible {
    217px — which is what made those columns read as a preview. Side by side they
    take 162px and hand the rest down. */
 .itin-top { display: flex; flex-wrap: wrap; gap: 18px; align-items: flex-start; }
-/* Specificity has to beat `.panel.is-tight`, which is declared later in the
-   file — an equally specific rule up here would simply lose. */
-.itin-top > .panel.is-tight { flex: 1 1 420px; min-width: 0; padding: 16px 20px; }
-/* Every px in this block comes straight off the guideline columns below, so the
-   batches sit beside each other and the stacked rows' dividers go with them. */
-.itin-top .batch-note { margin-bottom: 12px; }
-.itin-top .batch-grid { display: flex; flex-wrap: wrap; gap: 10px; }
-.itin-top .batch-grid > .batch-row {
-  flex: 1 1 240px; min-width: 0; padding: 12px 14px; border-bottom: none;
-  background: var(--wash); border-radius: var(--r-chip);
-}
-.itin-top .batch-tag { background: var(--card); }
 .itin-top > .itin-docs { flex: 1 1 340px; }
 /* Overrides `.orient-row`'s fixed 270px basis so a batch's card shrinks and the
    batches stay on ONE line. Staff see two itinerary cards; at the 270px basis
@@ -474,9 +456,9 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible {
   letter-spacing: -0.02em; line-height: 1.2;
 }
 .flow-block + .flow-block { border-top: 1px solid var(--rule); padding-top: 32px; }
-/* Overview is a photograph told to fill the window in the fixed view; here it is
-   a band at the top of a page that continues below it. */
-.is-flow .home-banner { flex: 0 0 auto; min-height: 420px; }
+/* Overview's band is a fixed share of the window elsewhere; on a page that just
+   keeps going it can be taller. */
+.is-flow .home-photo { height: 420px; }
 .is-flow .section.is-stretch { min-height: 0; }
 .is-flow .section.is-stretch > .chip-row, .is-flow .carry-card { flex: 0 0 auto; min-height: 0; }
 .is-flow .chip-lines, .is-flow .chip-docs, .is-flow .rule-stack { flex: 0 0 auto; overflow: visible; }
@@ -533,63 +515,54 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible {
 }
 .kv-row dd { margin: 3px 0 0; font-size: 15px; font-weight: 600; color: var(--ink); }
 
-/* Overview tab — the school's own photograph of the trip, and nothing else.
-   Grade, batch, dates and the whole Header Text sit ON it. Exactly one photo on
-   the page: the destination-photo lookup, the second copy of it in the old
-   Overview block, and the panel of body copy that used to sit beneath it were
-   all removed 2026-08-14 ("overview have only images"). */
-.home-banner {
-  position: relative; overflow: hidden; border-radius: 24px;
+/* Overview tab — the school's photograph, then the batch cards, then the sheet's
+   Header Text (2026-08-18). Nothing is written on the image any more, so the band
+   is just a picture and the words below it are ordinary ink: no scrim, no
+   text-shadow, no measured contrast against whatever photo the school supplies
+   next. Exactly one photo on the page, as of 2026-08-14. */
+.home-photo-band {
+  overflow: hidden; border-radius: 24px;
   background: linear-gradient(150deg, var(--navy), #0F172A);
-  display: flex; align-items: flex-end; min-height: 190px;
-  /* Grows into the height the fixed layout leaves, rather than setting a height
-     of its own — that is what lets Overview fill the window with no scroll on
-     any screen. */
-  flex: 1; min-height: 0;
 }
-.home-photo { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-/* Strong enough at the foot to carry the whole Header Text, which now sits on
-   the image rather than in a panel below it. */
-.home-banner.has-photo::after {
-  content: ''; position: absolute; inset: 0; pointer-events: none;
-  background: linear-gradient(180deg, rgba(15, 23, 42, 0.04) 22%, rgba(15, 23, 42, 0.62) 58%, rgba(11, 17, 33, 0.93) 100%);
+/* A definite height on the IMAGE, not a flex share of the panel: the band is no
+   longer the whole tab, and an intrinsic height here is what stops it either
+   collapsing to nothing or eating the cards below it. 54vh is the school's own
+   figure (2026-08-18) — most of the first screen, with the batch cards left
+   peeking below the fold so a reader can see the tab continues. */
+.home-photo {
+  display: block; width: 100%; height: 54vh; object-fit: cover;
 }
-.home-banner-text {
-  position: relative; z-index: 1; padding: 30px 34px 30px;
-  display: flex; flex-direction: column; gap: 10px; color: #fff; width: 100%;
+.home-below { display: flex; flex-direction: column; gap: 24px; }
+
+/* The batches as two cards side by side — "batch 1 date and batch second dates". */
+.home-batches {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
+  gap: 16px;
 }
-/* Grade · Batch · Dates — the three facts the deleted fact bar used to carry. */
-.home-meta {
-  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-  font-size: 12.5px; font-weight: 800; letter-spacing: 0.08em;
-  text-transform: uppercase; color: rgba(255, 255, 255, 0.86);
+.home-batch-card {
+  background: var(--card); border: 1px solid var(--line); border-radius: 20px;
+  padding: 20px 22px; display: flex; flex-direction: column; align-items: flex-start; gap: 10px;
 }
-.home-meta span + span::before { content: '·'; margin-right: 10px; opacity: 0.7; }
-.home-banner-text h3 {
-  margin: 0; font-family: var(--font-display); font-weight: var(--display-weight); color: #fff;
-  font-size: clamp(26px, 2.6vw, 36px); letter-spacing: -0.015em; line-height: 1.1;
-}
+.home-batch-dates { font-size: 19px; font-weight: 700; color: var(--ink); letter-spacing: -0.01em; }
+.home-batch-detail { font-size: 14px; color: var(--muted); line-height: 1.55; }
+
+.home-about { display: flex; flex-direction: column; gap: 12px; }
 .home-lead {
-  margin: 0; font-size: 17px; line-height: 1.4; font-weight: 700;
-  color: #fff; max-width: 760px; text-wrap: pretty;
+  margin: 0; font-size: 17px; line-height: 1.45; font-weight: 700;
+  color: var(--ink); max-width: 760px; text-wrap: pretty;
 }
 .home-body-text {
-  margin: 0; font-size: 14.5px; line-height: 1.55; color: rgba(255, 255, 255, 0.9);
+  margin: 0; font-size: 15px; line-height: 1.65; color: var(--muted);
   white-space: pre-wrap; text-wrap: pretty; max-width: 88ch;
 }
 
-/* Batches */
-.batch-note { margin: 0 0 16px; font-size: 14px; color: var(--muted); line-height: 1.6; }
-.batch-note strong { color: var(--ink); }
-.batch-row { display: flex; gap: 14px; align-items: flex-start; padding: 16px 0; border-bottom: 1px solid var(--rule); }
-.batch-row:first-child { padding-top: 0; }
-.batch-row:last-child { border-bottom: none; padding-bottom: 0; }
+/* The batch tag — the only piece of the old Itinerary batch block still standing;
+   the rest went with the block on 2026-08-18, since the dates now live on the
+   Overview cards and nowhere else. */
 .batch-tag {
   flex: 0 0 auto; font-size: 12px; font-weight: 800;
   padding: 6px 13px; border-radius: var(--r-pill); background: var(--warm); color: var(--navy);
 }
-.batch-headline { font-size: 15.5px; font-weight: 700; }
-.batch-detail { font-size: 14px; color: var(--muted); margin-top: 4px; white-space: pre-wrap; line-height: 1.6; }
 
 /* A heading inside a panel-stack tab. The Itinerary tab carries travel, do's
    and don'ts and the packing list as well as the itinerary itself (the school's
@@ -1074,6 +1047,10 @@ ul.plain li::before { content: '•'; flex: none; font-weight: 800; color: var(-
 }
 .travel-route .track svg { width: 20px; height: 20px; }
 .travel-notes { margin: 0; font-size: 15px; line-height: 1.7; color: var(--body); white-space: pre-wrap; }
+/* Departure, Arrival, Train — the words a parent scans this card for, so they are
+   set in the ink colour and heavier than the line they open, not left as body
+   text in the middle of a paragraph (2026-08-18). */
+.travel-notes .travel-key { font-weight: 800; color: var(--ink); }
 .travel-card .travel-notes.has-route { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--rule); }
 
 /* Reminders — a dated timeline, and the coordinator beside it */
@@ -1315,63 +1292,59 @@ ul.plain li::before { content: '•'; flex: none; font-weight: 800; color: var(-
 }
 .is-stage .section-aside { display: block; margin-top: 10px; }
 
-/* ---------- Overview: the photograph covers the window ---------- */
+/* ---------- Overview: the photograph reaches both edges ---------- */
+/* The band still bleeds past the page gutter — the picture is the top of the tab —
+   but it no longer covers the window: the batch cards and the Header Text sit under
+   it, so the section takes its natural height and `.home-below` puts the gutter
+   back for everything that is not the photograph.
+
+   Gone with it: the measured radial scrim, the glass meta pills and the
+   text-shadows. All three existed to keep white type legible ON the photograph,
+   and since 2026-08-18 no type is on it. */
 .stage.is-cover { padding: 12px 0 0; margin-inline: calc(-1 * var(--shell-pad)); }
 .stage.is-cover .stage-inner { max-width: none; }
-.stage.is-cover .stage-inner > .section { flex: 1; margin-block: 0; }
-.is-stage .home-banner { border-radius: 0; align-items: center; justify-content: center; }
-/* A vignette, not the bottom-weighted scrim the card version used — and this one
-   was measured, not eyeballed, because centring the text moved it into the
-   lightest part of the old gradient. Compositing the scrim over the Grade 7
-   photograph's own pixels and taking the worst sample under each block:
-
-     scrim, at 1280x720   title    lead    body
-     bottom-weighted       2.96    6.07    4.00
-     this one              3.49    8.94    5.13
-
-   The title needs 3:1 (it is 47–64px) and the body needs 4.5:1; the old one missed
-   both. Re-checked at 1907x878, where the crop differs: 3.95 / 5.46 / 5.53.
-
-   The radial layer darkens the middle where the words are and leaves the corners
-   alone, so the picture is still a picture. The text-shadow is the second belt: it
-   costs nothing and it covers whatever photograph the school supplies next, which
-   nobody is going to re-measure. */
-.is-stage .home-banner.has-photo::after {
-  background:
-    radial-gradient(74% 58% at 50% 50%, rgba(11, 17, 33, 0.34) 0%, rgba(11, 17, 33, 0.16) 62%, rgba(11, 17, 33, 0) 100%),
-    linear-gradient(180deg, rgba(11, 17, 33, 0.5) 0%, rgba(11, 17, 33, 0.36) 44%, rgba(11, 17, 33, 0.86) 100%);
+.stage.is-cover .stage-inner > .section { flex: 0 0 auto; margin-block: 0; gap: clamp(24px, 3.4vh, 38px); }
+.is-stage .home-photo-band { border-radius: 0; }
+.is-stage .home-below {
+  width: 100%; max-width: var(--stage-w); margin-inline: auto;
+  padding: 0 var(--shell-pad) 8px; gap: clamp(20px, 3vh, 32px);
 }
-.is-stage .home-banner-text h3,
-.is-stage .home-lead,
-.is-stage .home-body-text { text-shadow: 0 2px 16px rgba(11, 17, 33, 0.62); }
-.is-stage .home-banner-text {
-  align-items: center; text-align: center; gap: 14px;
-  max-width: 1080px; margin: 0 auto; padding: 40px clamp(20px, 4vw, 56px);
-}
-/* Grade · Batch · Dates become glass pills on the centre line. The interpunct
-   that separated them was a left-aligned device. */
-.is-stage .home-meta { justify-content: center; gap: 8px; }
-.is-stage .home-meta span {
-  padding: 7px 14px; border-radius: var(--r-pill); letter-spacing: 0.1em;
-  background: rgba(255, 255, 255, 0.14); border: 1px solid rgba(255, 255, 255, 0.28);
-  backdrop-filter: blur(8px);
-}
-.is-stage .home-meta span + span::before { content: none; margin: 0; }
-.is-stage .home-banner-text h3 { font-size: clamp(30px, min(4.6vw, 7.6vh), 64px); line-height: 1.03; }
+/* On the centred axis, like every other block in this layout. */
+.is-stage .home-batch-card { align-items: center; text-align: center; border-radius: 26px; }
+.is-stage .home-about { align-items: center; text-align: center; }
 .is-stage .home-lead {
   font-size: clamp(15.5px, min(1.5vw, 2.5vh), 21px); line-height: 1.45;
   max-width: 62ch; margin-inline: auto;
 }
 .is-stage .home-body-text {
-  font-size: clamp(13px, min(1.05vw, 1.85vh), 15.5px); line-height: 1.6;
+  font-size: clamp(13.5px, min(1.05vw, 1.85vh), 15.5px); line-height: 1.65;
   max-width: 76ch; margin-inline: auto;
 }
 
+/* ---------- Itinerary: the boxes take the whole page ---------- */
+/* Asked for on 2026-08-18, "make like cover whole page in itinerary". The column
+   cap comes off and the panel uses the full width of the window, less a margin
+   down each side so the boxes are not flush against the glass — asked for on
+   2026-08-18, after a 14px hairline read as a mistake rather than as a gutter. It
+   grows with the window: 20px on a phone, 44px on a wide monitor, where the boxes
+   have width to spare. The section then fills the height it is given, and
+   `.chip-row` takes whatever the itinerary cards above it did not — so Safety,
+   Do's and don'ts and Things to carry are boxes the size of the screen rather
+   than three short cards with canvas underneath them. */
+.stage.is-wide { margin-inline: calc(-1 * var(--shell-pad)); padding-inline: clamp(20px, 2.6vw, 44px); }
+.stage.is-wide .stage-inner { max-width: none; }
+.stage.is-wide .stage-inner > .section,
+.stage.is-wide .stage-inner > .section.is-stretch { flex: 1; margin-block: 0; min-height: 0; }
+/* Beats `.is-scroll`'s natural-height rule, which is what stops every other tab
+   stretching. The row may still grow past the window — `flex: 1 1 auto` with an
+   auto basis takes the LARGER of the screenful and the content, so a long list
+   scrolls the page instead of being clipped inside a box that fits. */
+.is-scroll .stage.is-wide .section.is-stretch > .chip-row { flex: 1 1 auto; min-height: 0; }
+
 /* ---------- everything else, on the same axis ---------- */
 .is-stage .itin-top, .is-stage .chip-row, .is-stage .orient-row,
-.is-stage .travel-grid, .is-stage .batch-grid { justify-content: center; }
+.is-stage .travel-grid { justify-content: center; }
 .is-stage .panel { border-radius: 26px; }
-.is-stage .batch-row { flex-direction: column; align-items: center; text-align: center; gap: 8px; }
 .is-stage .orient-group > h4 { text-align: center; }
 /* The card's own contents centre too — icon over label over action line. */
 .is-stage .doc-card { align-items: center; text-align: center; border-radius: 22px; }
@@ -1463,19 +1436,35 @@ ul.plain li::before { content: '•'; flex: none; font-weight: 800; color: var(-
   background: rgba(250, 251, 253, 0.82); backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--line);
 }
-/* Overview: at least the screen, taller if the school's Header Text needs it.
-   `min-height: auto` is doing real work on both of these — the base rules set it to
-   0 so the fitted variant could clip, and at 0 a flex item may shrink under its own
-   content, which then paints outside the box and does not count toward the page's
-   scrollHeight. That is the 2026-08-14 silent-content-loss trap, one layer up. */
-.is-scroll .stage.is-cover .stage-inner > .section,
-.is-scroll .home-banner { min-height: auto; }
+/* Overview grows past the screen when the Header Text needs it. `min-height: auto`
+   is doing real work here — the base rule sets it to 0 so the fitted variant could
+   clip, and at 0 a flex item may shrink under its own content, which then paints
+   outside the box and does not count toward the page's scrollHeight. That is the
+   2026-08-14 silent-content-loss trap, one layer up. */
+.is-scroll .stage.is-cover .stage-inner > .section { min-height: auto; }
 /* Natural heights, exactly as `.is-flow` restores them. */
 .is-scroll .stage-inner > .section.is-stretch { min-height: 0; margin-block: auto; }
 .is-scroll .section.is-stretch > .chip-row, .is-scroll .carry-card { flex: 0 0 auto; min-height: 0; }
 .is-scroll .chip-lines, .is-scroll .chip-docs, .is-scroll .rule-stack { flex: 0 0 auto; overflow: visible; }
 .is-scroll .chip-slides { flex: 0 0 auto; }
 .is-scroll .google-slides-preview { width: 100%; height: auto; }
+/* Things to carry is ONE poster on its own tab, and it has to FIT — at 1600x900 a
+   full-width frame came to 1368x769 in a card ending 116px below the fold, so the
+   last row of the school's own list was off-screen (2026-08-18).
+
+   The width is capped by what the HEIGHT allows: `(viewport - chrome) * 16/9` is
+   the widest 16:9 box whose height still lands inside the window, and `min()` hands
+   back to the card's width whenever the card is the narrower of the two. The height
+   then falls out of `aspect-ratio` rather than being set here, so the frame keeps
+   its ratio and Google never letterboxes it.
+
+   272px is the chrome above and below it — header, tab bar, the section head, the
+   card's own padding and the panel's bottom padding — measured, not guessed. `dvh` because on a phone `100vh`
+   is the address bar's tallest state, which would put the foot of the poster under
+   the bar it was sized to avoid. */
+.is-scroll #carry .google-slides-preview {
+  width: min(100%, calc((100dvh - 272px) * 16 / 9)); height: auto; margin-inline: auto;
+}
 .is-scroll .chip-col .doc-card { flex: 0 0 auto; }
 .is-scroll .chip-col .doc-thumb { flex: 0 0 auto; height: 320px; }
 
@@ -1515,7 +1504,7 @@ ul.plain li::before { content: '•'; flex: none; font-weight: 800; color: var(-
   width: auto; max-width: none; margin-inline: calc(-1 * var(--shell-pad)); padding: 12px 0 0;
 }
 .stage-block.is-cover + .stage-block { border-top: none; }
-.is-stage .stage-block.is-cover .home-banner { flex: 0 0 auto; min-height: 72dvh; }
+.is-stage .stage-block.is-cover .home-photo { height: 62dvh; }
 /* Matched to `.is-stage .section h3`, amber rule included: these headings and the ones
    the section components render themselves sit in the same column, and two heading
    styles in one column made one page look like two. */
@@ -1701,7 +1690,7 @@ ul.plain li::before { content: '•'; flex: none; font-weight: 800; color: var(-
 @media (max-width: 980px) {
   .stage { padding: 12px 0 18px; }
   .stage-inner > .section.is-stretch { min-height: 0; }
-  .is-stage .home-banner-text { padding: 28px 18px; gap: 10px; }
+  .is-stage .home-below { padding: 0 var(--shell-pad) 8px; }
   /* Both of these MUST be undone here, and the first one bites hard: asking a
      stacked card how tall it is answers zero. `container-type: size` carries size
      containment, so the container's height may not depend on its contents — and
@@ -1734,8 +1723,12 @@ ul.plain li::before { content: '•'; flex: none; font-weight: 800; color: var(-
   .section { gap: 20px; }
   .section h3 { font-size: 24px; }
   .panel, .travel-card, .reminder-list, .comm { padding: 22px; }
-  .home-banner-text { padding: 22px 18px 20px; gap: 8px; }
-  .home-body-text { font-size: 13.5px; line-height: 1.5; }
+  /* A phone screen is tall and narrow: 46vh of it is 374px of photograph before a
+     reader reaches the dates. Shorter here, so the cards are on the first screen. */
+  .home-photo { height: clamp(200px, 34vh, 320px); }
+  .home-batch-card { padding: 16px 18px; }
+  .home-batch-dates { font-size: 17px; }
+  .home-body-text { font-size: 14px; line-height: 1.55; }
   .acc-head { padding: 16px 18px; }
   .acc-body { padding: 0 18px 18px 18px; }
   .photo-masonry { columns: 1; }

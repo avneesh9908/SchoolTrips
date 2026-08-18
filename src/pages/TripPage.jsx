@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, Fragment } from 'react'
 import { useParams } from 'react-router-dom'
 import { TRIP_LAYOUT } from '../lib/layout'
 import { useAuth } from '../auth/AuthContext'
@@ -121,41 +121,21 @@ export function splitHeader(raw) {
 }
 
 /**
- * Which batch to name. A matched section means this is the child's own batch
- * and can be stated plainly; otherwise the page is showing all of them, and
- * saying "Batch 1" would be wrong.
+ * "Batch 1: 12-19 December" -> "12-19 December". The batch is already named on the
+ * card that carries the line, so repeating the prefix inside it is noise — and the
+ * sheet has it wrong on both Grade 7 rows (see `batchLabels`), which is how staff
+ * came to read "Batch 1: 12-19 December · Batch 1: 13-20 December". `batchLabels`
+ * corrects the label but cannot rewrite the school's headline text.
  */
-function heroBatch(trip) {
-  if (!trip?.batches?.length) return ''
-  if (trip.batchMatched) return trip.batches[0].label || 'Your batch'
-  return trip.batches.length > 1 ? `All ${trip.batches.length} batches` : trip.batches[0].label || ''
-}
-
-/**
- * Dates only — the "Batch 1:" prefix is stripped because the batch is already
- * named beside it in the same line.
- *
- * Stripped in the all-batches case too, not just the matched one: the sheet's
- * own headlines carry the prefix verbatim, and Grade 7 has it wrong on both rows
- * (see `batchLabels`), so staff were reading
- * "Batch 1: 12-19 December · Batch 1: 13-20 December". `batchLabels` corrects the
- * label but cannot rewrite the school's headline text.
- */
-function heroDates(trip) {
-  if (!trip) return ''
-  const strip = (s) => String(s || '').replace(/^batch\s*\d+\s*[:–-]\s*/i, '').trim()
-  if (trip.batchMatched && trip.batches?.length) return strip(trip.batches[0].headline)
-  if (trip.batches?.length) {
-    return trip.batches.map((b) => strip(b.headline)).filter(Boolean).join(' · ')
-  }
-  return trip.dates || ''
+function stripBatchPrefix(s) {
+  return String(s || '').replace(/^batch\s*\d+\s*[:–-]\s*/i, '').trim()
 }
 
 /**
  * The sections, in the order the school set on 2026-08-17 — the order a parent
  * reads them in, not the order the sheet's columns happen to be in:
  *
- *   Overview        the photograph, carrying the sheet's Header Text
+ *   Overview        the photograph, then the batch dates, then the Header Text
  *   Orientation     the parent and student decks — what a parent does FIRST
  *   Itinerary       the batch, the day plan, and Safety and Do's/Don'ts beside it
  *   Travel details  a card per batch
@@ -186,7 +166,7 @@ function buildSections(trip, photo, grade) {
     out.push({
       id: 'home',
       label: 'Overview',
-      node: <HomeSection key="home" trip={trip} photo={photo} grade={grade} />,
+      node: <HomeSection key="home" trip={trip} photo={photo} />,
     })
   }
 
@@ -244,7 +224,10 @@ function buildSections(trip, photo, grade) {
   }
 
   const itineraryDocs = byCategory('Itinerary')
-  if (trip.itinerary.length || trip.batches?.length || itineraryDocs.length || guidelineColumns.length) {
+  // `trip.batches` is deliberately NOT a reason to open this tab any more: the batch
+  // dates are on Overview since 2026-08-18, so a sheet with batches and nothing else
+  // would have opened an Itinerary tab with nothing in it.
+  if (trip.itinerary.length || itineraryDocs.length || guidelineColumns.length) {
     out.push({
       id: 'itinerary',
       label: 'Itinerary',
@@ -643,6 +626,11 @@ function scrollToPanel() {
  */
 function TripStage({ sections, current, onSelect }) {
   const cover = current.id === 'home'
+  // Itinerary covers the page too, in the other sense: not a photograph bleeding to
+  // the edges but the boxes themselves taking the whole window instead of a 1400px
+  // column with canvas down both sides (2026-08-18). Its content is four boxes and
+  // two cards — the wider they are, the fewer lines each one wraps to.
+  const wide = current.id === 'itinerary'
   // Switching a tab also puts the reader at the top of it — see `scrollToPanel`.
   // Wrapped here rather than inside `onSelect` because the other two tab layouts
   // share that callback and neither of them may move the window.
@@ -660,7 +648,7 @@ function TripStage({ sections, current, onSelect }) {
           photograph reaches every edge. Keyed on the tab id so the fade replays
           on each switch. */}
       <div
-        className={cover ? 'stage is-cover' : 'stage'}
+        className={cover ? 'stage is-cover' : wide ? 'stage is-wide' : 'stage'}
         key={current.id}
         id={`panel-${current.id}`}
         role="tabpanel"
@@ -723,14 +711,13 @@ function TripBody({ sections, active, onSelect }) {
         </div>
       </nav>
 
-      {/* `is-fill` marks the one panel that must stretch to the window instead of
-          scrolling: Overview, which is a single photograph. Every other panel is a
-          normal block scroller. This is a class rather than a `:has(#home)` rule
-          because the flex/block distinction decides whether a tall panel can be
-          scrolled at all, and getting it wrong silently hides content — Safety's
-          last four measures were unreachable while `.sections` stayed flex. */}
+      {/* Every panel is a plain block scroller, Overview included. `is-fill` used to
+          stretch Overview to the window because it was a single photograph with the
+          words on it; since 2026-08-18 it carries the batch cards and the Header Text
+          under the picture, and a flex panel that cannot scroll silently hides content
+          — that is how Safety's last four measures became unreachable. */}
       <div
-        className={current.id === 'home' ? 'sections is-fill' : 'sections'}
+        className="sections"
         key={current.id}
         id={`panel-${current.id}`}
         role="tabpanel"
@@ -744,46 +731,79 @@ function TripBody({ sections, active, onSelect }) {
 }
 
 /**
- * The Overview tab: **the photograph, and nothing but the photograph.** Grade,
- * batch, dates and the whole Header Text sit on top of it — the school's layout,
- * given 2026-08-14 as "overview have only images … header text, grade, batch,
- * date, only these things needed", with the old hero and fact bar crossed out.
+ * The Overview tab, in the order the school asked for on 2026-08-18:
+ * **the photograph with nothing written on it**, then the batches as two cards
+ * with their dates, then the sheet's Header Text.
  *
- * Everything is inside the image on purpose. A panel of body copy underneath is
- * what used to make this tab scroll, and the same instruction asked for no
- * scrollbar; the banner grows to the height available instead.
+ * It replaces the 2026-08-14 layout, where grade, batch, dates and the whole
+ * Header Text were set ON the image. Off the photograph the words need no scrim,
+ * no measured contrast and no text-shadow — they are ink on the page — and the
+ * dates stop competing with a photo for legibility, which is what the two cards
+ * are for.
+ *
+ * The tab scrolls now: there is real content under the picture, so the band takes
+ * a share of the first screen instead of filling it.
  *
  * The photo is not `loading="lazy"`: it is the first thing on the first tab, and
  * a lazy image never loads at all while the preview pane is hidden.
  */
-function HomeSection({ trip, photo, grade }) {
+function HomeSection({ trip, photo }) {
   const [broken, setBroken] = useState(false)
   const { lead, body } = splitHeader(trip.overview)
   const showPhoto = photo && !broken
-  const batch = heroBatch(trip)
-  const dates = heroDates(trip)
+  // One card per batch. A sheet with no batch rows still has the trip's own dates,
+  // and one card saying so beats an empty row where two cards should be.
+  const cards = trip.batches?.length
+    ? trip.batches.map((b, i) => ({
+        label: b.label || `Batch ${i + 1}`,
+        dates: stripBatchPrefix(b.headline),
+        detail: b.detail,
+      }))
+    : trip.dates
+      ? [{ label: 'Dates', dates: trip.dates, detail: '' }]
+      : []
 
   return (
     <Section id="home">
-      <div className={showPhoto ? 'home-banner has-photo' : 'home-banner'}>
-        {showPhoto && (
+      {showPhoto && (
+        <div className="home-photo-band">
           <img
             className="home-photo"
             src={photo}
             alt={`${trip.title} — photograph from the school trip`}
             onError={() => setBroken(true)}
           />
-        )}
-        <div className="home-banner-text">
-          <div className="home-meta">
-            <span>{grade.full}</span>
-            {batch && <span>{batch}</span>}
-            {dates && <span>{dates}</span>}
-          </div>
-          <h3>{trip.title}</h3>
-          {lead && <p className="home-lead">{lead}</p>}
-          {body && <p className="home-body-text">{body}</p>}
         </div>
+      )}
+
+      {/* The band bleeds to both window edges; everything under it goes back into
+          the page's column, which is what this wrapper is for. */}
+      <div className="home-below">
+        {/* The destination, and no "Grade 7" line above it (2026-08-18): the grade
+            is already on the card the reader came from and in the page they signed
+            in to, so on this head it was a label on a label. */}
+        <div className="section-head">
+          <div><h3>{trip.title}</h3></div>
+        </div>
+
+        {cards.length > 0 && (
+          <div className="home-batches">
+            {cards.map((c, i) => (
+              <div className="home-batch-card" key={i}>
+                <span className="batch-tag">{c.label}</span>
+                <div className="home-batch-dates">{c.dates}</div>
+                {c.detail && <div className="home-batch-detail">{c.detail}</div>}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {(lead || body) && (
+          <div className="home-about">
+            {lead && <p className="home-lead">{lead}</p>}
+            {body && <p className="home-body-text">{body}</p>}
+          </div>
+        )}
       </div>
     </Section>
   )
@@ -952,43 +972,16 @@ function ItinerarySection({ trip, itineraryDocs, columns }) {
   // The column headings below carry the meaning that matters here.
   return (
     <Section id="itinerary" className={columns.length ? 'is-stretch' : undefined}>
-      {/* The batch block and the itinerary card sit BESIDE each other. Stacked
-          they cost 306px of a 541px panel and left the three guideline columns
-          217px — the "preview" the school photographed. Side by side they cost
-          162 and hand the rest to the columns. */}
-      {(trip.batches?.length > 0 || itineraryDocs.length > 0) && (
-      <div className="itin-top">
-      {trip.batches?.length > 0 && (
-        <div className="panel is-tight">
-          {trip.batchMatched && trip.batchCount > 1 && (
-            <p className="batch-note">
-              Showing the batch for section <strong>{trip.section}</strong>. Other batches travel on
-              different dates.
-            </p>
-          )}
-          {/* Batches sit beside each other rather than stacked. Staff see every
-              batch, and two stacked rows cost ~96px that the guideline columns
-              below need more than this block does. */}
-          <div className="batch-grid">
-            {trip.batches.map((b, i) => (
-              <div className="batch-row" key={i}>
-                {b.label && <span className="batch-tag">{b.label}</span>}
-                <div>
-                  <div className="batch-headline">{b.headline}</div>
-                  {b.detail && <div className="batch-detail">{b.detail}</div>}
-                </div>
-              </div>
-            ))}
+      {/* The batch dates and sections are NOT repeated here (2026-08-18). They open
+          the Overview tab as two cards, and printing them again above the itinerary
+          made the reader check which of the two copies was current — the block that
+          used to sit beside these cards is gone, not moved. */}
+      {itineraryDocs.length > 0 && (
+        <div className="itin-top">
+          <div className="orient-row itin-docs">
+            {itineraryDocs.map((d, i) => <DocCard key={`itin-${i}`} {...d} compact />)}
           </div>
         </div>
-      )}
-
-      {itineraryDocs.length > 0 && (
-        <div className="orient-row itin-docs">
-          {itineraryDocs.map((d, i) => <DocCard key={`itin-${i}`} {...d} compact />)}
-        </div>
-      )}
-      </div>
       )}
 
       {trip.itinerary.length > 0 && (
@@ -1058,6 +1051,57 @@ function ItinerarySection({ trip, itineraryDocs, columns }) {
  * into Itinerary earlier the same day; the school wants it back on its own,
  * which also keeps the Itinerary tab short enough not to scroll.
  */
+/**
+ * The school writes travel as prose in one cell, one fact per line:
+ *
+ *   Departure - 12 Dec at 10:30 pm (reporting 9:45 pm)
+ *   Train - MMCT JAIPUR SF (12955) to Sawai Madhopur Junction
+ *   Arrival - 19 Dec at 8:45 am
+ *
+ * The label before the dash is what a parent scans for — "when do we leave, which
+ * train, when do we get back" — so it is set in bold and the rest of the line is
+ * left exactly as typed (2026-08-18).
+ *
+ * Only the words below are treated as labels. Bolding whatever happens to precede
+ * a dash would have picked up "MMCT JAIPUR SF (12955) to Sawai Madhopur Junction"
+ * on any line the school wrote with a dash in the middle of it.
+ */
+const TRAVEL_LABELS = /^(departure|departs|arrival|arrives|train|reporting|platform|coach|coach\s*\/\s*seat|seat|boarding|return)\s*[:–-]\s*/i
+
+export function splitTravelLine(raw) {
+  const line = String(raw || '')
+  const m = line.match(TRAVEL_LABELS)
+  if (!m) return { label: '', rest: line }
+  return { label: m[1], rest: line.slice(m[0].length) }
+}
+
+/** The notes with each label emboldened, blank lines and all. */
+function TravelNotes({ text, className }) {
+  const lines = String(text || '').split('\n')
+
+  return (
+    <p className={className}>
+      {lines.map((line, i) => {
+        const { label, rest } = splitTravelLine(line.trim())
+        return (
+          <Fragment key={i}>
+            {i > 0 && '\n'}
+            {label ? (
+              <>
+                <strong className="travel-key">{label}</strong>
+                {' — '}
+                {rest}
+              </>
+            ) : (
+              line
+            )}
+          </Fragment>
+        )
+      })}
+    </p>
+  )
+}
+
 function TravelSection({ legs }) {
   return (
     <Section id="travel" eyebrow="Getting there and back" title="Travel details">
@@ -1091,7 +1135,10 @@ function TravelSection({ legs }) {
               )}
 
               {leg.notes && (
-                <p className={structured ? 'travel-notes has-route' : 'travel-notes'}>{leg.notes}</p>
+                <TravelNotes
+                  text={leg.notes}
+                  className={structured ? 'travel-notes has-route' : 'travel-notes'}
+                />
               )}
             </div>
           )
