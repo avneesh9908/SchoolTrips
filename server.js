@@ -27,6 +27,7 @@ import { createReadStream } from 'node:fs'
 import { stat } from 'node:fs/promises'
 import { extname, join, normalize, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { createGzip } from 'node:zlib'
 import { resolveParent } from './netlify/functions/lookup.js'
 
 const ROOT = fileURLToPath(new URL('./dist/', import.meta.url))
@@ -53,6 +54,16 @@ const MIME = {
   '.pdf': 'application/pdf',
   '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
 }
+
+/**
+ * Caddy gzipped every text-shaped response and a bare node:http server does
+ * not, which tripled the bytes on the wire — 230 kB of JavaScript instead of
+ * 75 kB. Worth restoring because the origin is US West and the parents are in
+ * India, so every extra kilobyte crosses the Pacific. Images, fonts and PDFs
+ * arrive already compressed, so only the text types are listed.
+ */
+const COMPRESSIBLE = /^(?:text\/|application\/(?:json|javascript))/
+const COMPRESS_MIN_BYTES = 1024
 
 const JSON_HEADERS = {
   'Content-Type': 'application/json',
@@ -93,15 +104,27 @@ function readJsonBody(req, limit = 64 * 1024) {
  * Maps a URL path to a file inside `dist`, or null if it escapes it.
  * `normalize` collapses `..`, and the prefix check rejects anything that still
  * points outside the published directory.
+ *
+ * The try/catch is not cosmetic. A malformed escape — `/%` is enough — makes
+ * decodeURIComponent throw URIError, and unguarded that threw inside the async
+ * request handler, which Node treats as a fatal unhandled rejection. One such
+ * request killed the process, and with restartPolicyMaxRetries: 10 ten of them
+ * took the service down until someone redeployed by hand. A bad escape is
+ * simply not a path, so it is refused like any other.
  */
 function resolveStatic(pathname) {
-  const decoded = decodeURIComponent(pathname)
+  let decoded
+  try {
+    decoded = decodeURIComponent(pathname)
+  } catch {
+    return null
+  }
   const target = normalize(join(ROOT, decoded))
   if (!target.startsWith(ROOT.endsWith(sep) ? ROOT : ROOT + sep)) return null
   return target
 }
 
-async function serveFile(res, filePath, { fallbackOk = true } = {}) {
+async function serveFile(req, res, filePath, { fallbackOk = true } = {}) {
   let info
   try {
     info = await stat(filePath)
@@ -123,19 +146,47 @@ async function serveFile(res, filePath, { fallbackOk = true } = {}) {
   }
 
   const ext = extname(filePath).toLowerCase()
+  const type = MIME[ext] || 'application/octet-stream'
   // Vite fingerprints asset filenames, so they are safe to cache hard; the
   // entry HTML is not fingerprinted and must always be revalidated.
   const immutable = filePath.includes(`${sep}assets${sep}`)
-  res.writeHead(200, {
-    'Content-Type': MIME[ext] || 'application/octet-stream',
-    'Content-Length': info.size,
+  const gzip =
+    COMPRESSIBLE.test(type) &&
+    info.size >= COMPRESS_MIN_BYTES &&
+    /\bgzip\b/.test(req.headers['accept-encoding'] || '')
+
+  const headers = {
+    'Content-Type': type,
     'Cache-Control': immutable ? 'public, max-age=31536000, immutable' : 'no-cache',
-  })
-  createReadStream(filePath).pipe(res)
+  }
+  if (gzip) {
+    // Content-Length is omitted deliberately: info.size describes the file on
+    // disk, not the compressed stream, and sending it would truncate the reply.
+    headers['Content-Encoding'] = 'gzip'
+    headers.Vary = 'Accept-Encoding'
+  } else {
+    headers['Content-Length'] = info.size
+  }
+
+  res.writeHead(200, headers)
+  const file = createReadStream(filePath)
+  if (gzip) file.pipe(createGzip()).pipe(res)
+  else file.pipe(res)
 }
 
 const server = createServer(async (req, res) => {
   const { pathname } = new URL(req.url, `http://${req.headers.host || 'localhost'}`)
+
+  /**
+   * Railway's healthcheck points here. It answers JSON, which Caddy serving
+   * `dist` could never do — so a deploy that silently fell back to the static
+   * builder fails the check instead of going live and breaking every login,
+   * which is exactly how this host shipped broken for six days.
+   */
+  if (pathname === '/healthz') {
+    sendJson(res, 200, { ok: true })
+    return
+  }
 
   if (pathname === '/api/lookup') {
     if (req.method !== 'POST') {
@@ -180,7 +231,7 @@ const server = createServer(async (req, res) => {
   }
 
   try {
-    await serveFile(res, filePath)
+    await serveFile(req, res, filePath)
   } catch (err) {
     console.error('[static]', err)
     res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' })
