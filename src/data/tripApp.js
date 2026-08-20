@@ -85,6 +85,22 @@ const BATCH_LINK_COLUMNS = [
   { aliases: ['parentorientation', 'parentsorientation', 'parentorientationdeck'], category: 'Parent orientation' },
   { aliases: ['studentorientation', 'studentsorientation'], category: 'Student orientation' },
   { aliases: ['itinerarynucleuslink', 'itinerarylink', 'itinerarynucleus', 'itinerary'], category: 'Itinerary' },
+  /**
+   * The batch's student list, added 2026-08-19 on the school's instruction ("add one tab
+   * after itinary student list, take list links in the sheet of trip app main sheet").
+   *
+   * A BATCH column, not a common one: a list is exactly a batch's travelling group, so
+   * reading it across the whole grade would put both batches' lists on both cards.
+   *
+   * The aliases cover the spellings the sheet is likely to use, because the column does
+   * not exist in the workbook yet — this reads it the moment someone adds it, and the tab
+   * simply does not appear until then. `normalize.js` strips spaces, case and punctuation
+   * from headers, so "Student List (link)" and "student list link" both land here.
+   */
+  {
+    aliases: ['studentlistlink', 'studentlist', 'studentslist', 'studentslistlink', 'studentnamelist', 'namelist'],
+    category: 'Student list',
+  },
 ]
 
 /**
@@ -302,22 +318,27 @@ export function assembleTripApp(gradeId, rows, { section } = {}) {
   if (!all || all.length === 0) return null
 
   /**
-   * A grade travels in batches and a student is in exactly one, so the dates,
-   * travel timings and per-batch decks that apply are only their batch's.
-   * Everything else on the page is the same for the whole grade.
+   * **Every batch, for everyone** (2026-08-19). A grade travels in batches and a
+   * student is in exactly one, so this used to narrow the dates, travel timings
+   * and per-batch decks down to the batch the child's section was listed against.
    *
-   * Falling back to every batch is deliberate: staff have no section, and a
-   * section the sheet never lists (Mavericks -7 today) must still see the trip
-   * rather than an empty page. `batchMatched` lets the UI say which it is.
+   * The school dropped that narrowing: students move between batches during the
+   * term, and the sheet's section lists go stale the moment one does — a family
+   * reading only their old batch's dates and train timings is worse off than a
+   * family reading both batches and finding their own. Staff already saw every
+   * batch, so the trip page is now the same page for parents and staff.
+   *
+   * Login and the grade/child picker are untouched: the section still arrives
+   * here, it just no longer filters. `batchMatched` stays on the shape so the UI
+   * can still say whether the sheet lists this section against a batch at all.
    */
   const matched = section ? all.filter((row) => sectionsOf(row).some((s) => sameSection(s, section))) : []
   const batchMatched = matched.length > 0
-  const mine = batchMatched ? matched : all
 
   if (section && !batchMatched && all.some((row) => sectionsOf(row).length)) {
     console.warn(
-      `[trip app] ${gradeId}: section "${section}" is not listed against any batch in the sheet, ` +
-        'so every batch is being shown. Add it to the Dates/Sections cell to narrow this down.'
+      `[trip app] ${gradeId}: section "${section}" is not listed against any batch in the sheet. ` +
+        'Every batch is shown either way, but add it to the Dates/Sections cell so the sheet stays correct.'
     )
   }
 
@@ -340,18 +361,19 @@ export function assembleTripApp(gradeId, rows, { section } = {}) {
    * rather than being flattened into a one-line subtitle.
    */
   /**
-   * Labels are computed over the WHOLE group and then looked up per row — never over
-   * `mine`, which is a single batch whenever a parent's section matched one.
+   * Labels are computed over the WHOLE group, and `labelOf` exists because the
+   * per-batch document columns still need a label looked up by row.
    *
-   * This is what the school caught on 2026-08-17: their child is in Acumen, which the
-   * sheet lists against Batch 2, and the page said "Batch 1". `batchLabels` deliberately
-   * leaves a one-row group alone, because renumbering a single row would invent a batch —
-   * so filtering first threw away the only thing that knew this row was the second one.
-   * Position survives here because `all` is still both rows.
+   * This is what the school caught on 2026-08-17, back when a parent's page was
+   * filtered to one batch: their child is in Acumen, which the sheet lists against
+   * Batch 2, and the page said "Batch 1". `batchLabels` deliberately leaves a
+   * one-row group alone, because renumbering a single row would invent a batch — so
+   * filtering before labelling threw away the only thing that knew this row was the
+   * second one. Nothing filters now, but keep labelling over `all`: it is the group
+   * that carries the position.
    */
   const allLabels = batchLabels(all)
   const labelOf = new Map(all.map((row, i) => [row, allLabels[i]]))
-  const mineLabels = mine.map((row) => labelOf.get(row) || '')
 
   if (batchLabelsCollided(all)) {
     console.warn(
@@ -361,13 +383,13 @@ export function assembleTripApp(gradeId, rows, { section } = {}) {
     )
   }
 
-  const batches = mine
+  const batches = all
     .map((row, i) => {
       const cell = val(row, ...DATE_ALIASES)
       if (!cell) return null
       const lines = cell.split('\n').map((l) => l.trim()).filter(Boolean)
       return {
-        label: mineLabels[i],
+        label: allLabels[i],
         // The label sits in a pill immediately beside this line, so the cell's own
         // "Batch 2:" prefix is repetition at best — and a flat contradiction when the
         // sheet has both rows mislabelled and position has corrected the pill. Same
@@ -380,10 +402,10 @@ export function assembleTripApp(gradeId, rows, { section } = {}) {
 
   // Travel details are prose per batch, not the structured legs the eight-tab
   // schema assumes, so each cell becomes one block with its batch as the title.
-  const travel = mine
+  const travel = all
     .map((row, i) => ({
       grade: gradeId,
-      leg: mineLabels[i] || 'Travel',
+      leg: allLabels[i] || 'Travel',
       trainNo: '',
       departure: '',
       platform: '',
@@ -394,7 +416,7 @@ export function assembleTripApp(gradeId, rows, { section } = {}) {
 
   const lostLinks = []
   const documents = [
-    ...documentsFrom(mine, BATCH_LINK_COLUMNS, lostLinks, { labelOf }),
+    ...documentsFrom(all, BATCH_LINK_COLUMNS, lostLinks, { labelOf }),
     ...documentsFrom(all, COMMON_LINK_COLUMNS, lostLinks, { labelWithBatch: false }),
     // A text column holding a URL — or a chip pointing at one — is a poster.
     ...documentsFrom(all, TEXT_COLUMNS, lostLinks, {
@@ -443,7 +465,7 @@ export function assembleTripApp(gradeId, rows, { section } = {}) {
     )
   }
 
-  const media = mine.flatMap((row) =>
+  const media = all.flatMap((row) =>
     splitLinks(val(row, 'photos', 'photo', 'media', 'photosvideos', 'photoslinks')).map((url) => ({
       grade: gradeId,
       type: /\.(mp4|mov|webm)$/i.test(url) || /youtu|vimeo|video/i.test(url) ? 'video' : 'photo',
@@ -457,7 +479,11 @@ export function assembleTripApp(gradeId, rows, { section } = {}) {
     title: destination || 'Educational trip',
     dates: batches.map((b) => b.headline).filter(Boolean).join('  ·  '),
     batches,
-    /** False when the page is showing every batch because none matched. */
+    /**
+     * False when the sheet does not list this child's section against any batch.
+     * Every batch is shown either way — this is a data-quality signal, not a
+     * switch, and it is what the console warning above reports on.
+     */
     batchMatched,
     section: section || '',
     batchCount: all.length,

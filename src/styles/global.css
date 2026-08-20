@@ -179,8 +179,12 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible {
   display: block; font-size: 11.5px; font-weight: 600; color: var(--soft);
   letter-spacing: 0.06em; text-transform: uppercase;
 }
-.auth-card h2 { margin: 0 0 8px; font-size: 27px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.2; }
-.auth-card .lede { margin: 0 0 28px; font-size: 15px; line-height: 1.6; color: var(--muted); }
+/* The heading carries the whole gap down to the instruction panel: the `.auth-card .lede`
+   paragraph that used to sit between them was removed on 2026-08-19 at the school's request
+   ("You will only see the trip details for your own child's grade" — the trip page says which
+   grade it is, so on the login screen it was a promise about a screen the reader had not
+   reached). `.lede` itself lives on for `.dash-head` on the picker; only the login one went. */
+.auth-card h2 { margin: 0 0 22px; font-size: 27px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.2; }
 
 .field { margin-bottom: 16px; }
 .field label {
@@ -193,17 +197,40 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible {
   background: #fff; color: var(--ink);
 }
 .field input:focus { outline: none; border-color: var(--accent); }
-/* The sign-in rule, under the field it applies to — the school's own two lines. */
-.field-note {
-  margin: -2px 0 16px; padding: 11px 14px; list-style: none;
-  font-size: 12.5px; line-height: 1.55; color: var(--muted);
+/* The school's sign-in instruction, in two stacked panels ABOVE the field: what to type
+   (`.field-lede`), then who may type it (`.field-note`), then the box.
+   The two share one panel style on the school's instruction (2026-08-19, "keep text one
+   side upper and lower to text field") — matched tint, border, radius, size and leading,
+   so they read as one instruction rather than two remarks that happen to be near each
+   other. Change them together or the pair stops looking like a pair. */
+.field-lede, .field-note {
+  padding: 11px 14px; font-size: 12.5px; line-height: 1.55; color: var(--muted);
   background: var(--wash); border: 1px solid var(--line); border-radius: var(--r-chip);
+  text-wrap: pretty;
+}
+/* Only the outer margins differ: 14px between the two panels reads as one break inside a
+   single instruction, then 18px before the label, which is the bigger gap that separates
+   the instruction from the thing it is about. */
+.field-lede { margin: 0 0 14px; }
+.field-note {
+  margin: 0 0 18px; list-style: none;
   display: flex; flex-direction: column; gap: 7px;
 }
 /* A dash rather than a bullet: at 12.5px in a tinted box a disc reads as noise, and
-   `list-style: none` above has already turned the marker off. */
-.field-note > li { display: flex; gap: 8px; text-wrap: pretty; }
-.field-note > li::before { content: '–'; flex: 0 0 auto; color: var(--soft); font-weight: 700; }
+   `list-style: none` above has already turned the marker off.
+
+   The dash HANGS in the padding — it is not a flex item, and the `li` is not a flex row.
+   That layout (2026-08-19) put the bold label and the sentence after it in two separate
+   columns: "Grade 7 onwards:" is wide enough to wrap on its own, so the body text started
+   at a different x on each item and the panel read as a ragged two-column table instead of
+   two sentences. Left as normal inline flow the label and its sentence are one paragraph,
+   every line begins on the same left edge, and continuation lines tuck under the dash.
+   Do not put `display: flex` back on the `li`. */
+.field-note > li { padding-left: 16px; position: relative; text-wrap: pretty; }
+.field-note > li::before {
+  content: '–'; position: absolute; left: 0; top: 0;
+  color: var(--soft); font-weight: 700;
+}
 .field-note strong { color: var(--ink); font-weight: 700; }
 
 .btn {
@@ -419,20 +446,12 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible {
 .app.is-fixed .section.is-stretch { min-height: 100%; }
 .section.is-stretch > .chip-row { flex: 1 1 0; min-height: 200px; }
 
-/* The batch block and the itinerary card, BESIDE each other rather than stacked.
-   Stacked they took 306px of a 541px panel and left the three guideline columns
-   217px — which is what made those columns read as a preview. Side by side they
-   take 162px and hand the rest down. */
-.itin-top { display: flex; flex-wrap: wrap; gap: 18px; align-items: flex-start; }
-.itin-top > .itin-docs { flex: 1 1 340px; }
-/* Overrides `.orient-row`'s fixed 270px basis so a batch's card shrinks and the
-   batches stay on ONE line. Staff see two itinerary cards; at the 270px basis
-   they wrapped onto a second line, and the block measured 265px — taller than
-   the batch panel beside it and straight off the guideline columns below.
-
-   Deliberately NOT `height: 100%` under a stretching parent either: the two fed
-   each other and settled at 265px again. */
-.itin-top > .itin-docs > * { flex: 1 1 150px; max-width: none; }
+/* `.itin-top` / `.itin-docs` were removed on 2026-08-19 with the markup they styled: the
+   itinerary links moved into a shared `.orient-box`, the same component Orientation uses, so
+   the flex row that used to sit the compact cards beside the (since deleted) batch block has
+   nothing left to lay out. Their sizing lesson lives on in `.orient-box` — a definite width
+   derived from `--orient-h`, not `fit-content` and not `height: 100%` under a stretching
+   parent, both of which fed back on themselves here. */
 .sections:focus { outline: none; }
 
 /* ---------- the one-page layout (TRIP_LAYOUT === 'flow') ----------
@@ -551,9 +570,15 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible {
   margin: 0; font-size: 17px; line-height: 1.45; font-weight: 700;
   color: var(--ink); max-width: 760px; text-wrap: pretty;
 }
+/* JUSTIFIED, in every layout: the school asked for the paragraph's line starts and line
+   ends to fall on the same two verticals ("text align starting and ending point same line
+   make same", 2026-08-19, against the centred version where each line had its own start
+   and end). `white-space: pre-wrap` keeps the sheet's blank line between paragraphs, and
+   the line before each of those hard breaks counts as a last line, so it is exempt from
+   stretching — which is why the two paragraphs still read as two. */
 .home-body-text {
   margin: 0; font-size: 15px; line-height: 1.65; color: var(--muted);
-  white-space: pre-wrap; text-wrap: pretty; max-width: 88ch;
+  white-space: pre-wrap; text-wrap: pretty; max-width: 88ch; text-align: justify;
 }
 
 /* The batch tag — the only piece of the old Itinerary batch block still standing;
@@ -575,18 +600,173 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible {
 .sub-block .two-col { margin-top: 0; }
 
 /* Orientation — one row per kind, the batches beside each other. */
-.orient-group { display: flex; flex-direction: column; gap: 10px; }
-.orient-group + .orient-group { margin-top: 18px; }
+/* Each kind of deck in its own box, so Parent and Student read as two things. Asked for
+   twice: first as a "minor border box", then STRONGER — "border and box more highlight
+   show more difference" (2026-08-19) — because 1px of `--rule` on the page's own white was
+   invisible at arm's length.
+
+   **The BORDER carries this, not the fill** — measured, not guessed. Every light tint in the
+   kit sits within 1.05:1 of the page (`--wash` on `--bg` is 1.044:1, white cards on `--wash`
+   1.081:1), so a tinted panel is invisible at arm's length no matter which token it uses. A
+   line can be far darker than a fill without shouting, so the box is drawn with one: **2px of
+   `#b4bdda`, ~1.8:1 against the page** where the original `--line-2` hairline managed 1.07:1.
+   2px, not 1.5 — `getComputedStyle` reported a 1.5px border back as `1px`, i.e. it was being
+   rounded away on a DPR-1 screen, which is most of the school's desks.
+
+   The `--link-bg` fill and the lift stay as support: the tint gives the white deck cards an
+   edge to sit on, and the shadow separates the box from the panel when the two groups stack
+   on a phone and there is no gutter between them to read.
+
+   The nested white-on-tint is deliberate, and is the opposite of the first attempt's no-fill
+   reasoning: with a fill the cards inside gain a ground; without one they floated in an empty
+   rectangle. */
+/* `.orient-group` is the STACK — the heading, then the box. It carries no border, fill or
+   padding of its own: the school moved the heading outside the box on 2026-08-19, so the
+   two are siblings and only `.orient-box` is drawn. */
+.orient-group { display: flex; flex-direction: column; gap: 14px; }
+.orient-group + .orient-group { margin-top: 22px; }
+/* The drawn box. Padding came down from 24/26 the same pass ("decrease the size of the
+   boxes"): with the heading lifted out, the box holds only the two cards, so the taller
+   frame no longer needs a heading's worth of air above it. */
+.orient-box {
+  /* The frame's height budget lives HERE, not on the card, because the box has to size
+     itself from the same number (see `width` below) and a custom property set on the card
+     is not visible to its ancestor. The card inherits it.
+
+     `- 560px` is the fixed cost above and below the frame — two sticky bars, the group
+     heading, the card's own label and chrome — and it does not scale with the window, which
+     is why a plain `vh` fraction fitted a tall screen and overflowed a short one. `dvh` not
+     `vh`: on a phone `vh` is the address bar's tallest state.
+
+     **Which of the three numbers binds depends on the window, and that is the thing to know
+     before changing any of them.** At 1280x720 the BUDGET binds (720 - 560 = 160), so the
+     frame is 282x159 and the cap is irrelevant. On a large monitor the CAP binds — at
+     1859x895 the budget would give 335px — so the cap is the only number a big screen ever
+     sees, and it is what reads as "zoomed in" (the school's screenshot, 2026-08-19, at a
+     320px cap: 567x319 frames). Changing the cap cannot affect a 720px-tall window;
+     changing the subtrahend cannot affect a large one. */
+  --orient-h: clamp(140px, calc(100dvh - 560px), 270px);
+
+  /* The gap BETWEEN the two decks, and a variable rather than a literal because the box's
+     own width is derived from it below — a literal here and a constant there drift apart on
+     the first change. Widened 20 → 48px on 2026-08-19 ("maintian the gap in docs that side
+     area cover"): the box grew, and the school wanted the extra width to go into the space
+     between the two documents rather than back into the empty ends. */
+  --orient-gap: 48px;
+
+  /* The frame's ASPECT RATIO, as a number so `calc()` can multiply by it. A variable
+     because three places need the same value — the frame's `aspect-ratio`, the frame's
+     width (derived from the height budget) and the box's own width — and a literal 16/9
+     repeated in three formulas is three chances to change two of them. */
+  --orient-ar: 1.7778;
+
+  padding: 18px 20px; border-radius: 18px;
+  background: var(--link-bg); border: 2px solid #b4bdda;
+  box-shadow: var(--shadow-hero);
+
+  /* The box HUGS its two cards rather than running the full column. Full width it held
+     978px of cards in 1395px of inner space, leaving ~208px empty inside each end — the two
+     gaps the school circled ("side have many margin", 2026-08-19).
+
+     Sized from `--orient-h` rather than by `width: fit-content`, which was tried first and
+     went wrong in an instructive way: under fit-content the browser sizes a shrinkable flex
+     item from its MAX-CONTENT (the label's width), not from its `flex-basis`, so the cards
+     came out 356px instead of 479 and the frames shrank 425 → 302px. The box hugged, but by
+     shrinking the previews — exactly what the school had not asked for.
+
+     The arithmetic, so it can be corrected rather than guessed at if the padding changes:
+     two frames at `--orient-h * 16/9`, plus `--orient-gap` between them, plus 104px of card
+     padding (2 x 26 x 2) + 40px of box padding + 4px of border = the 148px constant. Only
+     that 148 is a literal now; the two numbers that actually get tuned are variables.
+     Widening the CARDS would not have removed the gap either — `.doc-preview` is capped at
+     `--orient-h * 16/9`, so a wider card only moves the empty space inside itself. */
+  width: min(100%, calc(var(--orient-h) * var(--orient-ar) * 2 + var(--orient-gap) + 148px));
+  margin-inline: auto;
+}
+/* ---------- the itinerary links: filled cards, no image ----------
+   Redesigned 2026-08-19 ("like itinary box fill colour show itnary somthing redesign this
+   page") after three attempts that all leaned on Drive: a live iframe, then a thumbnail
+   cover which does not load at all for an unshared file — the school's own screenshot showed
+   the grey icon fallback, which is what "show something" was asking about.
+
+   So the card carries CONTENT instead of a picture: the batch, its dates and its section
+   list, all of which the sheet already supplies for the Overview tab. Nothing here can come
+   back empty because nothing here is fetched.
+
+   Navy fill, because this is the one place on the page where a solid block is right: two
+   links that must not be confused with each other, side by side, with the distinguishing
+   fact (the dates) set large in white. `--amber` on the batch pill is the kit's accent and
+   the same colour the section rules use. */
+.itin-cards {
+  display: grid; gap: 20px;
+  grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));
+}
+.itin-card {
+  display: flex; flex-direction: column; gap: 10px; min-width: 0;
+  padding: 24px 26px; border-radius: var(--r-detail);
+  background: var(--navy); color: #fff; text-decoration: none;
+  box-shadow: var(--shadow-card);
+  transition: transform 0.25s cubic-bezier(0.2, 0.7, 0.3, 1), box-shadow 0.25s ease;
+}
+.itin-card:hover { transform: translateY(-3px); color: #fff; }
+.itin-card-top { display: flex; align-items: center; gap: 10px; }
+.itin-card-tag {
+  flex: 0 0 auto; padding: 4px 11px; border-radius: var(--r-pill);
+  background: var(--amber); color: #3a2100;
+  font-size: 12px; font-weight: 800; letter-spacing: 0.02em;
+}
+.itin-card-kind {
+  font-size: 12.5px; font-weight: 800; letter-spacing: 0.09em; text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.72);
+}
+/* The dates are the heading here — the one fact that tells the two cards apart. */
+.itin-card-dates {
+  font-family: var(--font-display); font-weight: var(--display-weight);
+  font-size: clamp(20px, min(1.7vw, 3vh), 27px); line-height: 1.15; letter-spacing: -0.01em;
+}
+.itin-card-sections {
+  font-size: 14px; line-height: 1.5; color: rgba(255, 255, 255, 0.78);
+  white-space: pre-wrap; text-wrap: pretty;
+}
+/* Pushed to the bottom edge so both cards' actions line up however long the section
+   lists are — `margin-top: auto` in a flex column, not a fixed height. */
+.itin-card-open {
+  margin-top: auto; padding-top: 6px;
+  font-size: 14.5px; font-weight: 700; color: #fff;
+}
+.itin-card:hover .itin-card-open { text-decoration: underline; }
+/* These two ARE the headings on the Orientation tab — the section's own head was removed on
+   2026-08-19 — so they are styled as one, matching a `.section h3` exactly: the Fraunces
+   display face at `--display-weight`, the same height-aware `clamp()` so a short window gets
+   a smaller heading rather than a scrollbar, and the 44px amber rule under it. The school
+   asked for it against the "Orientation" head they were still seeing on another tab ("show
+   this text bold font same in oritation do for parent oritation and student oritation").
+
+   Sentence case, not the old `text-transform: uppercase` with letter-spacing: a serif display
+   face at 30px is not a caption, and tracked-out uppercase Fraunces reads as neither. Keeping
+   the two in step with `.section h3` matters more than either rule on its own — if that
+   heading changes, change this with it. */
 .orient-group > h4 {
-  margin: 0; font-size: 12.5px; font-weight: 700; letter-spacing: 0.08em;
-  text-transform: uppercase; color: var(--soft);
+  margin: 0; color: var(--ink); text-transform: none; letter-spacing: -0.01em;
+  font-family: var(--font-display); font-weight: var(--display-weight);
+  font-size: clamp(25px, min(2.5vw, 4.2vh), 38px); line-height: 1.12;
+}
+/* The amber rule, on the same 44x3 geometry the section heads use. `::after` on the heading
+   itself rather than on a wrapper, because unlike `.section-head` there is no inner div here. */
+.orient-group > h4::after {
+  content: ''; display: block; width: 44px; height: 3px; border-radius: 2px;
+  background: var(--amber); margin: 14px 0 0;
 }
 /* Flex with a fixed basis, NOT `auto-fit` + `1fr`. auto-fit collapses the empty
    tracks and hands the survivors the whole row, so a lone card measured 1860px
    wide at 1920 and a pair measured 930px each — the school asked for these to be
    small and they were the widest thing on the page. Fixed basis, left-aligned,
    wrapping. */
-.orient-row { display: flex; flex-wrap: wrap; gap: 14px; }
+/* The gap between B1 and B2 has to beat the box's own padding or the pair reads as one
+   block. Inside a boxed group it comes from `--orient-gap` on `.orient-box`, which the box's
+   width is derived from too; the 20px here is the fallback for rows outside a box (the
+   itinerary's compact card sits in an `.orient-row` as well). */
+.orient-row { display: flex; flex-wrap: wrap; gap: var(--orient-gap, 20px); }
 .orient-row > * { flex: 0 1 270px; max-width: 320px; min-width: 0; }
 
 /* ---------- orientation: a slide-sized preview in the box ----------
@@ -608,17 +788,18 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible {
    and overflowed a 620px one. Clamped so it neither disappears on a short screen nor
    dominates a large one. */
 .orient-row > .doc-card.is-preview {
-  --orient-h: clamp(150px, calc(100dvh - 470px), 460px);
   /* The BASIS carries the frame's width, and that is not decoration: with `flex: 0 1 auto`
      the card sized itself to its content while the frame inside asked for `min(100%, …)`
      of the card — circular, and the browser resolved it against the label's max-content
      width instead, so the frame came out 302px when 434 was available. A definite basis
      breaks the loop; `max-width: 100%` and shrink still let two cards share a column. */
-  flex: 0 1 calc(var(--orient-h) * 16 / 9 + 52px);
+  flex: 0 1 calc(var(--orient-h) * var(--orient-ar, 1.7778) + 52px);
   max-width: 100%;
 }
 .doc-preview {
-  display: block; width: min(100%, calc(var(--orient-h) * 16 / 9)); aspect-ratio: 16 / 9;
+  display: block;
+  width: min(100%, calc(var(--orient-h) * var(--orient-ar, 1.7778)));
+  aspect-ratio: var(--orient-ar, 1.7778);
   border-radius: var(--r-tile); border: 1px solid var(--line);
   background: var(--wash); overflow: hidden;
   display: grid; place-items: center;
@@ -681,9 +862,15 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible {
   display: flex; align-items: center; gap: 12px; flex: 0 0 auto;
   padding: 13px 20px; background: var(--wash); border-bottom: 1px solid var(--line);
 }
+/* 15 → 19px on the school's instruction, 2026-08-19 ("Safety and do/ dont - increase font
+   size"). These two headings are the only text in those columns this stylesheet owns: on
+   Grade 7 both Safety and Do's-and-don'ts render the school's PUBLISHED SLIDE DECK in an
+   iframe, so the words the reader sees inside the column are pixels in Google's document
+   and no CSS here can resize them — that is a change to the deck itself. The heading, the
+   count pill and the `.chip-lines` fallback below are what respond. */
 .chip-head h4 {
   margin: 0; flex: 1; min-width: 0;
-  font-size: 15px; font-weight: 800; letter-spacing: -0.01em; color: var(--ink);
+  font-size: 19px; font-weight: 800; letter-spacing: -0.01em; color: var(--ink);
 }
 .chip-icon {
   flex: 0 0 auto; width: 36px; height: 36px; border-radius: var(--r-chip);
@@ -694,7 +881,7 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible {
 /* How many measures / rules / items — the count the old heading never gave, and
    the quickest way for a parent to see a column is longer than its window. */
 .chip-count {
-  flex: 0 0 auto; font-size: 12px; font-weight: 800;
+  flex: 0 0 auto; font-size: 13px; font-weight: 800;
   padding: 4px 10px; border-radius: var(--r-pill);
   background: var(--card); border: 1px solid var(--line); color: var(--muted);
 }
@@ -755,7 +942,10 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible {
 .chip-lines {
   margin: 0; flex: 1 1 0; min-height: 0; overflow-y: auto; scrollbar-width: none;
   display: block; column-gap: 34px;
-  padding: 4px 20px; font-size: 14px; line-height: 1.55;
+  /* 14 → 16px with the headings above. This is the path a column takes when the sheet
+     holds TEXT rather than a published deck — which is still the live sheet's state for
+     several grades, so it is not a dead branch even though Grade 7 shows decks. */
+  padding: 4px 20px; font-size: 16px; line-height: 1.55;
 }
 .chip-lines::-webkit-scrollbar { display: none; }
 /* `border-bottom`, not `border-top`: a top rule on the first item of the second
@@ -764,7 +954,7 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible {
 .chip-lines > li {
   display: flex; gap: 12px; align-items: flex-start; break-inside: avoid;
   padding: 8px 0; border-bottom: 1px solid var(--rule);
-  font-size: 14px; line-height: 1.55; color: var(--body);
+  font-size: 16px; line-height: 1.55; color: var(--body);
 }
 .chip-lines > li:last-child { border-bottom: none; }
 /* The bullet is drawn by `.chip-mark` now — a numbered disc — so the shared
@@ -936,12 +1126,15 @@ ul.plain.chip-lines { display: block; }
   border: 1px solid var(--line); border-radius: 20px; padding: 26px;
   color: var(--ink); transition: transform 0.3s cubic-bezier(0.2, 0.7, 0.3, 1), box-shadow 0.3s ease, border-color 0.2s ease;
 }
-/* "B1" / "B2". Positioned rather than placed in the flow so it sits over a
-   Drive thumbnail as readily as over the icon tile. */
+/* "B1" / "B2", IN THE FLOW beside the label — never positioned over the medium.
+   It used to be `position: absolute; top: 18px; right: 18px`, which was fine over an
+   icon tile but printed the batch code across the top-right of a live deck frame once
+   Orientation became previews. The school asked for the label line instead
+   (2026-08-19): "[B1] Students Orientation details". */
 .doc-batch {
-  position: absolute; top: 18px; right: 18px; z-index: 1;
-  padding: 5px 11px; border-radius: var(--r-pill); background: var(--warm);
-  color: var(--navy); font-size: 12px; font-weight: 800; letter-spacing: 0.02em;
+  display: inline-block; vertical-align: 2px; margin-right: 8px;
+  padding: 4px 10px; border-radius: var(--r-pill); background: var(--warm);
+  color: var(--navy); font-size: 11.5px; font-weight: 800; letter-spacing: 0.02em;
 }
 .doc-card.is-pending .doc-batch { background: var(--wash); color: var(--soft); }
 /* Compact: no 150px preview, tighter box. Four of these fit one screen where
@@ -951,7 +1144,7 @@ ul.plain.chip-lines { display: block; }
 .doc-card.is-compact .doc-icon svg { width: 17px; height: 17px; }
 .doc-card.is-compact .doc-label { font-size: 15px; }
 .doc-card.is-compact .doc-meta { font-size: 12.5px; }
-.doc-card.is-compact .doc-batch { top: 12px; right: 12px; padding: 4px 9px; font-size: 11px; }
+.doc-card.is-compact .doc-batch { padding: 3px 8px; font-size: 11px; }
 .doc-card:hover {
   transform: translateY(-4px); box-shadow: var(--shadow-card);
   border-color: var(--accent); color: var(--ink);
@@ -1173,10 +1366,17 @@ ul.plain li::before { content: '•'; flex: none; font-weight: 800; color: var(-
 /* The school's two-line sign-in rule added ~130px to the card, which put its foot 5px
    past a 1280x720 window and gave the login page a pointless 5px scroll. The card gives
    up padding on a short screen rather than the words. */
+/* A short window trims the card's CHROME, never the school's words — the copy is given
+   verbatim and the two panels around the field are the point of the screen.
+   Retuned 2026-08-19: giving `.field-lede` the same tinted panel as `.field-note` added
+   ~24px of padding and border, and moving BOTH panels above the field cost a little more
+   again. These five trims give the budget back, measured — card 38-708 against a 720
+   window, `scrollHeight === innerHeight`. Re-measure here if either panel gains a line. */
 @media (max-height: 820px) {
-  .login-form { padding: 32px 24px; }
-  .auth-card { padding: 32px 30px; }
-  .auth-card .lede { margin-bottom: 22px; }
+  .login-form { padding: 20px 24px; }
+  .auth-card { padding: 22px 30px; }
+  .field-lede { margin-bottom: 10px; }
+  .field-note { margin-bottom: 14px; }
 }
 
 @media (max-width: 900px) {
@@ -1319,6 +1519,10 @@ ul.plain li::before { content: '•'; flex: none; font-weight: 800; color: var(-
 .is-stage .home-body-text {
   font-size: clamp(13.5px, min(1.05vw, 1.85vh), 15.5px); line-height: 1.65;
   max-width: 76ch; margin-inline: auto;
+  /* The block is flush both sides, but each paragraph's LAST line cannot be — nothing to
+     stretch it against. On this centred axis it is centred rather than left, so it sits
+     under the centred lead instead of hanging off one edge. */
+  text-align-last: center;
 }
 
 /* ---------- Itinerary: the boxes take the whole page ---------- */
@@ -1342,10 +1546,12 @@ ul.plain li::before { content: '•'; flex: none; font-weight: 800; color: var(-
 .is-scroll .stage.is-wide .section.is-stretch > .chip-row { flex: 1 1 auto; min-height: 0; }
 
 /* ---------- everything else, on the same axis ---------- */
-.is-stage .itin-top, .is-stage .chip-row, .is-stage .orient-row,
+.is-stage .chip-row, .is-stage .orient-row,
 .is-stage .travel-grid { justify-content: center; }
 .is-stage .panel { border-radius: 26px; }
 .is-stage .orient-group > h4 { text-align: center; }
+/* Centred axis: the rule centres with the text, and tightens like the section heads do. */
+.is-stage .orient-group > h4::after { margin: 10px auto 0; }
 /* The card's own contents centre too — icon over label over action line. */
 .is-stage .doc-card { align-items: center; text-align: center; border-radius: 22px; }
 .is-stage .chip-col { border-radius: 26px; }
@@ -1534,12 +1740,27 @@ ul.plain li::before { content: '•'; flex: none; font-weight: 800; color: var(-
    between them most of two screens of empty page. The content is right; the spacing
    and the stacking were wrong. Nothing here changes what is on the page. */
 
-/* Parent and student decks side by side (the wrapper is new markup in
-   `OrientationSection`), and each card allowed to fill its half rather than sitting at
-   a 270px basis in the middle of it. `auto-fit` so one group alone still fills the row
-   instead of leaving a hole where the other would be. */
+/* Parent and student decks STACKED, one boxed group per row — reversing the 2026-08-17
+   side-by-side layout on the school's instruction ("box size increase", 2026-08-19).
+
+   Side by side, four slide previews shared one row, and each one was width-bound by its
+   card rather than by the `--orient-h` height budget: 1220px of stage, less two group
+   gutters, two lots of box padding and two lots of card padding, left the frames 209px
+   wide and 117px tall — a slide too small to read, which is what the school was looking
+   at. One group per row gives each frame the full budget — measured 442x249 at 1280x720,
+   2.1x the linear size and ~4.5x the area — at the cost of the tab scrolling ~400px,
+   which they accepted explicitly.
+
+   The original reason for side-by-side still stands and is why this is a school decision
+   rather than a free one: stacked, a grade with only ONE batch shows a single small card
+   with ~350px of empty box beside it (their screenshot, 2026-08-17). Grade 7 has two, so
+   the row is full; check a one-batch grade before calling this settled. */
 .orient-groups {
-  display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 18px;
+  display: grid; grid-template-columns: 1fr; gap: 34px;
+  /* Clears the sticky section nav. With the section's own head gone, the first group's
+     heading was the panel's first line and sat 16px under the nav — "not maintain margin in
+     header and heading boxes" (2026-08-19). 14px here takes it to 30px. */
+  margin-top: 14px;
 }
 /* The stacked spacing has to go, or the grid gap and the margin both apply. */
 .orient-groups > .orient-group + .orient-group { margin-top: 0; }
@@ -1555,7 +1776,10 @@ ul.plain li::before { content: '•'; flex: none; font-weight: 800; color: var(-
 /* A card with four short prose lines does not need 30px of padding on every side. */
 .is-stage .travel-card { padding: 22px 24px; }
 .is-stage .travel-top { margin-bottom: 12px; }
-.is-stage .orient-group { gap: 8px; }
+/* Heading-to-box gap on the stage. The density pass had this at 8px against a 16px base;
+   now that the heading sits outside the box it only has to separate two blocks, and 14px is
+   what stops the label reading as if it were stuck to the box's top edge. */
+.is-stage .orient-group { gap: 14px; }
 
 /* ---------- the jump nav on a phone: a menu, not a scroller ----------
    "In phone view tabs like menu make responsive", 2026-08-17. At 375px the pill strip
@@ -1728,7 +1952,14 @@ ul.plain li::before { content: '•'; flex: none; font-weight: 800; color: var(-
   .home-photo { height: clamp(200px, 34vh, 320px); }
   .home-batch-card { padding: 16px 18px; }
   .home-batch-dates { font-size: 17px; }
-  .home-body-text { font-size: 14px; line-height: 1.55; }
+  /* Justification comes OFF below 720px. Measured on 2026-08-19 at 375x812: a ~339px
+     measure has too few word gaps to absorb the slack, so the browser stretched the
+     natural 2.7px space to a median of 13.5px and a worst case of 17.9px — 5x and 6.6x,
+     rivers running down a school notice. At 1280x720 the same paragraph needs only 4.6px
+     median (1.7x), which is why the flush edges stay there. Both edges cannot line up on a
+     phone without wrecking the word spacing; the left edge is the half worth keeping. */
+  .home-body-text { font-size: 14px; line-height: 1.55; text-align: left; }
+  .is-stage .home-body-text { text-align-last: auto; }
   .acc-head { padding: 16px 18px; }
   .acc-body { padding: 0 18px 18px 18px; }
   .photo-masonry { columns: 1; }

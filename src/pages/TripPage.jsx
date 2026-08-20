@@ -25,8 +25,10 @@ export default function TripPage() {
   // fetch — same rule as an unauthorised grade: don't ask for what cannot be
   // shown.
   const soon = isComingSoon(gradeId)
-  // The child's section decides which batch's dates and travel apply. Staff
-  // have no section and see every batch.
+  // Every batch is shown to everyone (2026-08-19): students change batch during
+  // the term, so narrowing the page to the batch the sheet lists their section
+  // against would go stale. The section is still passed so the data layer can warn
+  // when the sheet lists no batch for it — it no longer filters anything.
   const { status, trip, error, retry } = useTrip(gradeId, {
     enabled: allowed && !soon,
     section: activeStudent?.section || '',
@@ -238,6 +240,34 @@ function buildSections(trip, photo, grade) {
           itineraryDocs={itineraryDocs}
           columns={guidelineColumns}
         />
+      ),
+    })
+  }
+
+  /**
+   * The student list, immediately after Itinerary — the school's placement, 2026-08-19.
+   *
+   * One link per batch, so it reuses `ItineraryCards`: the same filled card with the batch's
+   * dates and sections, which is exactly what a reader needs to pick the right list. The
+   * component takes its wording from `kind`/`action` rather than hard-coding "Itinerary".
+   *
+   * The tab is absent until the sheet has the column — `byCategory` returns nothing, the
+   * `if` fails, and no empty tab is published. That is the same rule every other tab follows.
+   */
+  const studentListDocs = byCategory('Student list')
+  if (studentListDocs.length) {
+    out.push({
+      id: 'students',
+      label: 'Student list',
+      node: (
+        <Section id="students" key="students">
+          <ItineraryCards
+            docs={studentListDocs}
+            batches={trip.batches || []}
+            kind="Student list"
+            action="Open the student list"
+          />
+        </Section>
       ),
     })
   }
@@ -819,12 +849,31 @@ function shortBatch(label) {
 }
 
 /**
+ * The card labels, given by the school on 2026-08-19 as "B1- Parents Orientation
+ * details". The `B1` half is the `batchTag` chip the card already draws, so only
+ * the words live here — and they OVERRIDE whatever the sheet called the file.
+ *
+ * That reverses the 2026-08-17 rule, which used the chip's own name from the sheet
+ * ("G7 B1 … Parent's Orientation") on the grounds that it named grade, batch and
+ * destination better than anything built here. The school would rather have four
+ * cards that read identically apart from their batch, so the label is now fixed
+ * copy and a renamed file in Drive cannot change it.
+ */
+const ORIENTATION_LABELS = {
+  'Parent orientation': 'Parents Orientation details',
+  'Student orientation': 'Students Orientation details',
+}
+
+/**
  * Parent and student decks, one row per kind with the batches beside each other
  * — the school drew this as `Parent Orientation [B1] [B2]`.
  *
- * The card's label is the chip's own name as the sheet has it ("G7 B1 …
- * Parent's Orientation"), which is what they asked for: it names the grade,
- * batch and destination better than any label built here could.
+ * **No section head**: the school removed "Before the trip / Orientation" on
+ * 2026-08-19. The tab the reader pressed already says Orientation, so the eyebrow
+ * and heading were the third and fourth time the word appeared on one screen.
+ * `titled: true` stays in `buildSections` — it means "this section draws its own
+ * head, do not print one above it", and without it the flow and stage layouts would
+ * put the heading straight back.
  */
 function OrientationSection({ docs }) {
   const groups = ['Parent orientation', 'Student orientation']
@@ -832,7 +881,7 @@ function OrientationSection({ docs }) {
     .filter((g) => g.items.length)
 
   return (
-    <Section id="orientation" eyebrow="Before the trip" title="Orientation">
+    <Section id="orientation">
       {/* The two kinds of deck sit BESIDE each other. Stacked, a grade with one batch
           gave this section two labels and two small cards down the middle of a 1400px
           column — ~350px of which was empty, which is the screenshot the school sent
@@ -840,22 +889,29 @@ function OrientationSection({ docs }) {
       <div className="orient-groups">
         {groups.map((g) => (
           <div className="orient-group" key={g.category}>
+            {/* The heading is OUTSIDE `.orient-box` on the school's instruction
+                (2026-08-19): it labels the box rather than sitting inside it as its
+                first row. `.orient-group` is now just the stack — heading, then box —
+                and every border, fill and pad belongs to `.orient-box`. */}
             <h4>{g.category}</h4>
-            <div className="orient-row">
-              {/* Big, with a slide preview in the box (2026-08-17). `compact` — which
-                  dropped the medium entirely to save height on the 2026-08-14 fitted
-                  layout — is gone; `eager` because the deck IS the content of this
-                  section, so a lazy load is pure delay. */}
-              {g.items.map((d, i) => (
-                <DocCard
-                  key={`${d.label}-${i}`}
-                  {...d}
-                  batchTag={shortBatch(d.batch)}
-                  hideMeta
-                  preview
-                  eager
-                />
-              ))}
+            <div className="orient-box">
+              <div className="orient-row">
+                {/* Big, with a slide preview in the box (2026-08-17). `compact` — which
+                    dropped the medium entirely to save height on the 2026-08-14 fitted
+                    layout — is gone; `eager` because the deck IS the content of this
+                    section, so a lazy load is pure delay. */}
+                {g.items.map((d, i) => (
+                  <DocCard
+                    key={`${d.label}-${i}`}
+                    {...d}
+                    label={ORIENTATION_LABELS[d.category] || d.label}
+                    batchTag={shortBatch(d.batch)}
+                    hideMeta
+                    preview
+                    eager
+                  />
+                ))}
+              </div>
             </div>
           </div>
         ))}
@@ -966,22 +1022,77 @@ function CarrySection({ docs, lines, slides }) {
   )
 }
 
+/**
+ * The itinerary links as FILLED cards carrying the batch's own dates and sections.
+ *
+ * This is the fourth attempt at this row in one day, and the first that does not depend on
+ * something outside the page:
+ *   1. `compact` cards — an icon and a line of text; the two batches looked identical.
+ *   2. a live `/preview` iframe of the Doc — worked, but the school wanted it smaller and
+ *      not a working document.
+ *   3. Drive's `thumbnail?id=…` as a cover image — **it does not load.** Not only in the
+ *      restricted preview pane where it was first noticed, but in the school's own browser
+ *      too: their screenshot on 2026-08-19 shows the icon fallback, a grey rectangle with a
+ *      document glyph. Drive serves that endpoint only for files shared "anyone with the
+ *      link", and these are not.
+ *   4. this — no image at all. The dates and sections come from `trip.batches`, which the
+ *      sheet already fills for the Overview tab, so the card is legible whatever Drive
+ *      decides to serve and nothing here can silently become an empty box again.
+ *
+ * Matched by batch LABEL, not by index: `documentsFrom` and `batches` both take their labels
+ * from the same `batchLabels(all)` map, so "Batch 2" is the reliable join. A doc whose batch
+ * has no row still renders — it just shows the link without dates.
+ *
+ * `kind` and `action` are parameters rather than literals because the Student list tab
+ * (2026-08-19) is the same card with different words: one link per batch, and the batch's
+ * dates and sections are exactly what tells a reader which list is theirs.
+ */
+function ItineraryCards({ docs, batches, kind = 'Itinerary', action = 'Open the day-by-day plan' }) {
+  const byLabel = new Map(batches.map((b) => [b.label, b]))
+
+  return (
+    <div className="itin-cards">
+      {docs.map((d, i) => {
+        const batch = byLabel.get(d.batch)
+        const tag = shortBatch(d.batch)
+        return (
+          <a
+            className="itin-card"
+            key={`itin-${i}`}
+            href={d.url}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <span className="itin-card-top">
+              {tag && <span className="itin-card-tag">{tag}</span>}
+              <span className="itin-card-kind">{kind}</span>
+            </span>
+
+            {/* The batch's dates, the largest thing on the card: it is what tells a parent
+                which of the two links is theirs. */}
+            {batch?.headline && <span className="itin-card-dates">{batch.headline}</span>}
+            {batch?.detail && <span className="itin-card-sections">{batch.detail}</span>}
+
+            <span className="itin-card-open">{action} ↗</span>
+          </a>
+        )
+      })}
+    </div>
+  )
+}
+
 function ItinerarySection({ trip, itineraryDocs, columns }) {
   // No section heading: the tab is already labelled "Itinerary", and the 86px it
   // cost was the difference between this tab fitting the window and scrolling.
   // The column headings below carry the meaning that matters here.
   return (
     <Section id="itinerary" className={columns.length ? 'is-stretch' : undefined}>
-      {/* The batch dates and sections are NOT repeated here (2026-08-18). They open
-          the Overview tab as two cards, and printing them again above the itinerary
-          made the reader check which of the two copies was current — the block that
-          used to sit beside these cards is gone, not moved. */}
+      {/* The batch dates ARE on these cards, unlike the 2026-08-18 rule that kept them
+          on Overview only. That rule was about not printing the same block twice on one
+          screen; here they are not a repeated block but the label that tells a parent
+          which of the two links is theirs. */}
       {itineraryDocs.length > 0 && (
-        <div className="itin-top">
-          <div className="orient-row itin-docs">
-            {itineraryDocs.map((d, i) => <DocCard key={`itin-${i}`} {...d} compact />)}
-          </div>
-        </div>
+        <ItineraryCards docs={itineraryDocs} batches={trip.batches || []} />
       )}
 
       {trip.itinerary.length > 0 && (

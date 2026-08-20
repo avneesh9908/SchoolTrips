@@ -22,7 +22,12 @@ const PENDING_KIND = {
 /**
  * `batchTag` is the short batch code ("B1") shown on the Orientation tab, where
  * one row holds a card per batch and the chip's own file name is too long to
- * tell them apart at a glance.
+ * tell them apart at a glance. It sits **beside the label, in the flow** — never
+ * over the medium. Positioned at `top/right` it landed on top of the live deck
+ * frame, printing "B1" across the school's first slide (the school caught this on
+ * 2026-08-19: "dont b1 and b2 show in pdf"). Beside the label it reads as the
+ * "[B1] Students Orientation details" line they asked for, and it cannot cover
+ * anything.
  *
  * `compact` drops the Drive thumbnail and tightens the card to an icon and a
  * line of text. The Orientation tab uses it so its four cards fit one screen
@@ -36,6 +41,14 @@ const PENDING_KIND = {
  * image IS the content of the panel — the guideline posters — since the card only
  * mounts when its tab is opened, so it is on screen the moment it exists and a
  * lazy load is pure delay.
+ *
+ * There was a `cover` mode here for one afternoon (2026-08-19) — `preview`'s frame
+ * filled with Drive's `thumbnail?id=…` instead of a live embed. It was removed the
+ * same day, and deliberately not refactored into something cleverer: **that endpoint
+ * serves only files shared "anyone with the link"**, and the school's itinerary Docs
+ * are not, so every card fell back to the typed icon in their own browser as well as
+ * in the dev preview. If a cover image is wanted again, the SHARING has to be fixed
+ * first — the code was never the problem.
  */
 export function DocCard({
   label, url, category, batchTag = '', pending = false, compact = false, hideMeta = false,
@@ -55,15 +68,31 @@ export function DocCard({
   const cls =
     (compact ? 'doc-card is-compact' : 'doc-card') + (preview ? ' is-preview' : '')
 
+  /**
+   * The chip goes INSIDE the label, as the first inline thing in its text flow —
+   * not as a flex sibling beside it. As a sibling it took ~42px off the label's
+   * column for every line, and "Parents Orientation details" then wrapped to three
+   * lines in one card and two in its neighbour, from a 2px difference in the space
+   * left over. Inline, only the first line pays for the chip and the rest of the
+   * label has the full width back.
+   */
+  const labelText = batchTag ? (
+    <>
+      <span className="doc-batch">{batchTag}</span>
+      {label}
+    </>
+  ) : (
+    label
+  )
+
   if (pending) {
     const pendingKind = PENDING_KIND[category] || 'file'
     return (
       <div className={`${cls} is-pending`}>
-        {batchTag && <span className="doc-batch">{batchTag}</span>}
         <span className="doc-icon">
           <Icon name={pendingKind} />
         </span>
-        <span className="doc-label">{label}</span>
+        <span className="doc-label">{labelText}</span>
         <span className="doc-meta">{hideMeta ? 'link not added yet' : `${category} · link not added yet`}</span>
       </div>
     )
@@ -86,7 +115,6 @@ export function DocCard({
   if (preview && embed) {
     return (
       <div className={`${cls} is-framed`}>
-        {batchTag && <span className="doc-batch">{batchTag}</span>}
         {/* The frame is live, so the reader pages through the deck in place. The card
             cannot be an `<a>` around it — an iframe is interactive content and an anchor
             may not contain any — so the label carries the link instead, which is also
@@ -98,7 +126,7 @@ export function DocCard({
           <iframe className="doc-frame" src={embed} title={label} allowFullScreen />
         </span>
         <a className="doc-label is-link" href={open} target="_blank" rel="noopener noreferrer">
-          {label}
+          {labelText}
         </a>
         <span className="doc-meta">{hideMeta ? 'Open ↗' : `${category || KIND_LABEL[kind]} ↗`}</span>
       </div>
@@ -107,7 +135,6 @@ export function DocCard({
 
   return (
     <a className={cls} href={open} target="_blank" rel="noopener noreferrer">
-      {batchTag && <span className="doc-batch">{batchTag}</span>}
       {/* `preview` puts the medium in a fixed-ratio frame — a slide-sized box that a
           reader can actually read, asked for on 2026-08-17 ("make box big like screen
           preview in box like ppt docs or slide preview").
@@ -119,7 +146,7 @@ export function DocCard({
           the 7 orientation decks in the sheet are private, so this is the common case,
           not the edge one. */}
       {preview ? <span className="doc-preview">{medium}</span> : medium}
-      <span className="doc-label">{label}</span>
+      <span className="doc-label">{labelText}</span>
       <span className="doc-meta">{hideMeta ? 'Open ↗' : `${category || KIND_LABEL[kind]} ↗`}</span>
     </a>
   )

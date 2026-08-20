@@ -76,10 +76,6 @@ export default function Login() {
           </div>
 
           <h2>Welcome to School Trips</h2>
-          <p className="lede">
-            Parents should sign in using the email address or mobile number registered with the
-            school. You will only see the trip details for your own child's grade.
-          </p>
 
           {error && <div className="form-error">{error}</div>}
 
@@ -93,6 +89,34 @@ export default function Login() {
           )}
 
           <form onSubmit={submit}>
+            {/* BOTH panels sit ABOVE the field, in the order the school drew on 2026-08-19:
+                what to type, then who may type it, then the box. The reader finishes the
+                whole instruction before reaching the input rather than typing and then
+                finding a rule under their hands — and the two matched panels stay adjacent,
+                which is what makes them read as one instruction instead of two.
+
+                The wording is the school's own, rewritten by them on 2026-08-19 (third
+                revision that day). This is the only place the grade rule CAN be stated: a
+                failed sign-in has to give the same answer whatever the reason, or anyone
+                typing addresses could learn which are on the school's roll. "EY" is the
+                school's name for the two kindergarten years, which `allowsStudentLogin`
+                treats as grade 0, and "email id" is theirs too — do not tidy either. */}
+            <p className="field-lede">
+              Parents should sign in using the school's email address or mobile number registered
+              with the school. You will only have access to the trip details relevant to your
+              child's grade.
+            </p>
+            <ul className="field-note">
+              <li>
+                <strong>EY to Grade 6:</strong> Parent login is required using school's email id or
+                registered mobile number.
+              </li>
+              <li>
+                <strong>Grade 7 onwards:</strong> Students may sign in using their school email
+                address, and parents may also sign in using their school's email address or
+                registered mobile number.
+              </li>
+            </ul>
             <div className="field">
               <label htmlFor="identifier">Email address or mobile number</label>
               <input
@@ -106,21 +130,6 @@ export default function Login() {
                 disabled={busy}
               />
             </div>
-            {/* The school's own wording, given verbatim on 2026-08-17. This is the only
-                place the rule CAN be stated: a failed sign-in has to give the same
-                answer whatever the reason, or anyone typing addresses could learn which
-                are on the school's roll. "EY" is the school's name for the two
-                kindergarten years, which `allowsStudentLogin` treats as grade 0. */}
-            <ul className="field-note">
-              <li>
-                <strong>EY to Grade 6:</strong> Parent login is required.
-              </li>
-              <li>
-                <strong>Grade 7 onwards:</strong> Students may sign in using their school email
-                address, and parents may also sign in using their registered email address or
-                mobile number.
-              </li>
-            </ul>
             <button className="btn" type="submit" disabled={busy}>
               {busy ? 'Checking…' : 'Continue'}
             </button>

@@ -1,4 +1,31 @@
 import { config } from '../config'
+import { describeDoc } from './docPreview'
+
+/**
+ * Turns whatever the school pasted into something an `<img>` can load.
+ *
+ * A Drive *share* link (`drive.google.com/file/d/ID/view`) is a web page, not an
+ * image: put it in a `src` and the browser gets HTML and shows a broken icon.
+ * Drive's thumbnail endpoint is the one that answers with actual image bytes,
+ * and it takes a width — so Drive resizes for us and the banner and the card
+ * each fetch only the size they render, instead of the full camera original.
+ *
+ * This exists so the school can paste the link Drive's own Share button gives
+ * them. Expecting them to hand-build a `thumbnail?id=` URL is how the photo
+ * silently stops appearing six months from now.
+ *
+ * Anything that is not a Drive link — a local path, a CDN URL — passes straight
+ * through untouched.
+ *
+ * The file must be shared "Anyone with the link · Viewer". For anything else the
+ * endpoint returns a sign-in page rather than an image, exactly as documented for
+ * the document cards, and the photo just does not appear.
+ */
+function imageUrl(url, width) {
+  const { kind, id } = describeDoc(url)
+  if (!id || kind === 'folder' || kind === 'form') return url
+  return `https://drive.google.com/thumbnail?id=${id}&sz=w${width}`
+}
 
 /**
  * The photograph shown on a trip page, keyed by grade in `config.tripPhotos`.
@@ -16,7 +43,7 @@ import { config } from '../config'
 export function tripPhotoFor(gradeId) {
   const photos = config().tripPhotos || {}
   const url = String(photos[gradeId] || '').trim()
-  return url || ''
+  return url ? imageUrl(url, 1600) : ''
 }
 
 /**
@@ -33,5 +60,7 @@ export function tripPhotoFor(gradeId) {
 export function tripCardPhotoFor(gradeId) {
   const cards = config().tripCardPhotos || {}
   const url = String(cards[gradeId] || '').trim()
-  return url || tripPhotoFor(gradeId)
+  // 1200 rather than the banner's 1600: the card is a 132px strip, so the wider
+  // fetch would be bytes no parent ever sees.
+  return url ? imageUrl(url, 1200) : tripPhotoFor(gradeId)
 }

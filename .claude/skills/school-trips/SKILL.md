@@ -87,15 +87,61 @@ One login box takes **either an email address or a mobile number**;
   school's roll. The rule is stated on the login screen instead (`.field-note`), where saying it
   costs nothing, and the failure message repeats it unconditionally — safe precisely because it
   is said whatever the reason for the failure was.
-- **The login copy is the school's own wording, given verbatim on 2026-08-17** — do not reword it:
-  a lede reading "Parents should sign in using the email address or mobile number registered with
-  the school", then two lines under the field, "**EY to Grade 6:** Parent login is required" and
-  "**Grade 7 onwards:** Students may sign in using their school email address, and parents may
-  also sign in using their registered email address or mobile number". **"EY"** is the school's
+- **The login copy is the school's own wording — do not reword it.** Current text, rewritten by them
+  on 2026-08-19: "Parents should sign in using the school's email address or mobile number registered
+  with the school. You will only have access to the trip details relevant to your child's grade",
+  then two lines, "**EY to Grade 6:** Parent login is required using school's email id or registered
+  mobile number" and "**Grade 7 onwards:** Students may sign in using their school email address, and
+  parents may also sign in using their school's email address or registered mobile number".
+  **"email id" is the school's phrase and stays**, as does the repetition of "school" in the first
+  sentence. The only editorial liberty taken is a **terminal full stop on each of the three**, which
+  their draft omitted — punctuation, not rewording, and easily reverted if they object.
+  The privacy promise came back here after a single pass without it: it was a standalone `.lede`
+  paragraph, was **deleted at their request**, and returned an hour later as the second sentence of
+  the instruction panel. It belongs inside the panel, not above it.
+  **Both panels sit ABOVE the field**, settled 2026-08-19 after the school drew the layout it wanted:
+  `.field-lede` (what to type) → `.field-note` (who may type it) → the label and input → Continue.
+  The reader finishes the whole instruction before reaching the box, rather than typing and then
+  finding a rule under their hands, and the two panels stay adjacent, which is what lets them read as
+  one instruction. **They share one panel style** — `.field-lede, .field-note` is a single CSS rule
+  carrying the tint, border, radius, 12.5px size and 1.55 leading, and only the outer margins differ
+  (14px between the panels, 18px before the label: the bigger gap separates the instruction from the
+  thing it is about). **Change the two together** or the pair stops looking like a pair.
+
+  **Each rule is one left-aligned paragraph with a HANGING dash** — `.field-note > li` is
+  `position: relative` with `padding-left: 16px` and the dash absolutely placed in that gutter. It
+  was briefly a flex row with the dash as a flex item, which silently made the bold label and the
+  sentence after it **two flex columns**: "Grade 7 onwards:" is wide enough to wrap on its own, so
+  each item's body text started at a different x and the panel read as a ragged two-column table.
+  The school sent a screenshot of exactly that (*"text align left side"*). Inline flow fixes it —
+  measured, every line box in the panel starts at one x (778 at 1280 wide, 84 at 375) with the dash
+  hanging 16px left of it. **Do not put `display: flex` back on the `li`.** It also came out shorter:
+  the panel went 128px → 109px, which handed ~19px back to the height budget below.
+
+  Two earlier attempts were corrected on the way, and neither reasoning survived contact with the
+  school: the sentence began as the card's top `.lede` (moved down, because a paragraph before the
+  box describes something the reader has not seen yet); then it was plain text with the rules in a
+  tinted panel below the field (matched and moved up — *"keep text one side upper and lower to text
+  field"*, then the drawn layout). The card's `.lede` briefly kept the privacy promise on its
+  own ("You will only see the trip details for your own child's grade"), which is what the moved
+  sentence used to share it with — **removed 2026-08-19** on the school's instruction, so the heading
+  now runs straight into the instruction panel and `.auth-card h2` carries the whole 22px gap. `.lede`
+  itself lives on for `.dash-head` on the picker; only the login one and its `max-height` trim went.
+  **"EY"** is the school's
   name for the two kindergarten years, which `gradeNumber` scores 0 and the rule therefore treats
-  as parent-only, so the copy and the code agree without a special case. Those ~130px pushed the
-  card 5px past a 1280x720 window, so `@media (max-height: 820px)` trims the card's padding rather
-  than the words.
+  as parent-only, so the copy and the code agree without a special case.
+
+  **The card is height-budgeted at 1280x720 and `@media (max-height: 820px)` is what pays for it** —
+  it trims chrome (`.login-form` and `.auth-card` padding, the `.lede`, `.field-lede` and
+  `.field-note` margins), never the school's words, which are verbatim. The copy first cost ~130px
+  and pushed the card 5px past the window; giving `.field-lede` the panel added ~24px more of padding
+  and border and took it 38px past; stacking both panels above the field cost a little more again.
+  Four trims pay for all of it (the `.auth-card .lede` one went with the paragraph). **Every copy
+  revision has to be re-measured here** — this is not theoretical: the 2026-08-19 rewrite added a
+  sentence to the first panel and a clause to each rule, ate the ~45px the previous two passes had
+  freed, and went 8px past the window. `.login-form` 24→20 and `.auth-card` 26→22 bought 12px back:
+  card **38-710 in a 720 window, `scrollHeight === innerHeight`**, ~10px of slack. Padding is the
+  only lever left before the card's width or the art panel has to give.
 - The session records `signedInAs` (`parent` | `student`), which is what puts "Student account"
   and "My trip" in the top bar instead of "Parent account" and "My child". It is a label, not a
   permission.
@@ -205,6 +251,20 @@ its headers — never a config flag — and `useTrip` routes to `assembleTripApp
   empty rather than printing a row of em dashes.
 - Verified against a CSV transcribed from the real sheet: G7 → title, both batch date lines,
   full starting text, both travel blocks with line breaks intact.
+- **`Student List (link)` — column 8 of the live sheet, right after Itinerary.** Read via
+  `BATCH_LINK_COLUMNS` (added 2026-08-19) with aliases `studentlistlink`, `studentlist`,
+  `studentslist`, `studentslistlink`, `studentnamelist`, `namelist`; `normalize.js` strips case,
+  spaces and punctuation, so any of those spellings works. A **batch** column, not a common one — a
+  list is exactly a batch's travelling group, and reading it across the grade would show both lists
+  on both cards. **Confirmed live the same day**: only Grade 7 has it filled, as a smart chip reading
+  "G7 students list (students/ parents) 2026-27", and the workbook export resolves the two rows to
+  DIFFERENT tabs of one spreadsheet (`…1TCm_Iadn…/edit?gid=0` for Batch 1, `gid=1780253530` for
+  Batch 2) — so the per-batch scoping is right and matters. Every other grade's cell is empty, so
+  their tab is correctly absent.
+- The live sheet also gained **`Grade Photo`** and **`Hero Section Photo`** columns (seen
+  2026-08-19, 15 columns now). Nothing reads them yet — photographs still come from `config.json`'s
+  `tripPhotos` / `tripCardPhotos`. Worth asking the school whether those columns are meant to
+  replace that configuration.
 
 ### SOLVED 2026-08-13: the chip links are in the WORKBOOK export
 **The long-standing "nothing can recover a chip's URL" conclusion was wrong, and is corrected
@@ -658,9 +718,27 @@ Three things in that CSS are load-bearing:
 - **`.sections` is `display: block` when it scrolls, and `flex` only for Overview.** See the trap
   below — this one silently hid content.
 
-`heroBatch` / `heroDates` survive as the Overview image's meta line. `heroBatch` says `Batch 1` only
+### The Overview paragraph is justified — but only where the measure can take it
+Asked for on 2026-08-19 (*"text align starting and ending point same line make same"*): the school
+wanted the body text's line starts and line ends on the same two verticals, which is justification.
+`.home-body-text` carries `text-align: justify`, and `.is-stage` adds `text-align-last: center` so the
+final line of each paragraph — which has nothing to stretch against — is centred under the centred
+lead. Because `white-space: pre-wrap` preserves the sheet's blank line, the line before it counts as a
+last line as well, which is what keeps the two paragraphs reading as two.
+
+**Below 720px it reverts to left-aligned, and that is not a matter of taste — it was measured.**
+Word gaps in that paragraph, against a natural space of 2.7px: at 375x812 justification needed a
+median of 13.5px and up to 17.9px (5x and 6.6x, visible rivers); at 1280x720 it needs 4.6px median
+and 9.5px worst (1.7x). A phone gives the paragraph a ~339px measure with too few word gaps to
+absorb the slack. The left edge is the half worth keeping there. If a future pass widens the phone
+measure or drops the font, re-measure before putting justification back — the gap numbers above are
+the test, not the appearance of the CSS.
+
+`heroBatch` / `heroDates` survive as the Overview image's meta line. `heroBatch` said `Batch 1` only
 when `trip.batchMatched`; otherwise "All N batches", because naming one batch would be wrong when
-every batch is shown. `heroDates` strips the `Batch N:` prefix from **both** the matched and the
+every batch is shown. **Both are historical** — the meta line left Overview in the 2026-08-18
+redesign (photograph, then batch cards, then Header Text), and since 2026-08-19 every batch is shown
+to everyone, so there is no one-batch case left to name. `heroDates` strips the `Batch N:` prefix from **both** the matched and the
 all-batches case — the sheet's headlines carry it verbatim and Grade 7 has it wrong on both rows, so
 staff were reading "Batch 1: 12-19 December · Batch 1: 13-20 December".
 
@@ -720,6 +798,39 @@ guideline columns stack into three, so Itinerary runs ~694px past the panel (Ori
 **The Confirmed / "Details coming soon" pill is gone.** `assembleTripApp` sets
 `status: 'confirmed'` unconditionally, so the pill never said anything true. Do not reintroduce it
 without a real status column.
+
+### Photos come from Drive, not from the host (2026-08-18)
+`tripPhoto.js` now runs every configured URL through a private `imageUrl(url, width)` before
+returning it. It reuses `describeDoc()` for id extraction — one regex set for Drive links in this
+codebase, not two — and rewrites any Drive link to `drive.google.com/thumbnail?id={id}&sz=w{width}`:
+**1600 for the banner, 1200 for the picker card**, because that card is a 132px strip and the wider
+fetch would be bytes no parent ever sees. Anything that is not a Drive link (`/trip-photos/*`, a CDN
+URL) is returned untouched, so the committed local entries still render byte-identically.
+
+Two reasons, and the billing one is the load-bearing one:
+
+- **Netlify moved to credit billing and bandwidth is the expensive meter** — 20 credits/GB against
+  2 credits per 10,000 requests, so the free plan's 300 credits is really a **~15 GB/month** budget,
+  not the "1.5M requests" a request-only reading suggests. Trip galleries served from the origin
+  would eat a month's budget in one trip; served from Drive they cost this site nothing.
+- **The school pastes what Drive's Share button gives them.** A share link is an HTML page, not an
+  image — dropping it straight into `src` shows a broken icon. Expecting staff to hand-build a
+  `thumbnail?id=` URL is how the photograph silently stops appearing six months from now.
+
+The file must be shared **Anyone with the link · Viewer**. Anything else returns a sign-in page
+instead of image bytes — the same failure the document cards have always had. Both consumers already
+handle it: `HomeSection` holds a `broken` flag and drops the band on `onError`, and `tripCardPhotoFor`
+falls back to the grade colour and icon, so a wrongly-shared photo reads as *no* photo rather than a
+broken one. Check by opening the link in a private window.
+
+**Consequence for the scrim measurement below:** a Drive-hosted photo is cross-origin, so `getImageData`
+taints the canvas and the WCAG contrast check **cannot be re-run the way it was**. To re-measure after
+a photo change, point `tripPhotos` at a local copy in `public/trip-photos/` temporarily, measure, then
+switch the entry back to the Drive link.
+
+Verified 2026-08-18: build clean, no console errors, and the transform checked over six URL shapes —
+`/file/d/ID/view`, `open?id=`, an already-thumbnail URL (re-sized, not double-wrapped), a local path,
+a foreign CDN URL, and a folder link (passed through, since a folder has no single image).
 
 ### The photograph — the school's own, one per page, and one only
 `lib/tripPhoto.js` reads `config().tripPhotos`, a **grade id → image URL** map. That is the whole
@@ -894,6 +1005,169 @@ those two tabs were now being read from simply has no text in them. **Check whic
 Since 2026-08-13 the fixture carries **both**: the guideline text *and* real pasted URLs in the
 five file columns (taken from the workbook's hyperlinks), so local work demonstrates the finished
 state — text on the page for Safety and Things to carry, working cards for Documents and Photos.
+**`batchTag` renders INSIDE the label's text flow, and must stay there.** It began as
+`position: absolute; top: 18px; right: 18px`, which was fine over an icon tile but printed "B1" across
+the top-right of the live deck frame once Orientation became previews — the school caught it on
+2026-08-19 ("dont b1 and b2 show in pdf ... [B1] Students Orientation details show like this"). Two
+things were tried: a flex sibling beside the label, which took ~42px off the label's column on EVERY
+line and made "Parents Orientation details" wrap to three lines in one card and two in its neighbour
+off a 2px difference; then the chip as the first inline element inside `.doc-label` itself, which is
+what shipped. Inline, only the first line pays for the chip and the label keeps its full width back
+(207px and 2 lines in all four cards, against 164/166px and 2-vs-3 lines as a sibling). Cards with no
+`batchTag` — Itinerary, Photos, the guideline chips — render the bare label unchanged.
+
+### Student list — a tab, and a deliberate exception to the no-roster rule
+Added 2026-08-19 after Itinerary, at the school's placement. It reuses `ItineraryCards` with
+`kind`/`action` overridden ("Student list" / "Open the student list"), because it is the same
+shape of thing: one link per batch, where the batch's dates and sections are what tell a reader
+which list is theirs. Verified twice: first with a synthetic column in the
+gitignored fixture (since restored), then **against the real live sheet**, where the two cards
+resolved to the school's actual per-batch list URLs. Tab order Overview · Orientation · Itinerary ·
+**Student list** · Travel details · Things to carry · Photos; Itinerary's own wording unaffected; and
+with no column present the tab disappears entirely — no empty tab is published.
+
+**This is the one place the parent side points at a class list, and it was flagged to the school as
+such.** The standing rule below — no roster, no class list, the child's own name is the only personal
+value on any screen — still governs everything the app RENDERS: the list itself lives in the school's
+own Drive file, behind whatever sharing they set, and nothing about it is fetched or displayed here.
+But the tab does hand a grade's parents a route to their batch's names, so the consent and sharing
+decision is the school's and should not be quietly widened. Do not start rendering list CONTENT in
+the page on the strength of this tab existing.
+
+### The Itinerary links are FILLED CARDS with the batch's dates — and this took four attempts
+`ItineraryCards` + `.itin-card`: a navy panel per batch carrying the `B1`/`B2` pill in `--amber`, the
+batch's dates as a Fraunces heading, its section list, and one "Open the day-by-day plan ↗" line
+pinned to the bottom with `margin-top: auto` so both cards' actions align whatever the section lists
+do. `.itin-cards` is an `auto-fit` grid with a 20px gap, so it stacks on a phone.
+
+**The whole history is one lesson: do not build this row out of anything Drive has to serve.**
+1. `compact` DocCards — icon plus a line of text; the two batches were indistinguishable.
+2. a live `/preview` iframe of the Doc — worked, but the school wanted it smaller and not a working
+   document.
+3. Drive's `thumbnail?id=…&sz=w1000` as a cover image — **it does not load.** First seen failing in
+   the dev preview pane, which was written off as an environment block; then the school's own
+   screenshot showed the same grey icon fallback in their browser. That endpoint serves only files
+   shared "anyone with the link", and the itinerary Docs are not. The `cover` prop was removed from
+   `DocCard` rather than kept: the code was never the problem.
+4. content instead of a picture. `trip.batches` already carries the dates and section lists for the
+   Overview tab, so the card is legible whatever Drive does and **nothing here can come back empty**.
+
+Matched by batch LABEL, not index — `documentsFrom` and `batches` take their labels from the same
+`batchLabels(all)` map, so "Batch 2" is the reliable join, and a doc whose batch has no row still
+renders without dates. Measured 1280x720: two 589x175 cards, 20px gap, actions aligned at the same y,
+**zero `<img>` and zero `<iframe>` in the row**; 1920x900 899x181; 375x812 stacked full-width, dates
+clamping 27px → 20px.
+
+**`--orient-ar` is the frame's aspect ratio as a NUMBER, and it exists because three formulas need
+it**: the frame's `aspect-ratio`, the frame's width (`--orient-h * --orient-ar`) and the box's own
+width (`... * 2 + gap + 148px`). It was a literal `16 / 9` in all three, which is three chances to
+change two of them. `.doc-preview` and the card's flex basis read `var(--orient-ar, 1.7778)` so
+previews outside an orient box keep 16:9 untouched. Only Orientation sets these variables now — the
+itinerary's `.is-cover` variant went with the cover image — but the indirection stays: it is what made
+the ratio changeable in one place instead of three.
+
+`.itin-top` / `.itin-docs` were deleted with the markup they styled, and so were `.orient-box.is-cover`,
+`itineraryLabel` and `stripBatchSuffix` when the cover image was abandoned — nothing in the JSX
+referenced any of them. The batch is a pill (`.itin-card-tag`) again rather than the "B1- Itinerary"
+label string of the pass before: that string existed only because a pill could not carry the hyphen
+joining it to a one-word label, and the card's label is now the DATES, which the pill sits beside
+rather than inside.
+
+### Safety and Do's-and-don'ts: the font size in those columns is mostly NOT ours
+The school asked to "increase font size" on both (2026-08-19). Worth knowing before promising it: on
+Grade 7 each of those columns renders the school's **published slide deck in an iframe**
+(`config.json` → `slidePreviews.g7.safety` / `.dodont`), so the words a parent actually reads are
+pixels inside Google's document and **no CSS in this repo can resize them** — that is an edit to the
+deck. What this stylesheet owns, and what was raised: `.chip-head h4` 15 → 19px, `.chip-count`
+12 → 13px, and the `.chip-lines` text fallback 14 → 16px. The fallback is not a dead branch — several
+grades' columns still hold TEXT rather than a deck in the live sheet, and those do get the larger
+type. If the school means the words inside the deck, the answer is to edit the Slides file.
+
+**The Orientation tab is the exception: its four card labels are FIXED COPY, not the file's name.**
+The school gave them on 2026-08-19 as "B1- Parents Orientation details" / "B2- …" and the same for
+Students, so `ORIENTATION_LABELS` maps the category to the words and the `batchTag` chip supplies the
+`B1`. This reverses the 2026-08-17 rule for this section only — that rule preferred the sheet's own
+chip name ("G7 B1 … Parent's Orientation") because it named grade, batch and destination; the school
+would rather have four cards identical apart from their batch, and a file renamed in Drive must not
+change what the page says. The section also has **no head at all** now (no "Before the trip", no
+"Orientation"): the tab the reader pressed already says it. `titled: true` stays in `buildSections`
+— it means "draws its own head, print nothing above it", and removing it would have the flow and
+stage layouts put the heading straight back. The two group labels (`.orient-group > h4`) are styled as
+**real section headings, matching `.section h3` exactly** — Fraunces at `--display-weight`, the same
+height-aware `clamp(25px, min(2.5vw, 4.2vh), 38px)`, and a 44x3 `--amber` rule under them via
+`::after` (on the heading itself, since unlike `.section-head` there is no inner div to hang it on).
+The school asked for this against the "Orientation" head they were still seeing elsewhere ("show this
+text bold font same in oritation", 2026-08-19); it replaced a 13px/800 uppercase caption, which was
+itself an earlier attempt at "bold". Sentence case now, not tracked-out uppercase — a 30px serif is
+not a caption. **Verified identical to a live `.section h3`** (Travel details): Fraunces / 600 /
+30.24px / none / -0.3024px / `rgb(15,23,42)`, rule 44x3 `rgb(224,135,7)` at 10px. Keep them in step —
+if `.section h3` changes, change this with it. Each group then got its **own box**, asked for
+twice — "like minor border box to show difference", then "border and box more highlight show more
+difference" (2026-08-19). It ended at `2px solid #b4bdda`, `--link-bg` fill, 18px radius, **18/20px
+padding** and `--shadow-hero`, with 20px between the two batch cards and a 34px gap between the
+groups.
+
+**The heading sits OUTSIDE the box** (2026-08-19). `.orient-group` is now only the stack — `h4`, then
+`.orient-box` 14px below it — and every border, fill, shadow and pad belongs to `.orient-box`; nothing
+is drawn on `.orient-group` at all. Anything that used to target `.orient-group` for appearance has to
+move to `.orient-box`, and the stage override `.is-stage .orient-group { gap }` is now the
+heading-to-box gap, not a heading-to-cards gap.
+
+**The box HUGS its cards and is centred**, `width: min(100%, calc(var(--orient-h) * 32 / 9 + 168px))`.
+Full width it held 978px of cards in 1395px of inner space and ~208px sat empty inside each end, which
+the school circled. Two things that do NOT fix that, both tried:
+- `width: fit-content` — under fit-content sizing the browser takes a shrinkable flex item's
+  MAX-CONTENT (here the label's width), not its `flex-basis`, so the cards resolved to 356px instead
+  of 479 and the frames shrank 425 → 302px. The box hugged by shrinking the previews.
+- widening the cards — `.doc-preview` is capped at `--orient-h * 16/9`, so a wider card just moves the
+  empty space inside itself.
+
+**Two variables drive the whole box, and both live on `.orient-box`** — not on the card, because the
+box sizes itself from them and a custom property set on a child is invisible to its parent; the card
+and the row inherit them.
+- `--orient-h` — the frame's height budget, `clamp(140px, calc(100dvh - 560px), 270px)`.
+- `--orient-gap` — the space between the two decks, `48px`, widened from 20 on 2026-08-19 ("maintian
+  the gap in docs that side area cover") when the box was made bigger: the school wanted the extra
+  width to go between the two documents, not back into the empty ends.
+
+`width: min(100%, calc(var(--orient-h) * 32 / 9 + var(--orient-gap) + 148px))`, where 148 is 104px of
+card padding (2 x 26 x 2) + 40px box padding + 4px border. **Keep the gap a variable**: `.orient-row`
+reads `gap: var(--orient-gap, 20px)` and the width formula reads the same value, so a literal in one
+place and a constant in the other cannot drift apart. The 20px fallback is for `.orient-row`s outside
+a box — the itinerary's compact card sits in one — and was verified still applying there.
+
+**The lesson, measured: in this kit a light fill cannot separate anything.** Every tint token lands
+within ~1.05:1 of the page — `--wash` on `--bg` is 1.044:1 and a white card on `--wash` is 1.081:1 —
+so the first two attempts (no fill, then `--wash` + a `--line-2` hairline at 1.07:1) were invisible at
+arm's length whatever the token. A **line** can be much darker than a fill without shouting, so the
+border does the work: #b4bdda reads **1.806:1 against the page**, and the fill stays only to give the
+white deck cards a ground to sit on. Reach for border darkness before fill darkness on this palette.
+Also: a `1.5px` border came back from `getComputedStyle` as `1px` — rounded away at DPR 1, which is
+most of the school's desks — so widths here are whole pixels. **The two groups STACK, one boxed group per row** (2026-08-19, "box size increase"), reversing the
+2026-08-17 side-by-side layout: four previews sharing one row left each frame width-bound by its card
+at 209x117px, too small to read a slide. Full width each, the frames stopped being width-bound
+by their card. That first overshot twice — 442x249 frames and 461px
+boxes, then 567x319 on a 1859x895 screen, which the school photographed and called zoomed in — so
+`--orient-h` settled at `clamp(140px, calc(100dvh - 560px), 240px)`.
+
+**Which of the three numbers matters depends on the window, and this is the thing to know before
+touching it.** At 1280x720 the *budget* binds (`720 - 560 = 160`), so the frame is 282x159 and the cap
+is irrelevant. On a big screen the *cap* binds — at 1859x895 the budget would give 335px — so the cap
+is the only number a large monitor ever sees, and it is what reads as "zoomed". Changing the cap
+cannot affect a 720px-tall window; changing the subtrahend cannot affect a large one. Measured at the 270px cap
+and a 48px doc gap: 1920x900 → box 1156px, frames 478x269, boxes 435px tall; 1280x720 → box 765px,
+frames 282x159 (budget-bound, so the cap change does not reach it); 375x812 → box full-width 339px,
+frame 241x136. Sides stay at 22px of padding at every size. The tab scrolls ~240-260px.
+
+Margins around it, all set 2026-08-19 from the same screenshot ("not maintain margin in header and
+heading boxes"): `.orient-groups` has `margin-top: 14px` so the first heading clears the sticky
+section nav by **30px** rather than 16 — with the section's own head gone, that heading is the panel's
+first line and had nothing holding it off the nav — and the heading-to-box gap is **14px** (base and
+`.is-stage` alike, up from 10). **The original reason for side by
+side has not gone away**: stacked, a grade with only ONE batch shows a single card with ~350px of
+empty box beside it, which is the screenshot they sent on 2026-08-17. Grade 7 has two batches so its
+rows are full; check a one-batch grade before treating this as settled.
+
 A bare URL has no name, so those cards label from the column ("Parent orientation — Batch 1")
 rather than the chip's own file name; production, reading the workbook, keeps the chip names.
 Verified with it: 11 safety points, 2+2 Do/Don't, a 13-item packing checklist, 3 document links
@@ -1380,9 +1654,10 @@ that used to sit here said a parent whose section matched only the mislabelled r
 is in **Acumen**, which the sheet lists against Batch 2, and the page said Batch 1 on the pill, the
 headline, the orientation cards and the travel block.
 
-The bug was the ORDER of two correct operations. `mine` is filtered to the matched batch first, and
-`batchLabels(mine)` then sees a one-row group and leaves it alone — throwing away the only thing that
-knew this row was the second one. `assembleTripApp` now builds `allLabels = batchLabels(all)` and a
+The bug was the ORDER of two correct operations. `mine` was filtered to the matched batch first, and
+`batchLabels(mine)` then saw a one-row group and left it alone — throwing away the only thing that
+knew this row was the second one. (`mine` itself was removed on 2026-08-19 when the filtering went;
+labelling over `all` is what still matters, and it is now the only path.) `assembleTripApp` now builds `allLabels = batchLabels(all)` and a
 `labelOf` Map keyed by row, and `batches`, `travel` and `documentsFrom` all read from that;
 `documentsFrom` takes the map as an option rather than deriving labels from the rows it was handed, which
 is what made its `batchTag` wrong too. `batchLabelsCollided(all)` also means the sheet-typo warning now
@@ -1648,6 +1923,15 @@ Two gitignored pieces make this work without ever committing PII or breaking the
 
 `csvUrls` (per-source URL) beats `csvBase` in `localUrl`.
 
+**The trap that cost a round trip on 2026-08-19: `csvUrls.trips` in `config.local.json` silences the
+live sheet entirely.** A new column was added to the live workbook, the code to read it was written
+and verified — and the tab still did not appear on reload, because dev was reading
+`/local-roster/trip-app.csv` (13 columns, no such column) and never touching the sheet at all. The
+fixture is a curated demo of the finished state, so it does NOT track the school's edits. When
+something the school just changed in the sheet does not show locally, check this key before debugging
+the code. `trips` is now left out of `csvUrls` so dev reads the live workbook; put it back to return
+to the fixture.
+
 **The proxy is dev-only** — `npm run build` emits static files with no proxy — and it hands
 the *entire* roster to the browser. Never present it as the production pattern.
 
@@ -1656,6 +1940,36 @@ Login → **the child card is always rendered**, one child or several (the singl
 auto-redirect was removed on 2026-08-12 at the user's request) → tap it → the grade page with
 every section: overview, documents, itinerary, safety, do's/don'ts, travel, reminders, media,
 communication, packing list.
+
+### Every batch, for everyone — the trip page no longer narrows to the child's batch
+Set 2026-08-19: *"some student in future change trip batch thats why i decide show all batch"*.
+`assembleTripApp` used to filter the grade's rows down to the batch whose `Section:` list named the
+child's section, so a parent saw only their batch's dates, travel timings and orientation decks.
+It doesn't any more — **`mine` is gone and `batches`, `travel`, `media` and the per-batch document
+columns all read `all`**, which is what staff already saw. The trip page is now the same page for a
+parent, a student and staff.
+
+The reason is data staleness, not layout: students move between batches during the term and the
+sheet's `Section:` lists are edited by hand, so a filtered page confidently shows a family the wrong
+train. Two batches side by side, each labelled and each carrying its section list, lets the reader
+find their own — wrong-but-certain is worse than complete.
+
+**Only the third screen changed.** Login and the child/grade picker are untouched, on instruction
+(*"first login and section grade selection same now dont change"*). `activeStudent.section` is still
+resolved, still shown as the "Section Acuity" pill on the child card, and still passed into
+`useTrip` → `assembleTripApp` — it just no longer filters. `matched` / `batchMatched` survive as a
+**data-quality signal only**: `batchMatched: false` means the sheet lists this section against no
+batch, and the console warning says so without claiming a fallback happened.
+
+Restoring per-batch narrowing means re-introducing the filter at that one seam. Do not — the label
+correctness fix of 2026-08-17 below is only load-bearing *because* filtering existed; keep labelling
+over `all` regardless, since `all` is the group that carries batch position.
+
+Verified 2026-08-19 in the browser on the local Grade 7 fixture, signed in as a real **Acuity**
+parent (a Batch 1 section, which previously hid Batch 2): Overview shows both cards — "Batch 1 /
+12-19 December 2026 / Section: Acuity, Cognizance, Idea & Perspicacity" and "Batch 2 / 13-20 December
+2026 / Section: Acumen, Insight, Envisage, Vision"; Travel details shows both blocks with both trains;
+Orientation shows **B1 B2** under each of parent and student. Console clean, `vite build` clean.
 
 **Trip content is grade-common by design** — every Grade 4 family sees the same itinerary and
 the same photos. The child's **name is the only personal value on either screen**
@@ -1887,6 +2201,273 @@ Raised in `docs/DATA-HANDOVER.md`; none answered yet. Do not assume any of these
 - `legacy/trip-explorer.html` is frozen reference. Do not edit it.
 
 ## Changelog
+- 2026-08-19 (twenty-sixth pass, same day) — **"reload project dont show": the Student list tab was
+  absent because dev was not reading the live sheet.** The code was correct; `csvUrls.trips` in
+  `config.local.json` pointed at the curated 13-column fixture, which has no `Student List (link)`
+  column, so nothing could render. Confirmed by fetching the published CSV directly: the live sheet
+  now has 15 columns including `Student List (link)` at position 8 (plus new `Grade Photo` and
+  `Hero Section Photo`, which nothing reads yet). Dropped `trips` from `csvUrls` so local dev reads
+  the live published workbook, and the tab appeared with the school's REAL links — and usefully, the
+  two batches point at different gids of one spreadsheet (`gid=0` and `gid=1780253530`), confirming
+  the per-batch scoping was the right call. Only g7 has the cell filled; other grades correctly show
+  no tab. Recorded the `csvUrls.trips` trap in the data-layer notes: check it first when a fresh sheet
+  edit does not appear locally.
+- 2026-08-19 (twenty-fifth pass, same day) — **New "Student list" tab after Itinerary** ("take list
+  links in the sheet of trip app main sheet"). `BATCH_LINK_COLUMNS` gained a `Student list` entry with
+  six header aliases, since the column is not in the workbook yet — batch-scoped, because a list is a
+  batch's travelling group. The tab renders `ItineraryCards` with `kind`/`action` parameterised rather
+  than a second near-identical component. Verified by temporarily adding a synthetic
+  `Student List (link)` column to the gitignored fixture (**restored afterwards, confirmed back to 13
+  columns**): the tab appeared in the right position with correct batch/dates/sections/hrefs, the
+  Itinerary tab kept its own wording, and removing the column made the tab vanish — no empty tab is
+  ever published. Flagged to the school that this is the first parent-facing route to a class list and
+  that the consent/sharing call is theirs; the no-roster rule still holds for anything the app renders.
+- 2026-08-19 (twenty-fourth pass, same day) — **The itinerary row was redesigned as filled cards, and
+  the Drive cover image was abandoned** ("like itinary box fill colour show itnary somthing redesign
+  this page"). The school's screenshot settled the open question from the previous pass: the thumbnail
+  does not load in a real browser either, so `drive.google.com/thumbnail` is unusable for files that
+  are not shared "anyone with the link" — the `cover` prop was **deleted** from `DocCard` rather than
+  kept behind a flag, and `.orient-box.is-cover`, `itineraryLabel` and `stripBatchSuffix` went with it.
+  New `ItineraryCards` + `.itin-card`: a navy panel per batch with an amber `B1`/`B2` pill, the batch's
+  dates as a Fraunces heading, its section list, and an "Open the day-by-day plan ↗" line pinned by
+  `margin-top: auto`. All of it comes from `trip.batches`, already in memory for Overview, so the row
+  cannot render empty. Measured 1280x720: 589x175 cards, 20px gap, both actions at the same y, **0
+  images and 0 iframes**; 1920x900 899x181; 375x812 stacked, dates clamping 27 → 20px. Orientation
+  re-checked after the `DocCard` edit — unchanged at 765px boxes, 282x159 frames, 4 live iframes.
+  Clean console, clean build.
+- 2026-08-19 (twenty-third pass, same day) — **Itinerary labels became "B1- Itinerary" and the
+  guideline columns' own type grew.** New `itineraryLabel()` joins batch and name into one string with
+  the dash the school typed, which meant dropping `batchTag` from those cards — a pill cannot carry a
+  hyphen that joins it to the following word — so Itinerary and Orientation now differ deliberately:
+  chip on one, prefixed label on the other. Verified 0 `.doc-batch` chips in the itinerary box and
+  labels reading exactly "B1- Itinerary" / "B2- Itinerary" at 1280x720 and 375x812.
+  For "Safety and do/ dont - increase font size": `.chip-head h4` 15 → 19px, `.chip-count` 12 → 13px,
+  `.chip-lines` and its `li` 14 → 16px; heads confirmed still fitting with 0 overflow on a 375px phone.
+  **Stated plainly to the school and recorded above: both those columns render a published Slides deck
+  in an iframe on g7, so the body text they can see is inside Google's document and cannot be resized
+  from here** — only the headings, the count pill and the text fallback responded. Clean console, build.
+- 2026-08-19 (twenty-second pass, same day) — **"Parent orientation" and "Student orientation" are now
+  full section headings** ("show this text bold font same in oritation do for parent oritation and
+  student oritation", with a screenshot of a serif "Orientation" head and its amber rule).
+  `.orient-group > h4` dropped the 13px/800 uppercase caption for the display treatment: Fraunces at
+  `--display-weight`, `clamp(25px, min(2.5vw, 4.2vh), 38px)`, sentence case, and a 44x3 `--amber`
+  `::after` rule (10px above, centred on the stage). Confirmed byte-identical to a live `.section h3`
+  on the Travel details tab — same family, 600, 30.24px, `none`, -0.3024px, `rgb(15,23,42)`, and the
+  same rule geometry and colour. Clamp checked at three sizes: 25px on a 375px phone (one line, no
+  overflow), 30.24px at 1280x720, 37.8px at 1920x900; heading-to-box gap holds at 14px. Clean console,
+  clean build.
+- 2026-08-19 (twenty-first pass, same day) — **The itinerary cover became a wide strip** ("decrease
+  height and increase width"). Introduced `--orient-ar`, the frame ratio as a plain number, replacing a
+  literal `16 / 9` that had been repeated in the frame's `aspect-ratio`, the frame's width and the
+  box's width — three formulas that had to agree. `.orient-box.is-cover` now sets `--orient-ar: 2.6`
+  (matching `tripCardPhotos`' 2.6:1 grade-card strips) with the height budget down again to
+  `clamp(90px, 100dvh - 680px, 130px)`. Measured: frames 300x169 → **336x129** at 1920x900 and
+  194x109 → **232x89** at 1280x720, boxes 784x335 → 856x295 and 571x275 → 648x255 — wider and shorter
+  on both counts. Fallback checked: `var(--orient-ar, 1.7778)` leaves every preview outside an orient
+  box at 16:9, and Orientation still measures 282x159 with four live iframes. Things to carry (slide
+  previews, no `.doc-preview`) unaffected. Zero overflow at three sizes, clean console and build.
+- 2026-08-19 (twentieth pass, same day) — **The itinerary links dropped the live embed for a cover
+  image, and shrank** ("decrease the size dont show preview only show the like cover or image to take
+  internet"). New `cover` prop on `DocCard` keeps `preview`'s 16:9 frame but skips the
+  `preview && embed` branch, so the frame holds Drive's `thumbnail?id=…&sz=w1000` and the card is an
+  `<a>` again. `.orient-box.is-cover` overrides only the two sizing variables (`--orient-h` cap 270 →
+  170 with `- 640px`, gap 48 → 32), leaving the width formula and chrome shared with Orientation.
+  Measured: **0 iframes** in the itinerary box at every size; box 784x335 with 300x169 frames at
+  1920x900, 571x275 with 194x109 at 1280x720, 335px with 237x133 on the phone; 32px doc gap, 22px
+  sides. **NOT verifiable in this environment:** `drive.google.com/thumbnail` errors in the preview
+  pane (a same-origin control image loaded, so it is the host, not the code — the same block recorded
+  on 2026-08-17), so the icon fallback is what renders here. The URL was confirmed correctly derived
+  from the doc id. Needs one look in a real browser, and the file must be shared "anyone with the
+  link" or it will 403 to the icon in production too. Orientation still uses live embeds — the school
+  changed only the itinerary.
+- 2026-08-19 (nineteenth pass, same day) — **The Itinerary batch links got Orientation's box** ("make
+  size big ang give image or colour show cearlly"). They were `compact` DocCards with no medium at all,
+  so B1's and B2's itineraries were indistinguishable; now they are `preview` + `eager` + `batchTag`
+  cards inside a reused `.orient-box`, so the tint and 2px border supply the colour, the live document
+  iframe supplies the image, and the sizing comes from the same `--orient-h` / `--orient-gap` variables
+  as Orientation instead of a parallel set. New `stripBatchSuffix` removes the generated "— Batch N"
+  from the label now that the chip carries it. Dead `.itin-top` / `.itin-docs` rules deleted along with
+  `.is-stage .itin-top` — no JSX referenced them after the move. Guideline columns below still intact, zero horizontal
+  overflow. Clean console, clean build.
+- 2026-08-19 (eighteenth pass, same day) — **Bigger boxes, with the extra width going into the gap
+  between the two decks** ("increase the size of the box and maintian the gap in docs that side area
+  cover"). `--orient-h` cap 240 → 270 and a new `--orient-gap` 20 → 48px, and the box's derived width
+  now reads that gap instead of a hard-coded 20 — `min(100%, calc(var(--orient-h) * 32 / 9 +
+  var(--orient-gap) + 148px))` — so the two tunable numbers are variables and only the padding
+  constant is a literal. `.orient-row` reads `gap: var(--orient-gap, 20px)`, the fallback covering
+  rows outside a box (the itinerary's card, verified still at 20px). Measured at 1920x900: box 1021 →
+  1156px, doc gap 20 → 48px, frames 425x239 → 478x269, sides still 22px. 1280x720 is budget-bound so
+  its frames stay 282x159 and only the box grows, 737 → 765px. Phone unchanged. Clean console, build.
+- 2026-08-19 (seventeenth pass, same day) — **The orientation boxes now hug their cards** ("side have
+  many margin", with the two empty ends circled). The box ran the full column while its two cards
+  needed 978px of 1395, so ~208px sat empty inside each end. `width: fit-content` was the obvious fix
+  and was wrong: fit-content sizes a shrinkable flex item from its max-content rather than its
+  `flex-basis`, so the cards fell 479 → 356px and the frames 425 → 302px — it hugged by shrinking the
+  previews, which is not what was asked. Sized from the frame's own variable instead —
+  `min(100%, calc(var(--orient-h) * 32 / 9 + 168px))` — which required moving `--orient-h` from the
+  card up to `.orient-box`, since a child's custom property is invisible to its parent. Measured:
+  1920x900 box 1021px with 22px inside each end and frames held at 425x239; 1280x720 box 737px, frames
+  282x159; 375x812 box full-width 339px, frame 241px. Box centred on the heading's axis at every size,
+  zero horizontal overflow. Clean console, clean build.
+- 2026-08-19 (sixteenth pass, same day) — **The Orientation tab read as zoomed in on a large screen,
+  and its top margins were too tight** (school screenshot at ~1859x895). Two separate causes.
+  (1) `--orient-h`'s CAP is the only number a big monitor sees: the budget resolved to 335px there so
+  the 320px cap put frames at 567x319, where 1280x720 was still bound by the budget at 160px. Cap
+  320 → 240 gives 425x239 on the big screen and leaves 1280x720 at 282x159, untouched. (2) With the
+  section head removed two passes earlier, the first group heading was the panel's first line sitting
+  16px under the sticky nav; `.orient-groups { margin-top: 14px }` takes it to 30px, and the
+  heading-to-box gap went 10 → 14px in both the base and `.is-stage` rules. Verified at 1859x895,
+  1280x720 and 375x812 — margins 30/14/34 at all three, frames 425x239 / 282x159 / 241x136, exact
+  16:9 everywhere, zero horizontal overflow. Clean console, clean build.
+- 2026-08-19 (fifteenth pass, same day) — **The group headings moved outside the box, the gap between
+  the groups grew, and the boxes shrank** ("parent oritation and student heading both outside the box
+  please make box gap and decrease the size of the boxes"). New `.orient-box` wrapper in
+  `OrientationSection` holds the border, fill, shadow and padding; `.orient-group` is now purely the
+  stack of `h4` + box with a 10px gap, and `.is-stage .orient-group { gap }` changed meaning from
+  heading-to-cards to heading-to-box. Box padding 24/26 → 18/20, group gap 24 → 34px, and `--orient-h`
+  from `clamp(150px, 100dvh - 470px, 460px)` to `clamp(140px, 100dvh - 560px, 320px)` — the stacking
+  pass had overshot at 442x249. Verified at 1280x720: headings confirmed outside their box by DOM
+  containment, 10px above it, 34px between groups, frames 282x159 at exactly 16:9, boxes 325/349px
+  tall (was 461), page scroll down to 220px from 400. At 375x812: same structure, 241x136 frames, zero
+  overflow. Clean console, clean build.
+- 2026-08-19 (fourteenth pass, same day) — **Parent and Student orientation now stack, one full-width
+  box per row** ("box size increase"). Diagnosed first: the previews were not limited by the
+  `--orient-h` height budget at all but by their card's width — four frames across one row, less two
+  group gutters and two lots of box and card padding, left them 209x117px. `.orient-groups` went from
+  `repeat(auto-fit, minmax(280px, 1fr))` to `1fr`, and each frame now takes the full budget: **442x249
+  at 1280x720, exactly 16:9, 2.1x linear and ~4.5x the area**. The cost is the tab scrolling ~400px
+  instead of fitting one screen, which the school chose knowingly when offered the alternative (a
+  padding trim inside the side-by-side layout, worth only ~30px). Phone: 229x129 frames, groups
+  full-width, zero overflow. **Open risk carried forward:** the 2026-08-17 reason for side-by-side —
+  a one-batch grade leaving ~350px of empty box — applies again, and only g7 (two batches) exists in
+  the local fixture, so this is unverified for g9/g11-style single-batch grades.
+- 2026-08-19 (thirteenth pass, same day) — **The B1/B2 chip stopped covering the deck preview.**
+  `.doc-batch` was absolutely positioned at the card's top-right, which put it on top of the live
+  Slides frame — the school saw the batch code printed over their first slide and asked for the label
+  line instead: "[B1] Students Orientation details". It is now the first inline element inside
+  `.doc-label` (`display: inline-block; vertical-align: 2px; margin-right: 8px`), so it sits in the
+  text flow and can cover nothing. A flex-sibling version was written and rejected first: it cost the
+  label ~42px of column on every line and the identical text wrapped to 3 lines in one card and 2 in
+  its neighbour. Inline, all four labels measure 207px over 2 lines. Verified no chip overlaps its
+  frame at 1280x720 or 375x812, Itinerary's chip-less cards unchanged, zero overflow, clean console
+  and build.
+- 2026-08-19 (twelfth pass, same day) — **The orientation boxes were opened up** ("increase margin in
+  box and orientation docs"): box padding 16/18 → 24/26px, heading-to-cards gap 10 → 16px, gap between
+  the B1 and B2 cards 14 → 20px, gutter between the two groups 18 → 24px, and the stacked
+  `margin-top` 18 → 22px. The stage's `gap: 8px` density override was lifted to 16px so it stops
+  fighting the base. With the border now 2px, the old padding framed the cards instead of containing
+  them, and the card gap had to beat the box's own padding or B1 and B2 read as one block. Verified at
+  1280x720: 24/26 padding, 16px under the heading, 20px between cards, 24px gutter, boxes equal at
+  30-628 and 652-1250 and 352px tall; 375x812 stacked full-width 24px apart; zero overflow at both.
+- 2026-08-19 (eleventh pass, same day) — **The orientation group boxes were strengthened** ("border
+  and box more highlight show more difference"). Measuring first showed why the previous pass read as
+  nothing: `--wash` behind the group is 1.044:1 against the page and the white cards on it 1.081:1, so
+  the fill was doing no work at any tint the kit offers. Switched the load to the border — `2px solid
+  #b4bdda` at 1.806:1 against the page, up from a `--line-2` hairline at 1.07:1 — kept `--link-bg` as
+  a ground for the white cards, and added `--shadow-hero` for when the two boxes stack on a phone with
+  no gutter between them. 2px because a 1.5px border computed back as `1px`, rounded away at DPR 1.
+  Verified: 2px `rgb(180,189,218)` both boxes, equal at 30-631 and 649-1250, 335px tall; 375x812
+  stacked full-width 18px apart; zero overflow at both. Clean console, clean build.
+- 2026-08-19 (tenth pass, same day) — **Parent and Student orientation each sit in their own
+  outlined box** ("like minor border box to show difference"). `.orient-group` took `1px var(--rule)`,
+  18px radius and 16/18px padding, deliberately with no background: the cards inside are white
+  panels, so a fill would nest a box in a box, and `--rule` sits one step lighter than those cards so
+  the frame reads as a grouping rather than another card. Verified at 1280x720 — two equal boxes,
+  30-631 and 649-1250, 333px tall, 18px gutter — and at 375x812 stacked full-width, 18px apart, zero
+  overflow at both. Clean console, clean build.
+- 2026-08-19 (ninth pass, same day) — **The Orientation tab lost its head and gained fixed card
+  labels.** The school's note: remove "Before the trip" and "Orientation", bold the two group labels,
+  and label the cards "B1- Parents Orientation details" and so on. So `<Section id="orientation">`
+  now takes no `eyebrow` or `title` (the tab already says the word — it was appearing three times on
+  one screen), `.orient-group > h4` went 700/`--soft`/12.5px → 800/`--ink`/13px since those labels are
+  now the only headings on the tab, and a new `ORIENTATION_LABELS` map overrides `d.label` per
+  category, with the existing `batchTag` chip supplying the `B1`/`B2` half. That deliberately reverses
+  the 2026-08-17 "use the sheet's own chip name" rule **for this section only**, so a file renamed in
+  Drive can no longer change the page's wording. `titled: true` was left in place on purpose.
+  Verified on g7: four cards reading B1/B2 + Parents/Students Orientation details, no `.section-head`
+  in the panel, headings computed at 800 `rgb(15,23,42)`, zero overflow at 1280x720 and 375x812.
+- 2026-08-19 (eighth pass, same day) — **The Overview paragraph is justified on a wide window and
+  left-aligned on a phone** (*"text align starting and ending point same line make same"*, with a
+  screenshot of the centred version where every line had its own start and end). `.home-body-text`
+  takes `text-align: justify` in every layout, and `.is-stage` adds `text-align-last: center` so each
+  paragraph's unstretchable final line sits under the centred lead rather than hanging off an edge —
+  `white-space: pre-wrap` means the line before the sheet's blank line counts as a last line too,
+  which is what keeps the two paragraphs reading as two.
+  **Justification comes off below 720px, because it measured badly.** Word gaps in the same
+  paragraph, natural space 2.7px: at 375x812 justify stretched it to a median of 13.5px and a worst
+  case of 17.9px (5x and 6.6x — rivers); at 1280x720 it needs only 4.6px median, 9.5px worst (1.7x).
+  A ~339px measure has too few gaps to absorb the slack, so the phone keeps the left edge and gives
+  up the right. Verified: 1280x720 four flush lines all 320→945 with the two final lines centred;
+  375x812 every line starting at 18 with all gaps back to 2.7px, zero overflow at both.
+- 2026-08-19 (seventh pass, same day) — **The school rewrote the login copy again**, and the
+  privacy promise they had deleted one pass earlier came back as the second sentence of the first
+  panel ("You will only have access to the trip details relevant to your child's grade"). Both rules
+  gained a credential clause, and "school's email id" arrived — their phrase, kept. Added a terminal
+  full stop to all three, which their draft omitted; noted as the one liberty taken. The longer copy
+  spent the ~45px of slack the previous two passes had freed and ran 8px past a 1280x720 window, so
+  `.login-form` 24→20 and `.auth-card` 26→22 in the `max-height: 820px` block bought 12px back —
+  card 38-710 in 720, `scrollHeight === innerHeight`. Hanging-dash alignment still holds at one line
+  start (767 at 1280, 84 at 375, 8 wrapped rule lines on the phone), zero overflow either way.
+- 2026-08-19 (sixth pass, same day) — **"You will only see the trip details for your own child's
+  grade" was removed from the login card** at the school's request. The heading now runs straight into
+  the instruction panel, with `.auth-card h2` carrying the whole 22px gap; the `.auth-card .lede` base
+  rule and its `max-height: 820px` trim went with it (`.lede` survives for `.dash-head` on the
+  picker). Login is down to heading → instruction → rules → field → Continue → policy line. Verified:
+  no `.auth-card .lede` in the DOM, 22px heading-to-panel gap at both 1280x720 and 375x812, zero
+  overflow either way. It also freed ~50px, so the card sits 74-674 in a 720 window — the height
+  budget has real slack again for the first time. Clean console, clean build.
+- 2026-08-19 (fifth pass, same day) — **The grade rules were laid out as a ragged two-column table
+  and are now left-aligned paragraphs** (*"text align left side"*, with a screenshot). `.field-note >
+  li` was `display: flex`, and since each `li` holds a `<strong>` label plus a bare text node, flex
+  made them two columns — "Grade 7 onwards:" wraps inside its own column, so the body text of the two
+  items started at different x positions. Replaced with a hanging dash: `position: relative` +
+  `padding-left: 16px` on the `li` and the `::before` absolutely placed in that gutter, leaving the
+  label and sentence as ordinary inline flow. Measured every line box in the panel starting at one x
+  (778 at 1280x720, 84 at 375x812), dash hanging 16px left, zero horizontal overflow at both. The
+  panel also lost a wrapped line (128 → 109px), so the card now sits 49-699 in a 720 window with
+  ~19px of budget back. Clean console, clean build.
+- 2026-08-19 (fourth pass, same day) — **Both login panels moved ABOVE the field**, the school
+  settling the layout by drawing it: instruction → rules → label → input → Continue. So the reader
+  finishes reading before typing instead of finding a rule under their hands afterwards, and the two
+  matched panels are adjacent, which is what makes them one instruction rather than two. In the JSX
+  the `.field-note` list simply moved ahead of `.field`; in CSS its `-2px` top margin (which existed
+  to tuck it under the input) went, and the margins became 14px between the panels and 18px before
+  the label. That put the card 2px past a 1280x720 window, so `.field-note { margin-bottom: 14px }`
+  joined the `max-height: 820px` trims — five now. Verified: DOM order lede@237 → note@310 →
+  label@456 → input@479 → Continue@546, card 39-709 in 720, `scrollHeight === innerHeight`, and at
+  375x812 the same order with zero horizontal overflow. Clean console, clean build.
+- 2026-08-19 (third pass, same day) — **The two login blocks were given the SAME panel style**
+  (*"keep text one side upper and lower to text field"*), correcting the pass below, which made the
+  upper half plain text on the reasoning that two tinted boxes around one input would read as two
+  warnings. The school's reading wins: matched, they read as one instruction the field sits inside.
+  `.field-lede, .field-note` is now one rule for tint, border, radius, size and leading, with only
+  the margins separate. The ~24px of new padding and border took the card 38px past a 1280x720
+  window, so the `max-height: 820px` trims were retuned (`.login-form` 32→24, `.auth-card` 32→26,
+  `.lede` 22→14, `.field-lede` 14→10) — 40px back, chrome only, the verbatim copy untouched.
+  Verified: both panels identical (`rgb(244,246,252)`, 1px `rgb(233,236,243)`, 14px radius,
+  12.5px/19.375px), card 39-709 in 720, `scrollHeight === innerHeight`, and at 375x812
+  `scrollWidth - innerWidth` is 0 with both panels 269px wide. Clean console, clean build.
+- 2026-08-19 (second pass, same day) — **The login instruction now brackets the sign-in field**
+  (*"make upper and lower of signing field this text"*). The school restated its 2026-08-17 copy, so
+  the wording is unchanged; only the placement moved. "Parents should sign in using the email address
+  or mobile number registered with the school" left the card's top `.lede` for a new `.field-lede`
+  directly above the input, and the two grade rules stayed in `.field-note` below it — what to type,
+  then who may type it, read top to bottom. `.field-lede` is plain muted text rather than a second
+  tinted panel, because two panels around one input read as two warnings. The `.lede` kept the
+  privacy line by itself. Verified in the browser: order is lede → sentence → field → two rules →
+  Continue; at 375x812 `scrollWidth - innerWidth` is 0 and every block measures 269px wide with the
+  sentence at y 806-871 and the input at 908; clean console, clean build.
+- 2026-08-19 — **The trip page shows every batch to everyone.** The school's reason is churn, not
+  layout: *"some student in future change trip batch thats why i decide show all batch"* — a page
+  filtered to the batch the sheet lists a child's section against goes stale the moment a student
+  moves, and shows them the wrong train with full confidence. `assembleTripApp` dropped `mine`
+  entirely; `batches`, `travel`, `media` and the per-batch document columns read `all`, which is
+  exactly what staff already saw, so parent, student and staff now read the same third screen.
+  Login and the grade/child picker were left alone on instruction. `section` still flows all the way
+  in and `matched` / `batchMatched` still compute — as a **sheet-data signal only** now, and the
+  console warning was reworded so it no longer claims a fallback. Verified in the browser as a real
+  Acuity parent (Batch 1, previously blind to Batch 2): both Overview batch cards with their own
+  section lists, both travel blocks, **B1 B2** on both orientation rows; clean console, clean build.
 - 2026-08-17 (twentieth pass, same day) — **Orientation decks now preview live in a big 16:9 box**
   ("make box big like fix screen preview in box like ppt docs or slde prviw all things fit on screen"),
   reversing the 2026-08-14 `compact` cards. New `describeDoc().embed` (`/embed` for Slides, `/preview`
@@ -2493,4 +3074,8 @@ Raised in `docs/DATA-HANDOVER.md`; none answered yet. Do not assume any of these
   and loose header/grade/phone parsing. Fixed a mock-adapter key-normalization bug that
   broke login. Verified the full flow in-browser. **Superseded the prototype's "one file,
   zero dependencies" rule**, which the user explicitly overrode.
+- 2026-08-18 — Photographs moved to Drive-hosted: `tripPhoto.js` rewrites any Drive share link to the
+  thumbnail endpoint at the width each surface renders (banner 1600, card 1200), non-Drive URLs pass
+  through. Driven by Netlify's credit billing, where bandwidth at 20 credits/GB makes the free plan a
+  ~15 GB/month budget. Recorded that a cross-origin photo breaks the canvas contrast measurement.
 - 2026-08-07 — Created skill from the single-file Trip Explorer artifact.
