@@ -1186,9 +1186,26 @@ export function splitTravelLine(raw) {
   return { label: m[1], rest: line.slice(m[0].length) }
 }
 
+/**
+ * Drops a leading "Batch 1" / "Batch 2:" line from a travel cell.
+ *
+ * The school types the batch as the first line of the prose, and the card already shows
+ * it as a pill immediately above it — so it printed twice, "Batch 1" under "Batch 1"
+ * (their screenshot, 2026-08-19). The PILL is the one that survives, because `batchLabels`
+ * corrects it by position when the sheet repeats a name, while this line is raw text and
+ * cannot be corrected. Same reasoning as `stripBatchPrefix` on the Overview headlines.
+ *
+ * Only a line that is JUST the batch goes. "Batch 1 - 12 Dec" keeps its detail, and a cell
+ * that never names its batch is untouched.
+ */
+function dropBatchHeading(lines) {
+  const first = (lines[0] || '').trim()
+  return /^batch\s*\d+\s*:?$/i.test(first) ? lines.slice(1) : lines
+}
+
 /** The notes with each label emboldened, blank lines and all. */
 function TravelNotes({ text, className }) {
-  const lines = String(text || '').split('\n')
+  const lines = dropBatchHeading(String(text || '').split('\n'))
 
   return (
     <p className={className}>

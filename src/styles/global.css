@@ -1225,9 +1225,13 @@ ul.plain li::before { content: '•'; flex: none; font-weight: 800; color: var(-
 .travel-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(340px, 100%), 1fr)); gap: 22px; }
 .travel-card { background: var(--card); border: 1px solid var(--line); border-radius: var(--r-detail); padding: 30px; }
 .travel-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
+/* Bigger and bolder on the school's instruction (2026-08-19, "batch 1 and batch 2 size
+   incrase and make bold or centere"): 12 → 16px, 800 → 900, and a roomier pill to hold it.
+   It is the card's title now, not a tag on the corner of one — this tab has no heading of
+   its own per batch, so "Batch 2" is the only thing telling the two cards apart. */
 .travel-top .label {
-  padding: 6px 13px; border-radius: var(--r-pill); background: var(--warm); color: var(--navy);
-  font-size: 12px; font-weight: 800;
+  padding: 8px 18px; border-radius: var(--r-pill); background: var(--warm); color: var(--navy);
+  font-size: 16px; font-weight: 900; letter-spacing: -0.005em;
 }
 .travel-top .train { font-size: 13px; font-weight: 700; color: var(--muted); }
 .travel-route { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; }
@@ -1576,13 +1580,22 @@ ul.plain li::before { content: '•'; flex: none; font-weight: 800; color: var(-
    (two tracks of 599 for a pair), and `width: 100%` + `max-width` + auto margins
    hold a lone card to 720 in the middle of the row it was handed. The album grid
    has no such pair to protect, so a capped track is the simpler answer there. */
+/* The CARD is centred in its track; its CONTENTS are not. Left-aligned on the school's
+   instruction (2026-08-19, "left align details"), and right for this tab specifically:
+   these are labelled facts — Departure, Train, Arrival — and centring gives every label a
+   different left edge, so the eye cannot run down the list. The guideline lists already take
+   the same exception from this layout's centre line. */
 .is-stage .travel-card {
   width: 100%; max-width: 720px; margin-inline: auto;
-  border-radius: 26px; text-align: center;
+  border-radius: 26px; text-align: left;
 }
 .is-stage .doc-grid {
   grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 420px)); justify-content: center;
 }
+/* The pill is CENTRED over the card while the facts under it stay left-aligned — the
+   school asked for both in consecutive passes and the two do not fight: the pill is the
+   card's title, and Departure/Train/Arrival are a column of labelled facts that has to run
+   off one left edge. `.travel-top` is its own flex row, so centring it moves the pill only. */
 .is-stage .travel-top { justify-content: center; }
 .is-stage .travel-route { text-align: left; }
 .is-stage .comm, .is-stage .reminder-list { text-align: center; }
