@@ -2344,6 +2344,21 @@ Raised in `docs/DATA-HANDOVER.md`; none answered yet. Do not assume any of these
 - `legacy/trip-explorer.html` is frozen reference. Do not edit it.
 
 ## Changelog
+- 2026-08-20 — **Pushed and live: `7958071`.** The Photos collage (grid mosaic, perspective stage,
+  staggered entrance, pointer tilt, glare, scroll reveal, ambient drift, all off under
+  `prefers-reduced-motion`), the "Trip Memories" album card on the grade's photograph, the
+  `imageUrl` rewrite in `PhotoTile`, the removed duplicate photo, and the travel-card work (centred
+  16px/900 pill over a centred left-aligned fact block, `dropBatchHeading`, derived leg gap, shared
+  highlighted-box rule). Pre-push scan: 0 emails, 0 phone-shaped numbers, 0 keys or roster URLs in
+  the diff; `.env`, `config.local.json` and `local-roster/` all still ignored.
+  **`public/collage-demo.html` was deliberately left UNTRACKED** rather than committed — it is a
+  stock-photo demo, and there is no reason for it in a public repo when `LOCAL_ONLY` already keeps it
+  out of every build. It stays available locally at `/collage-demo.html`.
+  Verified in production by matching the served bundle hash to the local build
+  (`index-Bo34XYkT.js`), confirming "Trip Memories", "photo-collage", "album-card" and "Student list"
+  all appear in the deployed JS, that `/collage-demo.html` serves the SPA shell with **zero** picsum
+  references, and that `/config.local.json`, `/local-roster/students.csv` and `/.env` all answer with
+  the SPA index — **bodies read, not status codes**.
 - 2026-08-20 (thirty-first pass) — **Railway login is live and verified, and a remote-crash bug
   was caught before it shipped.** Reviewing the previous pass's `server.js` found
   `decodeURIComponent` unguarded: `GET /%` killed the process (reproduced — the liveness recheck
