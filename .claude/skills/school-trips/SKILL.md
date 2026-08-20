@@ -2051,6 +2051,55 @@ Verified against production: a real parent email returns 200 with exactly
 address returns 404, and the browser flow reaches the child card. **Env changes need a redeploy
 to take effect** — setting the variable alone does nothing to a running site.
 
+## Railway — the second host, and why it needed a server
+The repo auto-deploys to **two** public URLs from the same `main`:
+
+| Host | URL | Serves |
+|---|---|---|
+| Netlify | `fountainheadschooltrips.netlify.app` | `dist` + `netlify/functions/lookup.js` |
+| Railway | `schooltrips-production.up.railway.app` | `dist` + `server.js` (since 2026-08-20) |
+
+**The failure that made `server.js` necessary.** Railway's builder detected a Vite SPA
+(`vite` / `spa=true`) and served `dist` with **Caddy, a static file server**. Caddy answered
+`POST /api/lookup` with **405 Method Not Allowed, `Allow: GET, HEAD`** — there was no process
+that could run the lookup. Trip pages loaded fine; **nobody could sign in**. Netlify was never
+affected.
+
+The two failures are host-shaped and must not be confused:
+
+| On `/api/lookup` | Means |
+|---|---|
+| `405 Allow: GET, HEAD` | Caddy is serving — there is no Node process at all |
+| `502` "Could not reach the school roster right now." | Node is serving, but `ROSTER_CSV_URL` is unset |
+
+**The fix.** `server.js` in the project root — one `node:http` process that serves the built
+SPA and `POST /api/lookup`. It **imports `resolveParent` from `netlify/functions/lookup.js`**
+rather than restating the roster matching, grade gate, admin list or the minimal reply shape,
+so the two hosts cannot drift. This is exactly the portability that module's header promised.
+It is **dependency-free** — no Express, no lockfile change; the routing is three cases
+(`/api/lookup`, other `/api/*` → JSON 404, everything else → static file or SPA fallback).
+
+`railway.json` pins `buildCommand: npm run build` and `startCommand: npm start`, and
+`package.json` gained `"start": "node server.js"`. **Both are needed** — the pin is what stops
+SPA detection falling back to Caddy a second time.
+
+**Do not add `engines.node`** to `package.json` to satisfy Railway. Netlify reads that field
+too, and a range there can move the Netlify build's Node version — risking the working host to
+help the broken one. Railway's default Node is recent enough; `server.js` uses nothing newer
+than `node:fs/promises`.
+
+**Netlify ignores `server.js` and `railway.json` entirely** — its build runs `npm run build`
+and publishes `dist`. Pushing them is safe, and this was re-verified after the push.
+
+**`railway up` does not stick.** Railway deploys from GitHub, so a CLI upload is overwritten by
+the next commit — that is how a working fix was silently lost once. Anything that must survive
+has to be **committed and pushed**, not uploaded.
+
+**Railway needs its own environment variables.** `ROSTER_CSV_URL` and `ADMIN_EMAILS` are
+per-host; setting them on Netlify does nothing for Railway. Until they are set on the Railway
+service, login there returns 502. *(unconfirmed — the CLI on this machine is logged out,
+`~/.railway` holds only `version.json`. Check the dashboard, or `npx @railway/cli login`.)*
+
 ## The real roster feed — needs a backend, cannot be used from the browser
 The school publishes its roster at `.../CSVDATA/StudentData.csv` (an HTTP IP that 302s to an
 HTTPS host). Checked 2026-08-11; only row 1 was fetched, never the records.
@@ -2201,6 +2250,18 @@ Raised in `docs/DATA-HANDOVER.md`; none answered yet. Do not assume any of these
 - `legacy/trip-explorer.html` is frozen reference. Do not edit it.
 
 ## Changelog
+- 2026-08-20 (thirtieth pass) — **Railway can now run the login.** Asked to "devlop on the
+  railway". Railway was serving `dist` with Caddy, so `POST /api/lookup` returned 405 and no
+  parent or student could sign in on that URL. Added a dependency-free `server.js` (node:http)
+  serving the SPA and the lookup, importing `resolveParent` from the Netlify function so both
+  hosts share one implementation, plus `railway.json` pinning build/start and a `start` script.
+  Verified locally against the real roster fixture: static 200, SPA deep route 200, hashed
+  assets `immutable`, admin 200, malformed 400, GET 405, unknown-on-roster **404 — not 502,
+  proving the roster actually loaded and matched** — and an encoded path traversal 400. Dropped
+  an `engines.node` field before pushing, because Netlify reads it too. Pushed as `7566ee5`;
+  **Netlify re-verified healthy**. Railway had not picked the commit up ~12 min later — still
+  the old bundle `index-C9oF_N31.js`, still 405 — so **the Railway deploy is unconfirmed**, and
+  its `ROSTER_CSV_URL` / `ADMIN_EMAILS` are unchecked (CLI logged out).
 - 2026-08-19 (twenty-seventh pass, same day) — **Pushed and live.** `87dbd6e` on `main` carried the
   whole session: every-batch trip pages, the rewritten login copy bracketing the field, the
   Orientation redesign (no head, display headings, boxed groups, chip in the label flow), the filled
