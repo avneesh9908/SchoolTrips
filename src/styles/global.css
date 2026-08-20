@@ -661,8 +661,6 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible {
   --orient-ar: 1.7778;
 
   padding: 18px 20px; border-radius: 18px;
-  background: var(--link-bg); border: 2px solid #b4bdda;
-  box-shadow: var(--shadow-hero);
 
   /* The box HUGS its two cards rather than running the full column. Full width it held
      978px of cards in 1395px of inner space, leaving ~208px empty inside each end — the two
@@ -1120,6 +1118,48 @@ ul.plain.chip-lines { display: block; }
 
 /* Documents */
 .doc-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+
+/* ---------- the album card, on the trip's own photograph ----------
+   A Drive FOLDER has no thumbnail, so these cards were a folder glyph on white and the
+   Photos tab read as empty. The card now sits on the grade's own trip photograph — the same
+   file the Overview banner uses, so there is no extra request and no stock image standing in
+   for a picture of this trip.
+
+   `--album-photo` is set inline per card, and `.is-photo` is only added when a photograph
+   exists: with no file the card keeps its plain white form rather than showing a dark box
+   with nothing in it. Same rule the Overview banner follows.
+
+   The scrim is a gradient, not a flat wash: the label sits at the bottom of the card, so the
+   dark end belongs there and the top can stay open enough to read as a photograph. Without
+   it the ink-on-photo contrast is whatever the school's image happens to be. */
+.album-card { display: grid; border-radius: 22px; }
+.album-card.is-photo {
+  position: relative; overflow: hidden;
+  background-image: linear-gradient(180deg, rgba(12, 18, 44, 0.28) 0%, rgba(12, 18, 44, 0.82) 100%),
+    var(--album-photo);
+  background-size: cover, cover;
+  background-position: center, center;
+  box-shadow: var(--shadow-card);
+}
+/* The DocCard inside stops being a card: the album card is the surface now, so the inner one
+   drops its own fill, border and shadow and only keeps the layout and the hit area. */
+.album-card.is-photo > .doc-card {
+  background: none; border: none; box-shadow: none; color: #fff;
+  min-height: 190px; justify-content: flex-end; padding: 24px 26px;
+}
+.album-card.is-photo > .doc-card:hover { transform: none; border-color: transparent; }
+.album-card.is-photo:hover { transform: translateY(-3px); }
+.album-card.is-photo { transition: transform 0.28s cubic-bezier(0.2, 0.7, 0.3, 1); }
+.album-card.is-photo .doc-label { color: #fff; }
+/* `.doc-meta` carries `margin-top: auto` so a normal card pins its action line to the
+   bottom — but an auto margin beats the parent's `justify-content: flex-end`, so here it
+   split the pair: the title floated near the top of the photograph and "Photos ↗" sat 100px
+   below it. On a photo card the two belong together at the dark end of the scrim, so the
+   auto margin is cancelled and `flex-end` does the pinning. */
+.album-card.is-photo .doc-meta { color: rgba(255, 255, 255, 0.82); margin-top: 0; }
+/* The folder glyph is redundant once the card is a photograph, and a white tile on top of
+   one is the loudest thing on the tab. */
+.album-card.is-photo .doc-icon { display: none; }
 .doc-card {
   position: relative;
   display: flex; flex-direction: column; gap: 14px; background: var(--card);
@@ -1223,7 +1263,31 @@ ul.plain li::before { content: '•'; flex: none; font-weight: 800; color: var(-
 
 /* Travel */
 .travel-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(340px, 100%), 1fr)); gap: 22px; }
-.travel-card { background: var(--card); border: 1px solid var(--line); border-radius: var(--r-detail); padding: 30px; }
+.travel-card { border-radius: var(--r-detail); padding: 30px; }
+/* ---------- the HIGHLIGHTED BOX: one treatment, two users ----------
+   `.orient-box` (the Parent/Student deck groups) and `.travel-card` (a batch's travel
+   block) are the two places that have to read as a distinct container rather than as page.
+   The school asked for the travel cards to match ("boxes boder hightlist like other
+   previous like show differnce on cards", 2026-08-20), so the treatment lives in ONE rule
+   both share — a copy in each would drift the first time either is tuned. Only geometry
+   (padding, radius, width) stays on the individual rules.
+
+   **The BORDER carries this, not the fill** — measured, not guessed. Every light tint in
+   this kit sits within ~1.05:1 of the page (`--wash` on `--bg` is 1.044:1, a white card on
+   `--wash` 1.081:1), so a tinted panel is invisible at arm's length whichever token it
+   uses; the first two attempts at the orientation box failed exactly that way. A line can
+   be far darker than a fill without shouting: `#b4bdda` reads **1.806:1** against the page,
+   where the `--line-2` hairline it replaced managed 1.07:1. Reach for border darkness
+   before fill darkness on this palette.
+
+   2px, not 1.5 — `getComputedStyle` reported a 1.5px border back as `1px`, i.e. rounded
+   away at DPR 1, which is most of the school's screens. */
+.orient-box, .travel-card {
+  background: var(--link-bg);
+  border: 2px solid #b4bdda;
+  box-shadow: var(--shadow-hero);
+}
+
 .travel-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
 /* Bigger and bolder on the school's instruction (2026-08-19, "batch 1 and batch 2 size
    incrase and make bold or centere"): 12 → 16px, 800 → 900, and a roomier pill to hold it.
@@ -1304,6 +1368,174 @@ ul.plain li::before { content: '•'; flex: none; font-weight: 800; color: var(-
 .check-item.is-on .txt { color: var(--muted); }
 
 /* Photos — masonry */
+/* ---------- the collage ----------
+   A GRID mosaic, not the CSS-`columns` masonry it replaces (2026-08-20, "pic collage").
+   `columns` fills top-to-bottom then wraps, so with a handful of photos it made one tall
+   column and a short one, and the first photo — the one worth showing big — was the same
+   size as the rest. A grid can give the lead tile two columns and two rows and let the
+   others fill in around it, which is what reads as a collage.
+
+   `auto-fit` with a 150px floor so the mosaic keeps its shape from a phone up to a wide
+   monitor without a breakpoint per size, and `grid-auto-flow: dense` so a small tile
+   backfills any hole the lead tile leaves rather than pushing everything down a row. */
+.photo-collage {
+  display: grid; gap: 14px; grid-auto-flow: dense;
+  grid-template-columns: repeat(auto-fit, minmax(min(150px, 100%), 1fr));
+  grid-auto-rows: 130px;
+  /* The 3D stage. `perspective` has to live on the PARENT — a `rotateY` on a child of a
+     flat parent renders as a squash, not a turn — and 1200px is far enough back that the
+     tilt reads as depth rather than as a fish-eye. */
+  perspective: 1200px;
+}
+/* The lead photo, twice the size of the rest — unless it is the ONLY one, in which case a
+   2x2 tile in a wide grid would leave two thirds of the row empty, so it takes the full
+   width at a calmer 2 rows. */
+.photo-collage > .photo-item:first-child { grid-column: span 2; grid-row: span 2; }
+.photo-collage > .photo-item:only-child { grid-column: 1 / -1; grid-row: span 2; }
+.photo-collage > .photo-item { margin-bottom: 0; }
+/* The tile fills its cell: a collage with ragged tile heights is just a list with gaps. */
+.photo-collage > .photo-item img { width: 100%; height: 100%; object-fit: cover; }
+.photo-collage > .photo-item .thumb { aspect-ratio: auto; height: 100%; }
+
+/* ---------- the 3D motion ----------
+   Asked for on 2026-08-20 ("make 3d motion collage like look attractive and attractive to
+   student"). Three separate things, each doing one job:
+
+   1. ENTRANCE — each tile rises out of the page with a stagger, so the collage assembles
+      instead of appearing. `translateZ` rather than `translateY` alone, so the movement is
+      toward the reader and reads as depth.
+   2. TILT — `--tilt-x` / `--tilt-y` are written by `PhotoTile` from the pointer position, so
+      a tile leans toward the cursor. Defaulted to 0 here, which is also what a touch device
+      and a keyboard user get: the layout never depends on the script running.
+   3. LIFT — hover pulls the tile forward and lifts the shadow with it.
+
+   `will-change` is deliberately NOT set on every tile: a collage could hold dozens, and a
+   promoted layer each would cost more than the animation is worth. The transform alone is
+   enough for the compositor on the few that are actually moving. */
+.photo-collage > .photo-item {
+  --tilt-x: 0deg;
+  --tilt-y: 0deg;
+  /* Where the pointer is inside this tile, as percentages, written by the same handler that
+     writes the tilt. The glare below reads them; centred is the do-nothing default. */
+  --mx: 50%;
+  --my: 50%;
+  transform-style: preserve-3d;
+  transform: perspective(1200px) rotateX(var(--tilt-x)) rotateY(var(--tilt-y)) translateZ(0);
+  transition: transform 0.35s cubic-bezier(0.2, 0.7, 0.3, 1), box-shadow 0.35s ease;
+  /* `backwards`, NOT `both`, and the difference is the whole tilt.
+     A filling animation overrides the element's own `transform` declaration, so with `both`
+     the finished entrance kept its `to` keyframe applied for ever — `rotateX(0) translateZ(0)`
+     — and from 0.55s onward the pointer tilt and the hover lift computed to identity no matter
+     what `--tilt-x` said. `backwards` fills only the stagger delay, which is all that is
+     needed to hold a tile invisible before its turn; once the animation ends the element goes
+     back to the declared transform and the cursor gets its tile back.
+     Measured: with `both`, a hovered tile reading --tilt-x: 5.42deg computed to the identity
+     matrix; cancelling the animation produced the rotation plus the 37.7px Z lift. */
+  animation: collage-rise 0.55s cubic-bezier(0.2, 0.7, 0.3, 1) backwards;
+}
+/* The stagger. Six steps is enough for the eye to read it as a sequence; past that the wait
+   before the last tile appears costs more than the effect gives, so it cycles. */
+.photo-collage > .photo-item:nth-child(6n + 1) { animation-delay: 0.00s; }
+.photo-collage > .photo-item:nth-child(6n + 2) { animation-delay: 0.06s; }
+.photo-collage > .photo-item:nth-child(6n + 3) { animation-delay: 0.12s; }
+.photo-collage > .photo-item:nth-child(6n + 4) { animation-delay: 0.18s; }
+.photo-collage > .photo-item:nth-child(6n + 5) { animation-delay: 0.24s; }
+.photo-collage > .photo-item:nth-child(6n + 6) { animation-delay: 0.30s; }
+
+.photo-collage > .photo-item:hover,
+.photo-collage > .photo-item:focus-visible {
+  transform: perspective(1200px) rotateX(var(--tilt-x)) rotateY(var(--tilt-y)) translateZ(38px);
+  box-shadow: 0 30px 60px -28px rgba(19, 28, 62, 0.55);
+  z-index: 1;
+}
+/* The image drifts a little further than its frame, which is what makes the tile feel like a
+   window onto the photograph rather than a picture printed on a card. */
+.photo-collage > .photo-item img { transition: transform 0.5s cubic-bezier(0.2, 0.7, 0.3, 1); }
+.photo-collage > .photo-item:hover img { transform: scale(1.06); }
+
+/* 4. GLARE — a soft highlight that sits where the cursor is, so the tile reads as glass
+      catching the light rather than a rectangle that happens to rotate. It is the same
+      pointer position the tilt already computes, spent a second time for free: `PhotoTile`
+      writes `--mx` / `--my`, and with the script inert they stay centred and the layer stays
+      invisible, because it is only ever revealed on hover.
+
+      `pointer-events: none` matters — the tile is an anchor, and an overlay that swallowed
+      clicks would break the link to the full-size photograph. */
+.photo-collage > .photo-item::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    220px circle at var(--mx) var(--my),
+    rgba(255, 255, 255, 0.3),
+    rgba(255, 255, 255, 0.06) 45%,
+    transparent 70%
+  );
+  opacity: 0;
+  transition: opacity 0.35s ease;
+}
+.photo-collage > .photo-item:hover::after,
+.photo-collage > .photo-item:focus-visible::after { opacity: 1; }
+
+/* 5. REVEAL ON SCROLL — the entrance above fires on load, which is right for the tiles a
+      reader can see and wasted on the ones they cannot: in a collage of thirty photographs
+      everything below the fold finishes animating long before anyone scrolls to it, so the
+      motion is spent on an empty room.
+
+      `js-reveal` is set by `PhotosSection` and ONLY when it has actually wired an observer,
+      so the plain-CSS load entrance stays the fallback: with the script inert the class is
+      never added and every tile animates as before. A paused animation holds its `from`
+      keyframe (`both` fill), which is what keeps an unreached tile invisible; adding `is-in`
+      lets it run, stagger and all. */
+.photo-collage.js-reveal > .photo-item { animation-play-state: paused; }
+.photo-collage.js-reveal > .photo-item.is-in { animation-play-state: running; }
+
+/* 6. AMBIENT DRIFT — a slow push in and across on the lead photograph, so the collage is
+      never completely still even when nobody is touching it. **The lead tile only**, on
+      purpose: this is the one animation here that runs forever, and thirty of them would be
+      thirty composited layers burning a phone battery for an effect no one is looking at.
+      One tile, twice the size of the rest, is where a drift this slow actually reads.
+
+      It animates the independent `scale` and `translate` properties rather than `transform`,
+      which is what lets it coexist with the hover `transform: scale(1.06)` on the same
+      element — an animation on `transform` would win outright and the hover would do nothing.
+      The two compose instead. Starting at 1.02 means the translate can never pull an edge
+      into the frame. */
+.photo-collage > .photo-item:first-child img {
+  animation: collage-drift 22s ease-in-out infinite alternate;
+}
+@keyframes collage-drift {
+  from { scale: 1.02; translate: -1% 0; }
+  to { scale: 1.08; translate: 1% -1%; }
+}
+
+@keyframes collage-rise {
+  from { opacity: 0; transform: perspective(1200px) rotateX(8deg) translateZ(-70px); }
+  to { opacity: 1; transform: perspective(1200px) rotateX(0deg) translateZ(0); }
+}
+
+/* Motion is an enhancement, never the way the collage works: with it off the tiles are
+   simply there, flat and still, and the pointer tilt is not even wired up (`PhotoTile`
+   checks the same query in JS). */
+@media (prefers-reduced-motion: reduce) {
+  .photo-collage > .photo-item {
+    animation: none; transition: none; transform: none;
+  }
+  .photo-collage > .photo-item:hover,
+  .photo-collage > .photo-item:focus-visible { transform: none; }
+  .photo-collage > .photo-item img,
+  .photo-collage > .photo-item:hover img { transition: none; transform: none; }
+  /* The glare follows the cursor, so it is motion too, and the drift plainly is. The reveal
+     needs nothing here: `animation: none` above already removes the animation the paused
+     state would have been holding. */
+  .photo-collage > .photo-item::after,
+  .photo-collage > .photo-item:hover::after { display: none; }
+  .photo-collage > .photo-item:first-child img {
+    animation: none; scale: 1; translate: none;
+  }
+}
+
 .photo-masonry { columns: 3; column-gap: 14px; }
 .photo-item {
   break-inside: avoid; margin-bottom: 14px; display: block; border-radius: var(--r-tile);
@@ -1597,6 +1829,16 @@ ul.plain li::before { content: '•'; flex: none; font-weight: 800; color: var(-
    card's title, and Departure/Train/Arrival are a column of labelled facts that has to run
    off one left edge. `.travel-top` is its own flex row, so centring it moves the pill only. */
 .is-stage .travel-top { justify-content: center; }
+/* And the BLOCK of facts is centred as a group, while its LINES stay left-aligned
+   (2026-08-19, "all make center text in box and left align"). Those are two different
+   things and the card needed both: the lines were flush to the left padding of a 590px
+   card holding ~420px of text, so the block sat off-centre under a centred pill.
+   `width: fit-content` sizes the paragraph to its longest line and `margin-inline: auto`
+   centres that column — every label still starts at one x, the x is just no longer the
+   card's left edge. `max-width: 100%` so a long line still wraps instead of overflowing. */
+.is-stage .travel-notes {
+  width: fit-content; max-width: 100%; margin-inline: auto; text-align: left;
+}
 .is-stage .travel-route { text-align: left; }
 .is-stage .comm, .is-stage .reminder-list { text-align: center; }
 .is-stage .comm .contacts a, .is-stage .comm .contacts span { justify-content: center; }

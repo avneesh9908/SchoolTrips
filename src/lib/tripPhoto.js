@@ -21,7 +21,7 @@ import { describeDoc } from './docPreview'
  * endpoint returns a sign-in page rather than an image, exactly as documented for
  * the document cards, and the photo just does not appear.
  */
-function imageUrl(url, width) {
+export function imageUrl(url, width) {
   const { kind, id } = describeDoc(url)
   if (!id || kind === 'folder' || kind === 'form') return url
   return `https://drive.google.com/thumbnail?id=${id}&sz=w${width}`

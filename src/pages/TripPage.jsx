@@ -1,10 +1,10 @@
-import { useState, useMemo, useEffect, Fragment } from 'react'
+import { useState, useMemo, useEffect, useRef, Fragment } from 'react'
 import { useParams } from 'react-router-dom'
 import { TRIP_LAYOUT } from '../lib/layout'
 import { useAuth } from '../auth/AuthContext'
 import { useTrip } from '../data/useTrip'
 import { gradeById, isComingSoon } from '../lib/grades'
-import { tripPhotoFor } from '../lib/tripPhoto'
+import { tripPhotoFor, imageUrl } from '../lib/tripPhoto'
 import { slidePreviewFor } from '../lib/slidePreviews'
 import { Section } from '../components/Section'
 import { DocCard } from '../components/DocCard'
@@ -299,7 +299,9 @@ function buildSections(trip, photo, grade) {
       id: 'photos',
       label: 'Photos',
       titled: true,
-      node: <PhotosSection key="photos" albums={albums} media={media} title={trip.title} />,
+      node: (
+        <PhotosSection key="photos" albums={albums} media={media} title={trip.title} photo={photo} />
+      ),
     })
   }
 
@@ -1179,6 +1181,18 @@ function ItinerarySection({ trip, itineraryDocs, columns }) {
  */
 const TRAVEL_LABELS = /^(departure|departs|arrival|arrives|train|reporting|platform|coach|coach\s*\/\s*seat|seat|boarding|return)\s*[:–-]\s*/i
 
+/**
+ * The labels that begin a LEG, so the card can group "Departure, Train" and
+ * "Arrival, Train" as two blocks with a gap between them — the school's own reading of
+ * this card (2026-08-20: "depature , train and arrival, train make gap previously like").
+ *
+ * Derived from the LABEL rather than from the sheet's own blank lines, which are typed
+ * inconsistently: g7 has a blank after Departure and after the outbound Train, but none
+ * before the return Train. Honouring those put gaps in the wrong places; deriving them
+ * puts one gap in the right place whatever staff type.
+ */
+const TRAVEL_LEG_START = /^(arrival|arrives|return|boarding)$/i
+
 export function splitTravelLine(raw) {
   const line = String(raw || '')
   const m = line.match(TRAVEL_LABELS)
@@ -1203,17 +1217,32 @@ function dropBatchHeading(lines) {
   return /^batch\s*\d+\s*:?$/i.test(first) ? lines.slice(1) : lines
 }
 
-/** The notes with each label emboldened, blank lines and all. */
+/**
+ * The notes, one line per fact with each label emboldened.
+ *
+ * **Blank lines are dropped** (2026-08-20: "departure and train have one line gap please
+ * remove"). The school's travel cell carries them inconsistently — Grade 7 has one after
+ * Departure and one after the outbound Train, but none between Arrival and the return
+ * Train — so honouring them made the card look like the typing rather than like a list.
+ * Filtering them out is what makes all four facts read as one column, matching the
+ * Arrival/Train pair that already had no gap.
+ *
+ * `white-space: pre-wrap` stays on `.travel-notes`: it is what keeps the single newlines
+ * between these facts, now that there are no doubles left to honour.
+ */
 function TravelNotes({ text, className }) {
-  const lines = dropBatchHeading(String(text || '').split('\n'))
+  const lines = dropBatchHeading(String(text || '').split('\n')).filter((l) => l.trim())
 
   return (
     <p className={className}>
       {lines.map((line, i) => {
         const { label, rest } = splitTravelLine(line.trim())
+        // A blank line before the RETURN leg, none between a leg's own facts. `pre-wrap`
+        // renders the doubled newline, so no extra element is needed to space them.
+        const gap = i > 0 && TRAVEL_LEG_START.test(label.trim()) ? '\n\n' : '\n'
         return (
           <Fragment key={i}>
-            {i > 0 && '\n'}
+            {i > 0 && gap}
             {label ? (
               <>
                 <strong className="travel-key">{label}</strong>
@@ -1342,7 +1371,53 @@ function splitDate(raw) {
   return { day: m[1], month: m[2].slice(0, 3), rest: s }
 }
 
-function PhotosSection({ albums, media, title }) {
+/**
+ * An album is a Drive FOLDER, and a folder has no thumbnail — Drive serves none, so these
+ * cards were a folder glyph on white and the tab read as empty (the school's screenshot,
+ * 2026-08-20: "make this page like background fancynatic ... like thoese i use in overview").
+ *
+ * So the card borrows the grade's OWN trip photograph, the same file the Overview tab shows,
+ * as a background with a scrim over it. It is honest — it is a picture of this trip, not a
+ * stock image — and it costs no extra request, since Overview has already fetched it.
+ *
+ * When a grade has no photograph configured the card keeps its plain form: `is-photo` and the
+ * custom property are only set when there is a file, so nothing renders a broken image or an
+ * empty dark box. Same rule as the Overview banner.
+ */
+/**
+ * The album card's wording, given by the school on 2026-08-20 ("PICS FOR TRIP INTEND OF THIS
+ * SHOW THE USE Trip Memories"). Without this the card is named by the Drive chip in the
+ * sheet, which reads "Pics for trips" — the school's own filing name for the folder rather
+ * than something written for a parent.
+ *
+ * Same trade as `ORIENTATION_LABELS`, and the same reason to accept it: the page says what
+ * the school decided it should say, and renaming the folder in Drive can no longer change the
+ * page's wording. A category with no entry here still takes the file's own name.
+ */
+const ALBUM_LABELS = {
+  Photos: 'Trip Memories',
+}
+
+function PhotosSection({ albums, media, title, photo }) {
+  /**
+   * The collage's tiles: `media` and nothing else. `media` is the sheet's own photo links,
+   * and with a `driveApiKey` set it also carries one entry per image in the album folder,
+   * because `expandFolderDocuments` turns a folder row into a row per file.
+   *
+   * There was briefly a fallback here that used the grade's own photograph as a single tile
+   * when `media` was empty. **Removed 2026-08-20 at the school's request** — and they were
+   * right: the album card below already carries that same photograph as its background, so
+   * the tab showed one picture twice. With no media the collage renders nothing and the card
+   * is the whole tab, which is also the honest state — the app does not invent photographs it
+   * does not have.
+   */
+  const tiles = media
+
+  const collage = useRef(null)
+  // Sets `js-reveal` on the element itself once it has a live observer — see the hook for why
+  // that cannot be decided here at render time.
+  useScrollReveal(collage, tiles.length)
+
   return (
     <Section
       id="photos"
@@ -1350,20 +1425,132 @@ function PhotosSection({ albums, media, title }) {
       title="Trip photos"
       aside={title}
     >
-      {media.length > 0 && (
-        <div className="photo-masonry">
-          {media.map((m, i) => <PhotoTile key={i} item={m} />)}
+      {tiles.length > 0 && (
+        <div className="photo-collage" ref={collage}>
+          {tiles.map((m, i) => <PhotoTile key={i} item={m} />)}
         </div>
       )}
 
       {albums.length > 0 && (
         <div className="doc-grid" style={{ marginTop: media.length ? 24 : 0 }}>
-          {albums.map((d, i) => <DocCard key={`${d.label}-${i}`} {...d} />)}
+          {albums.map((d, i) => (
+            <div
+              className={photo ? 'album-card is-photo' : 'album-card'}
+              key={`${d.label}-${i}`}
+              style={photo ? { '--album-photo': `url("${photo}")` } : undefined}
+            >
+              <DocCard {...d} label={ALBUM_LABELS[d.category] || d.label} />
+            </div>
+          ))}
         </div>
       )}
       <PendingNote docs={albums} />
     </Section>
   )
+}
+
+/**
+ * Leans a collage tile toward the pointer, by writing the two custom properties the CSS
+ * already reads (`--tilt-x` / `--tilt-y`). Asked for on 2026-08-20 ("3d motion collage").
+ *
+ * Written here rather than in CSS because a tilt that follows the cursor needs the cursor's
+ * position, and `:hover` cannot supply it. Everything else about the effect — the stage, the
+ * entrance, the lift — is CSS, so this handler is an enhancement on top of a collage that
+ * already works: with the script inert the properties keep their 0deg defaults.
+ *
+ * `MAX_TILT` is small on purpose. Past ~10deg a photograph starts to read as distorted
+ * rather than tilted, and this is a page parents read on a phone in a corridor.
+ */
+const MAX_TILT = 7
+
+/**
+ * One place to ask whether this reader wants motion, because three separate features now
+ * need the answer — the tilt, the glare and the scroll reveal — and they must agree.
+ *
+ * Read at render rather than subscribed: someone who changes this system setting mid-visit
+ * gets it on their next navigation, which is worth not holding a media-query listener per
+ * tile in a grid that may hold dozens.
+ */
+function prefersReducedMotion() {
+  return (
+    typeof window !== 'undefined' &&
+    !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+  )
+}
+
+function tiltHandlers(reduced) {
+  if (reduced) return {}
+  return {
+    onPointerMove: (e) => {
+      // Ignore touch: a finger is already on the tile it would tilt, and the transform
+      // fights the tap.
+      if (e.pointerType === 'touch') return
+      const b = e.currentTarget.getBoundingClientRect()
+      const px = (e.clientX - b.left) / b.width - 0.5
+      const py = (e.clientY - b.top) / b.height - 0.5
+      e.currentTarget.style.setProperty('--tilt-y', `${(px * MAX_TILT * 2).toFixed(2)}deg`)
+      e.currentTarget.style.setProperty('--tilt-x', `${(-py * MAX_TILT * 2).toFixed(2)}deg`)
+      // The same two numbers again, as percentages, for the glare highlight: one
+      // `getBoundingClientRect` pays for both effects rather than each measuring its own.
+      e.currentTarget.style.setProperty('--mx', `${((px + 0.5) * 100).toFixed(1)}%`)
+      e.currentTarget.style.setProperty('--my', `${((py + 0.5) * 100).toFixed(1)}%`)
+    },
+    onPointerLeave: (e) => {
+      e.currentTarget.style.setProperty('--tilt-y', '0deg')
+      e.currentTarget.style.setProperty('--tilt-x', '0deg')
+      // Back to the centre, so the next hover starts from the middle instead of wherever
+      // the cursor happened to leave.
+      e.currentTarget.style.setProperty('--mx', '50%')
+      e.currentTarget.style.setProperty('--my', '50%')
+    },
+  }
+}
+
+/**
+ * Lets each tile play its entrance when it is actually scrolled to, instead of every tile
+ * animating at load and the ones below the fold finishing unseen.
+ *
+ * **`js-reveal` is added from inside the first callback, not up front, and that ordering is
+ * the whole safety story.** The class is what pauses the animation, and a paused entrance
+ * holds a tile invisible — so adding it at mount would hide the entire collage for ever on
+ * any page where the callback never arrives. That is not hypothetical: the steps that deliver
+ * an `IntersectionObserver` callback only run for a document that is being *rendered*, so a
+ * page loaded in a background tab observes and hears nothing back. Waiting for the first
+ * callback inverts the failure: if it never comes, no tile is ever paused and every one of
+ * them simply animates at load, exactly as it did before this hook existed.
+ *
+ * The class goes on and the on-screen tiles are released in the SAME callback, so there is no
+ * paint in between and nothing flashes. A tile is unobserved once it has arrived; an entrance
+ * that replayed on every scroll past would be a page that never settles.
+ */
+function useScrollReveal(ref, count) {
+  useEffect(() => {
+    const grid = ref.current
+    if (!grid || prefersReducedMotion() || !('IntersectionObserver' in window)) return
+
+    let armed = false
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (!armed) {
+          armed = true
+          grid.classList.add('js-reveal')
+        }
+        for (const entry of entries) {
+          if (!entry.isIntersecting) continue
+          entry.target.classList.add('is-in')
+          io.unobserve(entry.target)
+        }
+      },
+      // A tile starts its rise just before it is fully on screen, so the reader sees the
+      // movement rather than arriving to find it already over.
+      { rootMargin: '0px 0px -8% 0px', threshold: 0.15 }
+    )
+    for (const tile of grid.children) io.observe(tile)
+    return () => {
+      io.disconnect()
+      grid.classList.remove('js-reveal')
+    }
+  }, [ref, count])
 }
 
 /**
@@ -1374,6 +1561,7 @@ function PhotosSection({ albums, media, title }) {
 function PhotoTile({ item }) {
   const [broken, setBroken] = useState(false)
   const isVideo = item.type === 'video'
+  const reduced = prefersReducedMotion()
 
   return (
     <a
@@ -1382,13 +1570,26 @@ function PhotoTile({ item }) {
       target="_blank"
       rel="noopener noreferrer"
       title={item.caption || ''}
+      {...tiltHandlers(reduced)}
     >
       {isVideo || broken ? (
         <div className="thumb">
           {isVideo ? <span className="play">▶</span> : <Icon name="photo" stroke="currentColor" />}
         </div>
       ) : (
-        <img src={item.url} alt={item.caption || ''} loading="lazy" onError={() => setBroken(true)} />
+        /* `imageUrl` is why a Drive link works here at all: a Drive *share* URL is a web
+           page, so putting it straight in `src` gets HTML and a broken tile. The rewrite
+           turns it into Drive's thumbnail endpoint at the width the tile renders, and passes
+           any non-Drive URL through untouched. Same helper the Overview banner uses — added
+           here 2026-08-20, when the school offered to paste photo links into the sheet.
+           The file still has to be shared "anyone with the link", or the endpoint answers
+           with a sign-in page and the tile falls back to the icon. */
+        <img
+          src={imageUrl(item.url, 800)}
+          alt={item.caption || ''}
+          loading="lazy"
+          onError={() => setBroken(true)}
+        />
       )}
       {item.caption && <span className="cap">{item.caption}</span>}
     </a>

@@ -14,7 +14,16 @@ import react from '@vitejs/plugin-react'
  * These files are local-only by definition. Deleting them from the bundle is
  * the guard, and it runs on every build including Netlify's.
  */
-const LOCAL_ONLY = ['local-roster', 'config.local.json']
+/**
+ * `collage-demo.html` joined this list on 2026-08-20. It is a standalone preview of the
+ * Photos tab's 3D motion collage, built with PLACEHOLDER stock images so the school could
+ * see the effect before their own photographs are readable — their Drive folders are shared
+ * with named people, not "anyone with the link". It must never reach the deployed site: the
+ * app deliberately never substitutes a stock image for a missing photograph, and a page of
+ * random pictures under the heading "Trip photos" would read to a parent as their child's
+ * trip. Delete the file when the real photographs land.
+ */
+const LOCAL_ONLY = ['local-roster', 'config.local.json', 'collage-demo.html']
 
 function stripLocalOnlyFiles() {
   return {

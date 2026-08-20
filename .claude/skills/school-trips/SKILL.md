@@ -249,6 +249,12 @@ its headers — never a config flag — and `useTrip` routes to `assembleTripApp
 - `Travel details` is prose per batch, not structured legs: it renders as one block per batch
   with `white-space: pre-wrap`, and the Train/Departure grid is hidden when those fields are
   empty rather than printing a row of em dashes.
+- **The travel cell opens with a bare "Batch 1" line, and `dropBatchHeading` drops it.** The card
+  already shows the batch as a pill directly above, so it printed twice — "Batch 1" under
+  "Batch 1". The PILL is what survives, because `batchLabels` corrects it by position when the
+  sheet repeats a name (both g7 rows still say "Batch 1") while raw prose cannot be corrected;
+  keeping the prose would have put "Batch 1" on the Batch 2 card. Only a line matching
+  `/^batch\s*\d+\s*:?$/i` goes — "Batch 1 - 12 Dec" keeps its detail.
 - Verified against a CSV transcribed from the real sheet: G7 → title, both batch date lines,
   full starting text, both travel blocks with line breaks intact.
 - **`Student List (link)` — column 8 of the live sheet, right after Itinerary.** Read via
@@ -831,6 +837,54 @@ switch the entry back to the Drive link.
 Verified 2026-08-18: build clean, no console errors, and the transform checked over six URL shapes —
 `/file/d/ID/view`, `open?id=`, an already-thumbnail URL (re-sized, not double-wrapped), a local path,
 a foreign CDN URL, and a folder link (passed through, since a folder has no single image).
+
+### Never pause an entrance before the observer has answered (2026-08-20)
+The collage's five motion pieces are the entrance, the pointer tilt, the pointer **glare**, the hover
+lift and an **ambient drift**; the entrance is now revealed **on scroll** rather than at load. That
+last one carries a trap worth more than the feature.
+
+`js-reveal` on `.photo-collage` is what pauses the entrance, and a paused entrance holds its `from`
+keyframe — **opacity 0**. So the class must be added from **inside the observer's first callback**,
+never at mount: the steps that deliver an `IntersectionObserver` callback only run for a document that
+is being *rendered*, so a page loaded in a background tab observes and hears nothing back. Add the
+class up front and such a page hides the entire collage for ever. Added on arrival, the worst case
+inverts to "every tile just animates at load", which is what the page did before the feature existed.
+The class goes on and the on-screen tiles are released in the *same* callback, so nothing paints in
+between and there is no flash. `useScrollReveal` in `TripPage.jsx` holds this, with the `armed` flag.
+
+**This was observed, not theorised**: in the Browser pane `document.hidden` is permanently `true`, and
+at load the callback never arrived — all 24 demo tiles sat at opacity 0. A hand-built observer probe
+in the same pane returned `fired: true` with `intersectionRatio: 1`, which is what separated "the
+environment does not deliver callbacks yet" from "the selector is wrong".
+
+**A filling animation overrides the element's own `transform`, and that silently killed the tilt for
+six days.** `collage-rise` was written `... both`, so the FINISHED entrance kept its `to` keyframe
+(`rotateX(0) translateZ(0)`) applied for ever — and a CSS animation outranks a normal declaration, so
+from 0.55s onward `.photo-item`'s own `transform: ... rotateX(var(--tilt-x)) ...` and the hover
+`translateZ(38px)` both computed to the identity matrix. The cursor tilt asked for on 2026-08-20 had
+never actually moved a tile in a real browser after the first half-second. **`backwards` is the fix**:
+it fills the stagger delay, which is all that is needed to hold a tile invisible before its turn, and
+then releases the element — `getAnimations()` empties and the declarations take over.
+
+**The verification lesson is the sharper one.** The original pass verified the tilt by reading
+`--tilt-x` / `--tilt-y` back off the element, and they were perfect: ±6.30deg at the corners, 0 at the
+centre. **A custom property proves the handler ran, not that anything moved.** Read the computed
+`transform` matrix, on a tile whose entrance has been driven to completion with
+`getAnimations().forEach(a => a.finish())`. With `both` a hovered tile reading `--tilt-x: 5.42deg`
+computed to identity, and cancelling the animation produced the rotation plus a 37.72px Z lift — the
+same matrix `backwards` now gives without cancelling anything.
+
+Two smaller rules from the same pass:
+- **The glare and the tilt share one `getBoundingClientRect`.** `--mx` / `--my` (percentages) come off
+  the same pointer measurement as `--tilt-x` / `--tilt-y` (degrees), in one handler. Chrome elides
+  `at 50% 50%` when serialising a centred `radial-gradient`, so a computed-style check reads
+  `radial-gradient(220px, rgba(...` and looks as though the position were dropped — set the property
+  off-centre before believing it.
+- **The ambient drift is on the LEAD TILE ONLY, and it animates `scale`/`translate`, not `transform`.**
+  Only-the-lead because it is the one animation that runs forever and thirty composited layers would
+  cost a phone battery for an effect nobody is watching — the same reasoning that keeps `will-change`
+  off every tile. The longhands because an animation on `transform` beats the hover
+  `transform: scale(1.06)` on the same element outright; as separate properties the two compose.
 
 ### The photograph — the school's own, one per page, and one only
 `lib/tripPhoto.js` reads `config().tripPhotos`, a **grade id → image URL** map. That is the whole
@@ -2308,6 +2362,214 @@ Raised in `docs/DATA-HANDOVER.md`; none answered yet. Do not assume any of these
   returns the SPA shell. Deployment manifest confirms `RAILPACK` / `npm start` / `/healthz` and
   **no Caddy in the resolved packages**. Also corrected the prior note that "`railway up` does
   not stick" — now backwards, since nothing auto-deploys to overwrite it.
+- 2026-08-20 — **Removed the duplicated photograph on the Photos tab** ("REMOVE THIS PHTO YOU ADD
+  EXTRA"). The collage had a fallback that showed the grade's own photo as a single tile when the
+  sheet had no photo links — but the album card underneath already uses that same file as its
+  background, so the tab rendered one picture twice. `tiles` is now plainly `media`, so the collage
+  appears only when there are real photo links. Verified on g7: the photograph now appears **exactly
+  once** on the tab (swept every `<img src>` and every computed `background-image` inside `#photos`),
+  no `.photo-collage` element rendered, and the card still reads "Trip Memories". A caught-by-the-
+  school duplication worth remembering: two features were each independently right to reuse the
+  Overview photo, and neither knew about the other.
+- 2026-08-20 — **The album card reads "Trip Memories", not the Drive chip's name.** New
+  `ALBUM_LABELS = { Photos: 'Trip Memories' }` in `TripPage`, applied where `PhotosSection` renders
+  the card. The sheet's chip is named "Pics for trips" — the school's filing name for the folder, not
+  something written for a parent — and they asked for it replaced. Second instance of the same
+  pattern as `ORIENTATION_LABELS`, with the same accepted trade: the page's wording is now fixed
+  copy, so renaming the folder in Drive cannot change it. A category with no entry in the map still
+  takes the file's own name, so `Photos from last year` is untouched (and has no column in the
+  current 15-column sheet anyway). Verified on g7: one card labelled "Trip Memories", href still the
+  folder, meta still "Photos ↗". Clean console, clean build.
+- 2026-08-20 — **`collage-rise` is `backwards`, not `both`, and that is what made the cursor tilt work
+  at all.** A filling animation overrides the element's own `transform`, so the finished entrance had
+  been pinning every tile to its `to` keyframe: the tilt and the hover lift computed to the identity
+  matrix from 0.55s after load onward, for the six days since the effect was added. Found while
+  verifying the new glare — a real hover reported `--tilt-x: 5.42deg` and a computed transform of
+  identity, and cancelling the animation produced the expected rotation plus a 37.72px Z lift.
+  `backwards` fills the stagger delay and then releases the element. Verified after the change:
+  `getAnimations()` empties once the entrance finishes, a tilt applies without cancelling anything, and
+  the scroll reveal still holds an unreached tile at opacity 0 on the `from` keyframe.
+  **Do not verify a transform by reading the custom property that feeds it** — that only proves the
+  handler ran. Read the computed matrix, after `a.finish()`.
+- 2026-08-20 — **Two more motion layers, and the demo doubled to 24 pictures** ("more images take on
+  internet ... add motion animation other things like cursor move some motion or animation perform on
+  screen"). Added a cursor-tracking **glare** (`--mx` / `--my`, written by the same handler and off the
+  same `getBoundingClientRect` as the tilt), a **scroll reveal** so a tile plays its entrance when it is
+  reached instead of below the fold, and a slow **ambient drift** on the lead tile so the page is never
+  wholly still. Both the CSS and the demo copy carry them, and all four are switched off under
+  `prefers-reduced-motion` — the glare because it follows a cursor, so it is motion too.
+  **The stock images stayed in the local-only demo and the app's CSS took the motion**, which is the
+  split the standing rule forces: the app never substitutes a found picture for a photograph it does
+  not have. Verified `0` occurrences of `picsum` in the built bundle and `dist/collage-demo.html`
+  absent, alongside the new CSS present in `dist/assets/*.css`.
+  See **"Never pause an entrance before the observer has answered"** for the ordering trap this
+  uncovered — it is the load-bearing lesson, not the effects.
+  Verified: tilt ±7.00deg and glare 0%→100% at opposite corners, both 0 / 50% at centre, both
+  unchanged after a touch move and reset on leave; paused-and-unmarked holds opacity 0 at the `from`
+  keyframe (8deg, −69px Z) and `is-in` runs it to identity at opacity 1; with no `js-reveal` nothing is
+  paused at all; drift on the lead tile only (tile 6's image reads `animationName: none`); 24 tiles, two
+  columns and zero overflow at 375px; clean console, clean build.
+- 2026-08-20 — **`public/collage-demo.html`: a standalone preview of the 3D motion collage, with
+  placeholder photos.** The school asked to see the cursor-motion effect using pictures from the
+  internet, since their own are unreachable (Drive folders shared with named people). Twelve
+  `picsum.photos` seeds — deliberately random stock, **not** photographs of any school or any place on
+  the itinerary — in a copy of the real `.photo-collage` CSS and the real tilt handler, so what the
+  page does is what the Photos tab does.
+  **It is in `vite.config.js`'s `LOCAL_ONLY` list, so every build deletes it from `dist/`** — verified
+  (`[build] removed local-only files from dist: local-roster, config.local.json, collage-demo.html`,
+  and `dist/collage-demo.html` absent). That guard is the point: the app never substitutes a stock
+  image for a missing photograph, and a page of random pictures headed "Trip photos" would read to a
+  parent as their child's trip. **Delete the file when the real photographs land.**
+  **Twenty-four tiles since 2026-08-20**, up from twelve, because a scroll reveal cannot be seen in a
+  collage that fits on one screen.
+  Verified at `http://localhost:5180/collage-demo.html`: 12 distinct images, lead tile 2x2 (311x242
+  against 146x114), two columns and no overflow at 375px, tilt +6.5/-6.6deg at opposite corners, 0 at
+  centre, ignored for touch, reset on pointerout.
+  **Two environment traps, both from the Browser pane being hidden** (`document.hidden === true`):
+  lazy images never enter the viewport so nothing loads — an eager `new Image()` probe proved
+  `picsum.photos` itself is reachable, so it is the pane, not a blocked host — and a `javascript_exec`
+  that awaits image `onload` simply times out. Force `loading = 'eager'` and re-assign `src` to check
+  rendering.
+- 2026-08-20 — **Collage tiles now rewrite Drive links, and the column to paste them in is
+  `Photos Links`.** The school offered to paste photo links into the sheet, which would not have
+  rendered: `PhotoTile` put `item.url` straight into `src`, and a Drive *share* URL is a web page, so
+  every tile would have errored to its icon. Exported `imageUrl` from `lib/tripPhoto.js` (it already
+  did this for the Overview banner) and applied it in `PhotoTile` at 800px — non-Drive URLs pass
+  through untouched, verified with the local `/trip-photos/g7.jpg` still loading.
+  **Which header to use matters**: `val(row, 'photos', 'photo', 'media', 'photosvideos',
+  'photoslinks')` feeds the collage, but `photos` is ALSO an alias of the folder column
+  (`picfolderlink | picfolder | photos | photofolder`), so a column headed "Photos" would render as a
+  media list *and* an album card. **"Photos Links"** normalises to `photoslinks`, which only the media
+  reader claims. `splitLinks` splits on whitespace, commas and semicolons, so one URL per line works.
+  Counts, from the grid (`auto-fit` 150px tracks, 130px rows, lead tile 2x2): **11 fills two clean
+  rows at 1280px**, 13 at 1920px, 5 is the minimum that reads as a collage rather than a row.
+  Sharing is still the gate — each pasted file must be "anyone with the link" or the thumbnail
+  endpoint answers with a sign-in page and the tile falls back to its icon.
+- 2026-08-20 — **The collage got a 3D motion treatment** ("make 3d motion collage like look
+  attractive and attractive to student"). Three separable pieces, so any one can be tuned or dropped:
+  a `perspective: 1200px` stage on `.photo-collage` (it must be on the PARENT — a `rotateY` under a
+  flat parent renders as a squash); a `collage-rise` entrance that lifts each tile out of the page
+  with a 6-step stagger that cycles, so a large collage does not make the reader wait; and a hover
+  `translateZ(38px)` with a deeper shadow plus a 1.06 image scale, which is what makes a tile read as
+  a window rather than a printed card.
+  The cursor tilt is the only JS: `PhotoTile` writes `--tilt-x` / `--tilt-y` from the pointer position
+  (max 7deg — past ~10 a photograph reads as distorted), because `:hover` cannot know where the
+  cursor is. It is an enhancement on a collage that already works: the properties default to `0deg`
+  in CSS, **touch pointers are ignored** (a finger is already on the tile it would tilt, and the
+  transform fights the tap), and `prefers-reduced-motion` disables the animation, the transitions and
+  the transforms in CSS *and* stops the handler being attached at all. `will-change` is deliberately
+  not set per tile — a promoted layer each would cost more than the effect is worth in a grid that
+  may hold dozens.
+  Verified: tilt +6.30/-6.30deg at opposite corners, 0 at centre, unchanged after a touch move, reset
+  on leave; stagger 0 → 0.30s cycling; three reduced-motion rules present for the collage.
+  **Environment note worth keeping: CSS animations do not advance while the Browser pane is hidden**
+  (`document.hidden === true`), so a tile sits pinned at its `from` keyframe and looks broken. Seek
+  with `el.getAnimations()[0].currentTime = …` or `.finish()` to check the end state — the entrance
+  resolves to an identity matrix at opacity 1. Clean console, clean build.
+- 2026-08-20 — **The Photos tab is a collage grid now, and the reason it looks thin is DATA, not
+  layout** ("pic collage"). `.photo-collage` replaces the `.photo-masonry` CSS-`columns` list: a grid
+  with `auto-fit` 150px tracks, `grid-auto-rows: 130px` and `grid-auto-flow: dense`, where the lead
+  tile spans 2x2 and the rest backfill around it. `object-fit: cover` on the tiles, since ragged tile
+  heights make a collage read as a list with gaps. Verified the mosaic by cloning tiles in the DOM
+  (layout only, then reloaded): lead 334x274 with six 160x130 tiles flowing around it and the seventh
+  backfilling the second row, grid height 274 — no wasted rows; two columns of 163px on a phone, zero
+  overflow at both.
+  **Today it shows nothing, because `media` is empty — and that is correct.** A fallback that used
+  the grade's own photograph as a single tile was added and then **removed the same day at the
+  school's request**: the album card below already carries that photograph as its background, so the
+  tab was showing one picture twice. `tiles` is now just `media`. With no media the collage does not
+  render at all and the "Trip Memories" card is the whole tab, which also keeps the standing rule that
+  the app never invents a photograph it does not have.
+
+  **Why `media` is empty is a content limit, not a layout one.** Checked against
+  the live sheet: `photos` holds a Drive FOLDER chip ("Pics for trips"), not image links, and the new
+  `Grade Photo` / `Hero Section Photo` columns are **empty for every grade** — the school added the
+  headers but no values. So `tiles` falls back to the grade's own `tripPhotos` image as a single
+  full-width tile (`:only-child` takes `1 / -1`, because a 2x2 lead in a 7-track grid would leave two
+  thirds of the row empty). It is deliberately NOT padded with `tripCardPhotos` — that is the same
+  photograph cropped to a 2.6:1 strip, and two crops of one image side by side read as a mistake.
+  **To get a real collage, one of two things has to happen**, and both are the school's:
+  paste image links into the sheet's photo column, or set `driveApiKey` in `config.json` so
+  `expandFolderDocuments` lists "Pics for trips" into one tile per file. The renderer needs no further
+  change either way — it fills from `media` the moment `media` has more than one entry.
+- 2026-08-20 — **The Photos tab's album card now sits on the grade's own trip photograph**
+  ("make this page like background fancynatic ... like thoese i use in overview"). The tab read as
+  empty because a Drive **folder** has no thumbnail — Drive serves none — so the card was a folder
+  glyph on white. New `.album-card` wrapper takes the photo as an inline `--album-photo` custom
+  property and layers a `rgba(12,18,44,.28) → .82` gradient scrim over it; the `DocCard` inside drops
+  its own fill, border, shadow and icon and becomes the label only. It is the **same file Overview
+  already fetched**, so there is no extra request and no stock image standing in for a picture of this
+  trip.
+  Two things worth keeping: the guard, and the auto-margin. `.is-photo` and the property are set only
+  when a photo exists, so a grade without one keeps the plain white card rather than showing a dark
+  box — **verified on g8 as staff**: no `is-photo`, white fill, ink label, folder icon still there.
+  And `.doc-meta`'s `margin-top: auto` (which pins the action line on a normal card) **beats the
+  parent's `justify-content: flex-end`**, so it split the pair — title near the top of the
+  photograph, "Photos ↗" 100px below it. Cancelled to `margin-top: 0` on photo cards so `flex-end`
+  groups them at the dark end of the scrim.
+  Measured: photo loads 1920x1080, card 420x190 (339 on a phone), label in the lower half with 14px
+  to the action line and 24px of inset below it, and the label's **worst-case** contrast — a pure
+  white photograph under the scrim's darkest stop, `rgb(56,61,82)` — is **10.78:1**. Clean console,
+  clean build.
+- 2026-08-20 — **The travel gap is now DERIVED, one blank line before the return leg**
+  ("depature , train and arrival, train make gap previously like"). Two passes got here: honouring
+  the sheet's blank lines put gaps in the wrong places, then filtering them all out lost the
+  outbound/return split. Neither reading of the sheet works, because g7 types a blank after Departure
+  and after the outbound Train but none before the return Train. So `TravelNotes` keeps the
+  blank-line filter and inserts its own gap from the LABEL: new `TRAVEL_LEG_START`
+  (`arrival|arrives|return|boarding`) makes the separator `'
+
+'` instead of `'
+'`, rendered by
+  the `pre-wrap` already on `.travel-notes` — no extra element. Whatever staff type, the card reads
+  Departure/Train · gap · Arrival/Train. Measured line-to-line: 26px, **51px**, 25px at 1280x720 —
+  one line-height inside a leg, two between them — identical on both cards, and the same pattern on a
+  phone where each fact wraps to two lines. Clean console, clean build.
+- 2026-08-20 — **Blank lines dropped from the travel facts** ("departure and train have one line gap
+  please remove"). `TravelNotes` now filters empty lines after `dropBatchHeading`, so a batch's four
+  facts read as one column. The sheet carries those blanks **inconsistently** — g7 has one after
+  Departure and one after the outbound Train but none between Arrival and the return Train — so
+  honouring them made the card look like the typing rather than like a list; filtering matches the
+  pair that already had no gap. `white-space: pre-wrap` stays on `.travel-notes`: it is what preserves
+  the single newlines now that there are no doubles to honour. Measured: 4 rendered line boxes with
+  even 25/26/25px gaps (one line-height each), block 180 → 102px, both cards identical, zero blank
+  lines in the text, no overflow at 1280x720 or 375x812. Clean console, clean build.
+- 2026-08-20 — **One HIGHLIGHTED BOX treatment, now shared by `.orient-box` and `.travel-card`**
+  ("boxes boder hightlist like other previous like show differnce on cards"). The travel cards were
+  `--card` white with a 1px `--line` hairline and read as page rather than as containers; they now
+  carry the same `2px solid #b4bdda` + `--link-bg` + `--shadow-hero` as the orientation deck groups.
+  Written as **one rule listing both selectors**, with the treatment removed from `.orient-box`'s own
+  block — a copy in each would drift the first time either is tuned. Only geometry stays per element
+  (`.orient-box` 18px radius / 18-20 padding, `.travel-card` 26px / 22-24).
+  The measured reasoning is recorded in that rule's comment so it survives the next tweak: on this
+  palette every light tint is within ~1.05:1 of the page, so the **border** is what separates a box
+  (`#b4bdda` = 1.806:1, against 1.07:1 for the `--line-2` hairline it replaced), and widths are whole
+  pixels because a 1.5px border computed back as `1px` at DPR 1.
+  Verified: travel cards 2px `rgb(180,189,218)` at 1.806:1 with body text 7.232:1 on the tint (well
+  past AA); orientation boxes unchanged at 765px with four live iframes; a sweep of every element on
+  the page found the treatment on exactly the two intended selectors and nothing else; zero overflow
+  at 1280x720 and 375x812. Clean console, clean build.
+- 2026-08-20 — **Travel details: the batch pill and the fact block, three passes.** Recording these
+  properly because they were lost once: the code shipped in `b9e43a3` but that commit did not touch
+  this file, and an uncommitted set of skill notes was then overwritten by a later session's rewrite.
+  **Commit the skill with the code.**
+  1. *"left align details"* — `.is-stage .travel-card` went `text-align: center` → `left`. Departure /
+     Train / Arrival are labelled facts; centred, every label had its own left edge and the eye could
+     not run the column.
+  2. *"batch 1 and batch 2 size incrase and make bold or centere"* — `.travel-top .label` 12px/800 →
+     **16px/900** in an `8px 18px` capsule, and `.is-stage .travel-top` back to
+     `justify-content: center`. That does **not** undo (1): `.travel-top` is its own flex row, so
+     centring it moves the pill alone. Verified both at once — pill centre == card centre while every
+     body line still started at one x.
+  3. *"all make center text in box and left align"* — the two halves of that are separate things and
+     the card needed both: `.is-stage .travel-notes { width: fit-content; max-width: 100%;
+     margin-inline: auto }` centres the BLOCK while `text-align: left` keeps its LINES aligned. Flush
+     left, ~420px of text sat in a 599px card and looked off-centre under a centred pill.
+     Measured: card centre == block centre == pill centre (330 and 951 at 1280x720, 188 at 375x812),
+     four lines per card each starting at a single x (118, 760), zero overflow.
+     **Accepted side effect:** each block centres independently, so cards whose longest lines differ
+     get slightly different text left edges (88px vs 109px inside the card). Lining them up needs a
+     shared `max-width`, which would un-centre one block — not asked for.
 - 2026-08-20 (thirtieth pass) — **Railway can now run the login.** Asked to "devlop on the
   railway". Railway was serving `dist` with Caddy, so `POST /api/lookup` returned 405 and no
   parent or student could sign in on that URL. Added a dependency-free `server.js` (node:http)
