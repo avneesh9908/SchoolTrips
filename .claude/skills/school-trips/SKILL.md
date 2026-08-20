@@ -2091,14 +2091,54 @@ than `node:fs/promises`.
 **Netlify ignores `server.js` and `railway.json` entirely** — its build runs `npm run build`
 and publishes `dist`. Pushing them is safe, and this was re-verified after the push.
 
-**`railway up` does not stick.** Railway deploys from GitHub, so a CLI upload is overwritten by
-the next commit — that is how a working fix was silently lost once. Anything that must survive
-has to be **committed and pushed**, not uploaded.
+**Railway's GitHub App is not installed, so pushes do NOT deploy there.** Settings → Source
+shows "GitHub Repo not found", and the repo is *not* the problem — verified 2026-08-20 with all
+credentials disabled: the GitHub API returns 200, the public page returns 200, and
+`git ls-remote` reads `main`. It is public and healthy. What is missing is Railway's GitHub App
+on the **`avneesh9908`** account, which is also why that repo never appears in Railway's repo
+picker. The Railway account is `dev@protego.services`, a different owner, so **only whoever owns
+`avneesh9908` can authorize it.** Confirmed empirically: `f57a544` was pushed and Railway had
+not built it two minutes later, while Netlify had.
 
-**Railway needs its own environment variables.** `ROSTER_CSV_URL` and `ADMIN_EMAILS` are
-per-host; setting them on Netlify does nothing for Railway. Until they are set on the Railway
-service, login there returns 502. *(unconfirmed — the CLI on this machine is logged out,
-`~/.railway` holds only `version.json`. Check the dashboard, or `npx @railway/cli login`.)*
+**So `railway up` is currently the only way to deploy Railway.** The older note here said the
+opposite — that a CLI upload never sticks because the next commit overwrites it. That was true
+once (a fix *was* lost that way on 2026-08-14, when the App still worked), but it is now
+backwards: nothing overwrites the upload because nothing auto-deploys at all. Both statements
+share one lesson — **the commit and the running Railway container are independent; check which
+commit is live rather than assuming the push arrived.**
+
+**Railway needs its own environment variables — now confirmed set.** `ROSTER_CSV_URL` and
+`ADMIN_EMAILS` are per-host; setting them on Netlify does nothing for Railway. Both are present
+on the Railway service (verified 2026-08-20), and login there now returns the same 404 as
+Netlify for an unknown address — a 502 would mean the roster was unreachable. **But a set
+variable proves nothing on its own:** they sat correctly configured and entirely unread for six
+days while Caddy served the site, because no Node process existed to read them.
+
+### The `/%` crash, and why `/healthz` exists
+`decodeURIComponent` in `resolveStatic` was unguarded. A request for **`/%`** — one character,
+no auth — threw `URIError` inside the async handler, which Node treats as a fatal unhandled
+rejection, and the process died. With `restartPolicyMaxRetries: 10`, ten such requests would
+have taken the service down until a manual redeploy. Fixed in `f57a544`: a malformed escape is
+not a path, so it is refused like any other and the caller answers 400. **It never reached
+production** — Railway was still serving the old Caddy build, and Netlify never runs
+`server.js` at all.
+
+`/healthz` returns JSON, which **Caddy serving `dist` could never do**. Pointing
+`healthcheckPath` at it means a deploy that silently falls back to the static builder now fails
+its healthcheck instead of going live with every login broken — the exact failure that shipped
+unnoticed for six days.
+
+**gzip had to be restored by hand.** Caddy compressed every text response; bare `node:http`
+does not, so the move tripled the wire size (230 kB of JS instead of 75 kB) — which matters
+because the origin is **US West** and the parents are in **India**. `server.js` now gzips text
+types over 1 kB. `Content-Length` is deliberately omitted on compressed replies: it describes
+the file on disk, not the stream, and sending it truncates the response.
+
+**Do not pin `"builder": "NIXPACKS"` in `railway.json`.** It was there briefly and bought
+nothing — the explicit `startCommand` is what defeats the SPA detection, not the builder.
+Removing it restored Railpack, Railway's current default. Verified on the live deployment:
+`builder=RAILPACK`, `startCommand=npm start`, `healthcheckPath=/healthz`, and **no Caddy in
+the resolved packages at all**.
 
 ## The real roster feed — needs a backend, cannot be used from the browser
 The school publishes its roster at `.../CSVDATA/StudentData.csv` (an HTTP IP that 302s to an
@@ -2250,6 +2290,24 @@ Raised in `docs/DATA-HANDOVER.md`; none answered yet. Do not assume any of these
 - `legacy/trip-explorer.html` is frozen reference. Do not edit it.
 
 ## Changelog
+- 2026-08-20 (thirty-first pass) — **Railway login is live and verified, and a remote-crash bug
+  was caught before it shipped.** Reviewing the previous pass's `server.js` found
+  `decodeURIComponent` unguarded: `GET /%` killed the process (reproduced — the liveness recheck
+  after it returned nothing), and `restartPolicyMaxRetries: 10` would have made ten such
+  requests permanent downtime. Fixed, plus gzip restored (Caddy had been compressing; bare
+  node:http was sending 230 kB instead of 75 kB to Indian users from a US West origin) and
+  `/healthz` added so a silent fallback to the static builder fails its healthcheck instead of
+  going live broken. Dropped the `NIXPACKS` pin — the `startCommand` is what defeats the SPA
+  detection. Committed and pushed as `f57a544`, then deployed with `railway up` because
+  **Railway's GitHub App is missing on `avneesh9908`, so pushes do not deploy there** — proven
+  by watching `f57a544` sit unbuilt for two minutes while Netlify took it. The repo itself is
+  public and healthy (GitHub API 200, `ls-remote` clean, all credentials disabled), correcting
+  any suspicion that visibility was the cause. Live checks: `/healthz` → `{"ok":true}`,
+  Railway and Netlify now return **byte-identical** 404s for an unknown address, `/%` no longer
+  kills anything, bundle served `Content-Encoding: gzip` + `immutable`, roster CSV path still
+  returns the SPA shell. Deployment manifest confirms `RAILPACK` / `npm start` / `/healthz` and
+  **no Caddy in the resolved packages**. Also corrected the prior note that "`railway up` does
+  not stick" — now backwards, since nothing auto-deploys to overwrite it.
 - 2026-08-20 (thirtieth pass) — **Railway can now run the login.** Asked to "devlop on the
   railway". Railway was serving `dist` with Caddy, so `POST /api/lookup` returned 405 and no
   parent or student could sign in on that URL. Added a dependency-free `server.js` (node:http)
