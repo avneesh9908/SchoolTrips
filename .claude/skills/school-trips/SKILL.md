@@ -2201,6 +2201,20 @@ Raised in `docs/DATA-HANDOVER.md`; none answered yet. Do not assume any of these
 - `legacy/trip-explorer.html` is frozen reference. Do not edit it.
 
 ## Changelog
+- 2026-08-19 (twenty-seventh pass, same day) — **Pushed and live.** `87dbd6e` on `main` carried the
+  whole session: every-batch trip pages, the rewritten login copy bracketing the field, the
+  Orientation redesign (no head, display headings, boxed groups, chip in the label flow), the filled
+  itinerary cards, and the new Student list tab. Pre-push scan of the staged diff found no email
+  addresses, phone-shaped numbers, roster URLs or API keys, and `.env`, `config.local.json` and
+  `local-roster/` were all confirmed still gitignored with nothing untracked to sweep in. Netlify
+  auto-deployed; verified in production by **matching the served bundle hash to the local build**
+  (`index-C9oF_N31.js`), confirming "Student list" appears in the deployed JS, and re-checking that
+  `/config.local.json`, `/local-roster/students.csv` and `/.env` all answer with the SPA index —
+  **bodies read, not status codes**, since the SPA rule returns 200 for anything.
+  **Carried forward, pre-existing:** `p.aadhyan.khunt@fsksurat.in` appears in three already-committed
+  lines of this skill (demo-login notes from earlier sessions). This repo is public and CLAUDE.md
+  forbids PII here, so those should be redacted to a placeholder in a follow-up — it was left alone
+  in this commit rather than mixed into an unrelated push.
 - 2026-08-19 (twenty-sixth pass, same day) — **"reload project dont show": the Student list tab was
   absent because dev was not reading the live sheet.** The code was correct; `csvUrls.trips` in
   `config.local.json` pointed at the curated 13-column fixture, which has no `Student List (link)`
