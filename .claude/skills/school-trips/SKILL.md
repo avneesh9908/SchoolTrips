@@ -2344,6 +2344,18 @@ Raised in `docs/DATA-HANDOVER.md`; none answered yet. Do not assume any of these
 - `legacy/trip-explorer.html` is frozen reference. Do not edit it.
 
 ## Changelog
+- 2026-08-20 — **Pushed and live: `0fd3bb6`.** `LiveList` (the student list rendered from
+  `tqx=out:csv&gid=`, with the split heading, sticky head and `clamp(320px, 58dvh, 680px)` body), the
+  `.doc-open` anchor fix on the framed orientation cards, `parseCsv` exported from `data/csv.js`, and
+  the `gid`-aware sheet embed in `docPreview.js`. Pre-push scan: 0 emails, 0 phone-shaped numbers, 0
+  keys or roster URLs across the diff **and** the new untracked file; also grepped for the five
+  fictional names used in the stubbed-fetch test — none reached the source, the stub lived only in the
+  browser. Verified in production by matching the served bundle hash to the local build
+  (`index-VKgQVjwq.js`), finding `live-list`, `tqx=out:csv` and `doc-open` in the deployed JS, and
+  re-checking that `/config.local.json`, `/local-roster/students.csv`, `/.env` **and
+  `/collage-demo.html`** all answer with the SPA index — bodies read, not status codes.
+  `public/collage-demo.html` stays untracked by choice, so the stock-photo demo is neither in the
+  public repo nor on the site.
 - 2026-08-20 — **The student list box is taller, and now sized against the window** ("give list more
   height of the list card"). `.live-list-scroll` went from a flat `max-height: 300px` to
   `clamp(320px, 58dvh, 680px)`: the old number filled a third of a 720px laptop and a sixth of a 1080px
