@@ -707,6 +707,53 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible {
   transition: transform 0.25s cubic-bezier(0.2, 0.7, 0.3, 1), box-shadow 0.25s ease;
 }
 .itin-card:hover { transform: translateY(-3px); color: #fff; }
+/* A card that FRAMES its document (the student list). It is a `<div>`, not an anchor, so it
+   drops the hover lift — a card that cannot be clicked as a whole should not behave as if it
+   can, and the frame inside it takes the pointer anyway. */
+.itin-card.is-live:hover { transform: none; }
+/* The list, drawn by `LiveList` from the sheet's own rows. Not an iframe: a cross-origin
+   frame cannot be styled, and Google's rendering gave the merged-title column three times
+   the width of the names beside it. Holding the data is what buys the column widths. */
+.live-list { margin-top: 4px; }
+/* `.is-note` is now only the loading and error lines — the sheet's own title and the
+   "names not added yet" note were both removed on 2026-08-20, since the card above the
+   table already names the batch and its dates. */
+.live-list .is-note {
+  font-size: 13px; line-height: 1.5; color: rgba(255, 255, 255, 0.72);
+  padding: 6px 0 2px;
+}
+/* Capped and scrolled rather than uncapped: a batch is ~25 names, and a card that grows to
+   fit them all pushes its own "Open" line past the fold.
+   Taller on the school's instruction (2026-08-20, "give list more height of the list card"),
+   and sized against the WINDOW rather than a flat number — a fixed 300px was a third of a
+   laptop screen and a sixth of a desktop one. `dvh` not `vh`, because on a phone `vh` is the
+   address bar's tallest state and the box would overhang. The 680px ceiling keeps the card
+   from outgrowing the tab on a tall monitor; the 320px floor keeps ~8 rows visible on a
+   short one. */
+.live-list-scroll {
+  max-height: clamp(320px, 58dvh, 680px);
+  overflow-y: auto; border-radius: 12px; background: #fff;
+}
+.live-list table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.live-list th, .live-list td {
+  text-align: left; padding: 7px 10px; color: var(--ink);
+  border-bottom: 1px solid var(--line);
+}
+.live-list thead th {
+  position: sticky; top: 0; background: var(--wash); z-index: 1;
+  font-size: 11.5px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase;
+  color: var(--muted);
+}
+.live-list tbody tr:last-child td { border-bottom: none; }
+/* The serial column takes what it needs and no more — the whole point of this rewrite. */
+.live-list th.is-sr, .live-list td.is-sr {
+  width: 1%; white-space: nowrap; text-align: right;
+  color: var(--soft); font-variant-numeric: tabular-nums;
+}
+/* The action line is a real link on a live card, so it needs the underline affordance the
+   whole-card version got from being an anchor itself. */
+a.itin-card-open { text-decoration: none; }
+a.itin-card-open:hover { text-decoration: underline; }
 .itin-card-top { display: flex; align-items: center; gap: 10px; }
 .itin-card-tag {
   flex: 0 0 auto; padding: 4px 11px; border-radius: var(--r-pill);
@@ -827,8 +874,16 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible {
    label has to stop looking like a link inside a card that is not one. */
 .doc-card.is-framed { cursor: default; }
 .doc-card.is-framed:hover { transform: none; box-shadow: var(--shadow-hero); border-color: var(--line); }
+/* The framed card's link: it wraps the title AND the "Open ↗" line, because the card
+   itself cannot be an anchor (it contains an iframe). 14px reproduces the card's own gap,
+   so pulling the two lines into one anchor changed no spacing. */
+.doc-open {
+  display: flex; flex-direction: column; gap: 14px;
+  text-decoration: none; color: inherit; min-width: 0;
+}
 .doc-label.is-link { color: var(--ink); text-decoration: none; }
-.doc-label.is-link:hover { color: var(--accent); }
+.doc-open:hover .doc-label.is-link, .doc-label.is-link:hover { color: var(--accent); }
+.doc-open:hover .doc-meta { text-decoration: underline; }
 
 /* ---------- the guideline columns, side by side ----------
    Safety · Do's and don'ts · Things to carry, in parallel under the itinerary.

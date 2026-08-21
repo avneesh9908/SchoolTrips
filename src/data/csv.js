@@ -3,7 +3,7 @@
  * comma, newline or quote, and escapes an inner quote by doubling it — so a
  * naive split(',') mangles addresses and multi-line overview text.
  */
-function parseCsv(text) {
+export function parseCsv(text) {
   const rows = []
   let row = []
   let cell = ''

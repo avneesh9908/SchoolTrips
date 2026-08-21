@@ -44,10 +44,37 @@ export const KIND_LABEL = {
  * load event fires either way. Measured 2026-08-17: of the 7 orientation decks in
  * the sheet, 2 answer 200 and 5 answer 401.
  */
-function embedFor(kind, id) {
+function embedFor(kind, id, url) {
   if (kind === 'slides') return `https://docs.google.com/presentation/d/${id}/embed?rm=minimal`
   if (kind === 'doc') return `https://docs.google.com/document/d/${id}/preview`
-  if (kind === 'sheet') return `https://docs.google.com/spreadsheets/d/${id}/preview`
+  if (kind === 'sheet') {
+    /**
+     * A spreadsheet's `gid` names the TAB, and it has to survive into the embed: the
+     * school's student list is one workbook with a tab per batch, so losing it shows the
+     * wrong list. Read from the query OR the hash, because Sheets hands out `#gid=` from
+     * the tab bar and `?gid=` from the share dialog, and the sheet holds both spellings.
+     *
+     * **`/preview` silently ignores `?gid=` and always renders the workbook's FIRST tab.**
+     * Measured 2026-08-20: `/preview?gid=0` and `/preview?gid=1780253530` came back as
+     * different bytes but the same sheet, and the school's screenshot showed both student
+     * list cards displaying "Itinerary Batch 1" — the first tab of that workbook. It also
+     * draws Google's own tab bar along the bottom, which invites a reader to wander into
+     * tabs the card is not about.
+     *
+     * `gviz/tq?tqx=out:html` honours the gid and returns nothing but the table — verified
+     * anonymously: gid=0 answers "Student List Batch 1" and gid=1780253530 answers
+     * "Student List Batch 2". No `X-Frame-Options` and no `frame-ancestors`, so it frames.
+     * The trade is styling: it is a plain table, not the sheet's own colours and merged
+     * cells. For a list of names that is a fair price for showing the right names.
+     *
+     * With no gid there is no specific tab to isolate, so `/preview` stays — the whole
+     * workbook with its tab bar is the honest thing to show.
+     */
+    const gid = (String(url || '').match(/[?#&]gid=(\d+)/) || [])[1]
+    return gid
+      ? `https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:html&gid=${gid}`
+      : `https://docs.google.com/spreadsheets/d/${id}/preview`
+  }
   if (kind === 'file') return `https://drive.google.com/file/d/${id}/preview`
   // A folder has no single page, and a Form's published id is not a Drive file id.
   return null
@@ -66,7 +93,7 @@ export function describeDoc(url) {
       kind === 'folder' || kind === 'form'
         ? null
         : `https://drive.google.com/thumbnail?id=${id}&sz=w1000`
-    return { kind, id, thumb, embed: embedFor(kind, id), open: url }
+    return { kind, id, thumb, embed: embedFor(kind, id, url), open: url }
   }
 
   return { kind: 'link', id: null, thumb: null, embed: null, open: url }

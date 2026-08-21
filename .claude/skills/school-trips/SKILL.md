@@ -2344,6 +2344,113 @@ Raised in `docs/DATA-HANDOVER.md`; none answered yet. Do not assume any of these
 - `legacy/trip-explorer.html` is frozen reference. Do not edit it.
 
 ## Changelog
+- 2026-08-20 — **The student list box is taller, and now sized against the window** ("give list more
+  height of the list card"). `.live-list-scroll` went from a flat `max-height: 300px` to
+  `clamp(320px, 58dvh, 680px)`: the old number filled a third of a 720px laptop and a sixth of a 1080px
+  desktop, so it was wrong at both ends rather than at one. `dvh` because `vh` on a phone means the
+  address bar's tallest state and the box would overhang. Measured across four sizes — 1280x620 →
+  360px/9 rows, 1280x720 → 418px/11 (was 300/8), 1920x1080 → 626px/18, 375x812 → 471px/13. The two
+  cards stay equal height (606px at 1280x720, 821px at 1920x1080), the "Open the student list" line
+  stays reachable, and there is no horizontal overflow at any size. Clean console, clean build.
+- 2026-08-20 — **Dropped the sheet title and the empty-list note from the student list card.** Both
+  removed on request: the card already names the batch and its dates, so "Final List of students for
+  G7 Educational trip to Rajasthan (Batch 1)" was the same fact at greater length, and "The names have
+  not been added to this list yet" told a reader what 54 blank rows already show. `.live-list-cap` went
+  with them; `.is-note` survives for the loading and error lines only. **`splitMergedHeading` was
+  kept** — the title is now discarded instead of rendered, and that split is the thing holding the
+  serial column narrow, so removing it with the caption would have restored the original bug.
+  Verified: zero captions and zero notes in the DOM, neither string present anywhere in the panel,
+  card text now reading straight from "B1 · Student list · 12-19 December 2026 · Section: …" into the
+  headers, columns still 59 / 211 / 136 / 128px across 54 rows, no overflow. Clean console and build.
+- 2026-08-20 — **An empty student list now shows the table, not just a note** ("open preview when the
+  list is empty"). `LiveList` renders `filled.length ? filled : body`, with the "names have not been
+  added" line demoted to a caption above the rows. The previous pass had replaced an all-blank list
+  with the note alone, reasoning that numbered blanks are a form rather than a list; the school's
+  reading is better — a card containing one sentence looks broken, while the headings and the row
+  count tell a reader the list exists and how long it is. The unfilled tail is still dropped once real
+  names arrive, since by then the blanks carry nothing.
+  Verified on g7: both cards show the caption, the note, and **54 rows** inside the 300px scroller,
+  columns 59 / 211 / 136 / 128px at 1280x720 and 59 / 86 / 74 / 69px on a phone — the serial column
+  staying narrowest at both, no horizontal overflow, zero iframes. Clean console, clean build.
+- 2026-08-20 — **The student list is RENDERED by the app now, not framed from Google** ("serial tab
+  show high width and student name colums show less"). The sheet carries a merged title across the top,
+  so Google's own rendering gave column A the width of "Final List of students for G7 Educational trip
+  to Rajasthan (Batch 1)" and squeezed Student Name, Section and Gender into the remainder. **A
+  cross-origin frame cannot be styled from here at all** — no CSS, no column widths — so the only way
+  to control the layout was to hold the data. That is the general lesson: an iframe buys fidelity and
+  costs every ounce of layout control; the moment the layout matters, fetch and render.
+  New `src/components/LiveList.jsx` reads `gviz/tq?tqx=out:csv&gid=…` (which honours the tab and
+  answers with `Access-Control-Allow-Origin` echoing the caller — verified from localhost), parses it
+  with the CSV parser now exported from `data/csv.js`, and draws a table. `splitMergedHeading` peels the
+  glued title off "… Sr.No" so the long half becomes a caption and the short half stays the column
+  head — the actual cause of the wide column. The serial column is `width: 1%; white-space: nowrap`,
+  the head is sticky, and the body is capped at
+  `clamp(320px, 58dvh, 680px)` so a 25-name list cannot push the card's "Open" line past the fold.
+  **Window-relative, not a flat number** (raised from 300px on 2026-08-20, "give list more height"): a
+  fixed cap was a third of a laptop screen and a sixth of a desktop one. `dvh` not `vh`, or the box
+  overhangs on a phone where `vh` means the address bar's tallest state. Measured — 360px/9 rows at
+  1280x620, 418px/11 rows at 1280x720, 626px/18 rows at 1920x1080, 471px/13 rows at 375x812. An HTML response (Google's sign-in page) is treated as an error, so an unshared
+  sheet falls back to the link rather than rendering markup.
+  **Rows carrying only a serial number are dropped once names exist**; while none are filled the whole
+  table is shown, so an empty list still previews ("open preview when the list is empty").
+  **The card renders the table and nothing else** — the sheet's own title line and the "names have not
+  been added yet" note were both removed on the school's instruction. The card above the table already
+  states the batch and its dates, so the title repeated that at greater length, and the note said what
+  the empty rows show anyway. **`splitMergedHeading` still runs**: the title is discarded rather than
+  displayed, and that split is what keeps the serial column narrow — deleting it along with the caption
+  would put the wide column straight back.
+  Verified both paths: live, zero iframes, each card fetching its own tab (Batch 1 / Batch 2 captions
+  prove the gid); and with `window.fetch` stubbed to return five names, the table renders headers
+  Sr.No · Student Name · Section · Gender at **59 / 136 / 112 / 82px** — the serial column now the
+  narrowest — with a sticky head and the 300px cap. Phone: 339px cards, zero overflow. Clean console.
+- 2026-08-20 — **`/preview` ignores `?gid=` — sheet embeds now use `gviz/tq?tqx=out:html`.** The
+  school's screenshot showed both student list cards framing "Itinerary Batch 1", the workbook's FIRST
+  tab, with Google's own tab bar along the bottom inviting a reader into tabs the card is not about
+  ("here by default show first tab itinary i want to defult open student list and dont show the
+  tabs"). Diagnosed by fetching each candidate form anonymously: `/preview?gid=0` and
+  `/preview?gid=1780253530` return different bytes but the same first tab; `pubhtml` returns a 9KB
+  not-published page (the sheet is link-shared, NOT published to web, so every `pub`/`pubhtml` form is
+  out); **`gviz/tq?tqx=out:html&gid=…` honours the gid exactly** — gid=0 answers "Student List
+  Batch 1", gid=1780253530 answers "Student List Batch 2" — returns nothing but the table, and carries
+  no `X-Frame-Options` or `frame-ancestors`, so it frames. The trade, accepted: gviz is a plain table,
+  losing the sheet's colours and merged cells. For a list of names, showing the RIGHT names beats
+  showing the wrong ones prettily. With no gid `/preview` stays, since there is no tab to isolate.
+  **Also settled a suspicion: the school's links were right all along** — gid=0 really is Student List
+  Batch 1; it was `/preview` discarding the parameter. Verified in the app: two gviz srcs with
+  distinct gids, 389x291 frames, "Open the student list ↗" still pointing at `/edit?gid=…`, clean
+  console.
+  **Noticed while reading the gviz output: both student list tabs are EMPTY** — headers and row
+  numbers 1-N present, every name cell `&nbsp;`. Flagged to the school; the page is working, the sheet
+  is not filled in yet.
+- 2026-08-20 — **The Student list cards frame the list itself** ("here change like show preview like
+  live list"). `ItineraryCards` gained a `live` flag: with it the card becomes a `<div>` holding a 4:3
+  `.itin-card-frame` iframe of the document, with the action line as a real `<a>` — the framed-card
+  anchor rule, applied deliberately this time rather than learned the hard way as on the orientation
+  cards. 4:3, not the collage's 16:9, because a list wants rows: a 16:9 strip showed four names.
+  Only the Student list is `live`; Itinerary stays a plain whole-card anchor (re-verified: `<a>`, no
+  frame). A day-by-day plan is not worth reading in a 500px box, and a list is.
+  **`embedFor` now carries a spreadsheet's `gid` into the embed** — read from the query *or* the hash,
+  since Sheets hands out `#gid=` from the tab bar and `?gid=` from the share dialog. Without it both
+  cards framed Batch 1's tab, i.e. the same list twice, defeating the per-batch column. Verified two
+  distinct srcs: `…/preview?gid=0` and `…/preview?gid=1780253530`.
+  **This one actually works because the file IS link-shared** — checked anonymously before building:
+  `…/preview` returns "G7 students list (students/ parents) 2026-27" with no account, unlike the photo
+  folders that redirect to sign-in. Worth the school knowing the flip side: that list is readable by
+  anyone holding the URL, and the page now renders it inline rather than behind a click.
+  Frames are **not** `loading="lazy"`, matching the deck frames' existing rule — the tab only mounts
+  when opened, so lazy is pure delay. Verified: 541x405 frames at 1280x720, 287x215 on a phone, action
+  line resolving to the sheet with `target="_blank"`, zero overflow, clean console.
+- 2026-08-20 — **"Open ↗" on the framed cards was not a link at all** ("open button not work like i
+  click no redirect"). On the `preview && embed` branch the card is a `<div>` (an anchor may not
+  contain an iframe), the TITLE carried the href, and the action line under it was a bare `<span>` —
+  measured `rgb(43,58,143)`, the accent colour, with `cursor: default`. It looked exactly like a link
+  and did nothing, which is the worst of both. Fixed by wrapping the title and the action line in ONE
+  new `.doc-open` anchor rather than making the meta a second one, so a screen reader still announces
+  each deck once; its 14px gap reproduces the card's own, so no spacing moved (verified 14/14 before
+  and after). Verified by intercepting real clicks with `preventDefault`: clicking the "Open ↗" line
+  and the title on two different cards all resolve to that card's own deck URL with `target="_blank"`,
+  and the meta's cursor is now `pointer`. Only the framed branch was affected — every other tab's
+  card is itself the anchor, re-checked on Photos (`<a class="doc-card">`, meta inside it).
 - 2026-08-20 — **Pushed and live: `7958071`.** The Photos collage (grid mosaic, perspective stage,
   staggered entrance, pointer tilt, glare, scroll reveal, ambient drift, all off under
   `prefers-reduced-motion`), the "Trip Memories" album card on the grade's photograph, the

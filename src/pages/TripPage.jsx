@@ -5,6 +5,8 @@ import { useAuth } from '../auth/AuthContext'
 import { useTrip } from '../data/useTrip'
 import { gradeById, isComingSoon } from '../lib/grades'
 import { tripPhotoFor, imageUrl } from '../lib/tripPhoto'
+import { describeDoc } from '../lib/docPreview'
+import { LiveList } from '../components/LiveList'
 import { slidePreviewFor } from '../lib/slidePreviews'
 import { Section } from '../components/Section'
 import { DocCard } from '../components/DocCard'
@@ -266,6 +268,7 @@ function buildSections(trip, photo, grade) {
             batches={trip.batches || []}
             kind="Student list"
             action="Open the student list"
+            live
           />
         </Section>
       ),
@@ -1049,7 +1052,13 @@ function CarrySection({ docs, lines, slides }) {
  * (2026-08-19) is the same card with different words: one link per batch, and the batch's
  * dates and sections are exactly what tells a reader which list is theirs.
  */
-function ItineraryCards({ docs, batches, kind = 'Itinerary', action = 'Open the day-by-day plan' }) {
+function ItineraryCards({
+  docs,
+  batches,
+  kind = 'Itinerary',
+  action = 'Open the day-by-day plan',
+  live = false,
+}) {
   const byLabel = new Map(batches.map((b) => [b.label, b]))
 
   return (
@@ -1057,14 +1066,21 @@ function ItineraryCards({ docs, batches, kind = 'Itinerary', action = 'Open the 
       {docs.map((d, i) => {
         const batch = byLabel.get(d.batch)
         const tag = shortBatch(d.batch)
-        return (
-          <a
-            className="itin-card"
-            key={`itin-${i}`}
-            href={d.url}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
+        /**
+         * `live` renders the document's own rows inside the card (2026-08-20: "show preview
+         * like live list"). Only where the file is readable without an account — the student
+         * list is, unlike the photo folders — and only where it adds something: a list is
+         * worth reading in place, a day-by-day plan is not.
+         *
+         * `LiveList` fetches and draws the table itself rather than framing Google's page.
+         * Two reasons, both learned here: `/preview` ignores `?gid=` and showed the wrong
+         * tab with a tab bar attached, and a cross-origin frame cannot be styled, so the
+         * sheet's merged title made column A three times wider than the names beside it.
+         */
+        const isLive = live && describeDoc(d.url).kind === 'sheet'
+
+        const body = (
+          <>
             <span className="itin-card-top">
               {tag && <span className="itin-card-tag">{tag}</span>}
               <span className="itin-card-kind">{kind}</span>
@@ -1074,7 +1090,41 @@ function ItineraryCards({ docs, batches, kind = 'Itinerary', action = 'Open the 
                 which of the two links is theirs. */}
             {batch?.headline && <span className="itin-card-dates">{batch.headline}</span>}
             {batch?.detail && <span className="itin-card-sections">{batch.detail}</span>}
+          </>
+        )
 
+        /**
+         * With a frame the card cannot be an anchor — an iframe is interactive content and an
+         * anchor may not contain any — so the action line carries the link instead. It is a
+         * real `<a>`, not a styled span: that exact mistake shipped on the orientation cards
+         * and the school found it ("open button not work like i click no redirect").
+         */
+        if (isLive) {
+          return (
+            <div className="itin-card is-live" key={`itin-${i}`}>
+              {body}
+              <LiveList url={d.url} />
+              <a
+                className="itin-card-open"
+                href={d.url}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {action} ↗
+              </a>
+            </div>
+          )
+        }
+
+        return (
+          <a
+            className="itin-card"
+            key={`itin-${i}`}
+            href={d.url}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            {body}
             <span className="itin-card-open">{action} ↗</span>
           </a>
         )

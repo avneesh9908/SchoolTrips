@@ -125,10 +125,17 @@ export function DocCard({
               the guideline decks and the poster thumbnails are eager. */}
           <iframe className="doc-frame" src={embed} title={label} allowFullScreen />
         </span>
-        <a className="doc-label is-link" href={open} target="_blank" rel="noopener noreferrer">
-          {labelText}
+        {/* ONE anchor around both lines. The title used to be the link and the "Open ↗"
+            under it was a bare `<span>` — accent-coloured, so it read as a link and did
+            nothing when clicked (the school caught this on 2026-08-20: "open button not
+            work like i click no redirect"). Wrapping the pair rather than making the meta
+            a second anchor keeps one link per card, so a screen reader announces the deck
+            once instead of twice. The 14px gap matches the card's own, so the spacing is
+            unchanged. */}
+        <a className="doc-open" href={open} target="_blank" rel="noopener noreferrer">
+          <span className="doc-label is-link">{labelText}</span>
+          <span className="doc-meta">{hideMeta ? 'Open ↗' : `${category || KIND_LABEL[kind]} ↗`}</span>
         </a>
-        <span className="doc-meta">{hideMeta ? 'Open ↗' : `${category || KIND_LABEL[kind]} ↗`}</span>
       </div>
     )
   }
