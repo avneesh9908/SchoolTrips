@@ -1873,7 +1873,13 @@ one component:
   same kind of choice a parent just made. **No photograph, unlike the grade cards:**
   `tripCardPhotoFor` is keyed by grade, so every card here would carry the same image and the
   picture would say nothing about which trip it is.
-- `.trip-back` on a chosen trip is the one quiet line back to the picker.
+- `.trip-back` on a chosen trip is the one quiet line back to the picker. **It needs
+  `align-self: flex-start`**: `.shell` is `display: flex; flex-direction: column` in the stage and
+  fixed layouts, so `display: inline-block` alone is not enough — the child becomes a flex item
+  and the default `align-items: stretch` blew it to the full page width, a full-bleed bar above
+  the tab strip (the school: "very high width of button"). Measured after the fix: 166px inside a
+  1200px shell. **Any new direct child of `.shell` meant to hug its content needs the same** —
+  `width: fit-content` and `flex: 0 0 auto` are there as belt and braces.
 
 **Verified against the LIVE published sheet**, not the local fixture: g7, g8, g9, g10 and mlc
 report `trips=1` and go straight through, while g11 reports `trips=4` — Mokhamal, Ambapani,

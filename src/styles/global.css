@@ -287,7 +287,15 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible {
    above the tab bar as one quiet line, which is what an inline switcher of four
    buttons could never be. */
 .trip-back {
-  display: inline-block; margin: 0 0 16px; padding: 7px 13px;
+  /* `.shell` is a flex COLUMN in the stage and fixed layouts, so an inline-block
+     child is a flex item and the default `align-items: stretch` blew this link
+     out to the full width of the page — a full-bleed bar above the tab strip
+     (the school: "very high width of button"). `align-self` is the fix that
+     belongs on the child; `width: fit-content` keeps it honest under any parent
+     that is not a flex container, and `flex: 0 0 auto` stops the column from
+     stretching or squashing it vertically either. */
+  align-self: flex-start; flex: 0 0 auto; width: fit-content;
+  display: inline-block; margin: 6px 0 14px; padding: 7px 13px;
   border: 1px solid var(--rule); border-radius: var(--r-chip);
   background: #fff; color: var(--muted); text-decoration: none;
   font-size: 13px; font-weight: 600;
