@@ -2435,6 +2435,35 @@ A push that only reaches Netlify has not shipped. Check with:
 `curl -sL https://trips.fsksurat.in/ | grep -o '/assets/index-[A-Za-z0-9_-]*\.js'` against
 `ls dist/assets/index-*.js`.
 
+## Deploys run through GitHub Actions, not the GitHub App (2026-08-21)
+
+`.github/workflows/railway.yml`. Railway has no GitHub App on this repository, so it does not
+deploy on push — the failure already recorded here, where `main` and the netlify.app mirror were
+current for six days while `trips.fsksurat.in` served an older build with no `live-list` and no
+`doc-open` fix. This inverts the direction: **GitHub pushes to Railway** via `railway up --ci`,
+which needs no App.
+
+- **`RAILWAY_TOKEN` must be named exactly that**, as a repo Actions secret. A step asserts it is
+  non-empty and fails with a clear message first, because an absent secret arrives as an empty
+  string and surfaces as an *authentication* error, which reads like a bad token rather than a
+  missing one. (The school's first attempt put the workflow's file path in the secret's **Name**
+  field.)
+- **`--ci` is what makes a failed build fail the workflow.** Without it the CLI returns as soon
+  as the upload is accepted, and a broken bundle reports a green deploy.
+- **`RAILWAY_SERVICE` / `RAILWAY_ENVIRONMENT` are job env vars** so a rename is a one-line edit.
+  `railway up` fails loudly on a name it cannot find, which is wanted — it must never fall back
+  to some other service.
+- **`paths-ignore` covers `.claude/**`, `docs/**` and `**.md`.** Railway's Watch Paths are empty
+  so it rebuilds for anything, and the skill file is touched on nearly every commit.
+- **A `/healthz` check runs after the deploy**, retrying six times. `server.js` answers it with
+  JSON and the static builder cannot, so this catches precisely the six-day failure: a deploy
+  that "succeeded" onto a host serving `dist` as plain files, where `POST /api/lookup` is a 405
+  and nobody can sign in.
+- **`concurrency` supersedes a queued deploy but never cancels one in flight** — killing
+  `railway up` half way leaves the service on a half-uploaded build.
+- **If the GitHub App is ever installed, delete this file.** Two things deploying one service
+  race, and the loser silently wins.
+
 ## Railway — the second host, and why it needed a server
 The repo auto-deploys to **two** public URLs from the same `main`:
 
@@ -2690,6 +2719,11 @@ Raised in `docs/DATA-HANDOVER.md`; none answered yet. Do not assume any of these
   yet". The real `renderButton` gained `shape: 'pill'` + `logo_alignment: 'left'` to match the white
   rounded button the school pointed at. **The placeholder is not and cannot be a working sign-in**;
   the site still needs the OAuth client from `docs/GOOGLE-SIGN-IN.md` before anyone can get in.
+- 2026-08-21 — **Deploys now run through GitHub Actions** (`.github/workflows/railway.yml`), because
+  Railway has no GitHub App here and so does not deploy on push. Includes a token-presence
+  assertion, `--ci` so a failed build fails the run, `paths-ignore` for docs/skill-only commits, and
+  a post-deploy `/healthz` check that would have caught the six-day stale-production failure.
+  **The repo secret must be named exactly `RAILWAY_TOKEN`.**
 - 2026-08-21 — **A merged cell is now shared by all of a grade's trips** ("overview text for all you
   see this is common") — fixing a regression the trip split had introduced, where Grade 11's merged
   Header Text reached only Mokhamal and the other three trips lost the Overview tab. A column

@@ -1,0 +1,95 @@
+# Deploys the built site to Railway on every push to main.
+#
+# Why this exists: Railway has no GitHub App installed on this repository, so it
+# does not deploy on push — for six days that meant `main` and the netlify.app
+# mirror were current while trips.fsksurat.in, the URL parents actually use,
+# served an older build. This inverts the direction: GitHub pushes to Railway
+# rather than Railway pulling from GitHub, so it works with no App at all.
+#
+# If the App is ever installed, DELETE THIS FILE or disable the workflow. Two
+# things deploying the same service races them, and the loser silently wins.
+name: Deploy to Railway
+
+on:
+  push:
+    branches: [main]
+    # Railway's Watch Paths are empty, so it rebuilds for anything. These are the
+    # paths that cannot change what is served: project notes, documentation and
+    # the skill file, which is edited on nearly every commit.
+    paths-ignore:
+      - '.claude/**'
+      - 'docs/**'
+      - '**.md'
+  # So a deploy can be run by hand — after changing a Railway variable, for
+  # instance, which needs a restart but produces no commit.
+  workflow_dispatch:
+
+# A push landing while a deploy is in flight should supersede it, not queue
+# behind it: the newer commit is the one that should end up live. Deploys are not
+# cancelled mid-flight, though — `cancel-in-progress: false` — because killing
+# `railway up` half way leaves the service on a half-uploaded build.
+concurrency:
+  group: railway-deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    # Railway builds from the uploaded source, so this job only needs to be able
+    # to run the CLI. Ten minutes is generous for an upload plus a Vite build,
+    # and it stops a hung deploy burning a full six-hour runner slot.
+    timeout-minutes: 10
+    env:
+      # Change these two if the service or environment is ever renamed in
+      # Railway. `railway up` fails loudly on a name it cannot find, which is the
+      # behaviour we want — it must not deploy to some other service by default.
+      RAILWAY_SERVICE: SchoolTrips
+      RAILWAY_ENVIRONMENT: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # Matches the local runtime, and `npm start` uses
+          # `--env-file-if-exists`, which needs Node 22 or newer.
+          node-version: '22'
+
+      - name: Install the Railway CLI
+        run: npm install -g @railway/cli
+
+      - name: Fail early if the token is missing
+        # Without this, a missing or misnamed secret reaches the CLI as an empty
+        # string and surfaces as an authentication error further down, which reads
+        # like a bad token rather than an absent one. The secret must be named
+        # exactly RAILWAY_TOKEN.
+        run: |
+          if [ -z "${{ secrets.RAILWAY_TOKEN }}" ]; then
+            echo "::error::RAILWAY_TOKEN is not set. Add it under Settings > Secrets and variables > Actions, named exactly RAILWAY_TOKEN."
+            exit 1
+          fi
+
+      - name: Deploy
+        # --ci keeps it non-interactive and waits for the build, so a failed
+        # build fails this workflow instead of reporting a green deploy of a
+        # broken bundle.
+        run: railway up --ci --service "$RAILWAY_SERVICE" --environment "$RAILWAY_ENVIRONMENT"
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+
+      - name: Check the deployed site answers
+        # server.js answers /healthz with JSON; the static builder Railway would
+        # fall back to cannot. So this catches the exact failure that shipped a
+        # dead login for six days: a deploy that "succeeded" onto a host serving
+        # dist as plain files, where POST /api/lookup returns 405.
+        run: |
+          for i in 1 2 3 4 5 6; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' https://trips.fsksurat.in/healthz || true)
+            [ "$code" = "200" ] && echo "healthz OK" && exit 0
+            echo "attempt $i: healthz -> $code, retrying in 10s"
+            sleep 10
+          done
+          echo "::error::trips.fsksurat.in/healthz did not answer 200 after the deploy."
+          exit 1
