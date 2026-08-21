@@ -4,8 +4,8 @@ import { TRIP_LAYOUT } from '../lib/layout'
 import { useAuth } from '../auth/AuthContext'
 import { useTrip } from '../data/useTrip'
 import { gradeById, isComingSoon } from '../lib/grades'
-import { tripPhotoFor, imageUrl } from '../lib/tripPhoto'
-import { fetchDestinationPhoto } from '../lib/destinationPhoto'
+import { tripPhotoFor, tripCardPhotoFor, imageUrl } from '../lib/tripPhoto'
+import { useDestinationPhoto } from '../data/useDestinationPhoto'
 import { config } from '../config'
 import { describeDoc } from '../lib/docPreview'
 import { LiveList } from '../components/LiveList'
@@ -53,7 +53,9 @@ export default function TripPage() {
     tripIndex: pickedTrip ?? 0,
   })
   const grade = gradeById(gradeId)
-  const photo = tripPhotoFor(gradeId)
+  // Per trip, not per grade: Grade 11's four trips go to four different places,
+  // so one photograph for the grade would be wrong on three of the pages.
+  const photo = tripPhotoFor(gradeId, trip?.title || '')
 
   const sections = useMemo(
     () => (trip ? buildSections(trip, photo, grade) : []),
@@ -170,31 +172,74 @@ function TripSelect({ grade, options, gradeId }) {
 
       <div className="card-grid">
         {options.map((o) => (
-          <button
+          <TripSelectCard
             key={o.index}
-            className="pick-card"
-            onClick={() => navigate(`/trip/${gradeId}/t/${o.index}`)}
-          >
-            <span
-              className="pick-media"
-              style={{ background: `linear-gradient(150deg, ${grade.color}, #1B2560)` }}
-            >
-              {o.name && <span className="pick-code">{o.name}</span>}
-              <span className="glyph"><Icon name={grade.icon} stroke="currentColor" /></span>
-              <span className="pick-label">{o.title}</span>
-            </span>
-            <span className="pick-body">
-              <span className="pick-name">
-                <span className="n">{o.dates || grade.full}</span>
-              </span>
-              <span className="pick-cta">
-                {o.batchCount > 1 ? `${o.batchCount} batches · View trip details →` : 'View trip details →'}
-              </span>
-            </span>
-          </button>
+            grade={grade}
+            option={o}
+            onOpen={() => navigate(`/trip/${gradeId}/t/${o.index}`)}
+          />
         ))}
       </div>
     </>
+  )
+}
+
+/**
+ * One trip's card on the picker.
+ *
+ * Its photograph is resolved PER TRIP, not per grade: Grade 11's four trips go
+ * to four different places, so the grade's single `tripPhotos` entry would put
+ * one picture on all four cards and be wrong for three. `tripCardPhotoFor` takes
+ * the destination and looks for a `"<gradeId>.<slug>"` key first.
+ *
+ * With no photograph of the school's own, a credited stand-in is looked up for
+ * the destination — which resolves for a Jaipur or a Manali and, correctly, not
+ * for Grade 11's local campsites, whose cards keep the grade's colour.
+ */
+function TripSelectCard({ grade, option, onOpen }) {
+  const photo = tripCardPhotoFor(grade.id, option.title)
+  const [broken, setBroken] = useState(false)
+  const showPhoto = photo && !broken
+  const found = useDestinationPhoto(option.title, !photo)
+  const [standInBroken, setStandInBroken] = useState(false)
+  const showStandIn = !showPhoto && found && !standInBroken
+
+  return (
+    <button className="pick-card" onClick={onOpen}>
+      <span
+        className={showPhoto || showStandIn ? 'pick-media has-photo' : 'pick-media'}
+        style={{ background: `linear-gradient(150deg, ${grade.color}, #1B2560)` }}
+      >
+        {showPhoto && (
+          <img className="pick-photo" src={photo} alt="" loading="lazy" onError={() => setBroken(true)} />
+        )}
+        {showStandIn && (
+          <img
+            className="pick-photo"
+            src={found.url}
+            alt=""
+            loading="lazy"
+            onError={() => setStandInBroken(true)}
+          />
+        )}
+        {option.name && <span className="pick-code">{option.name}</span>}
+        {!showPhoto && !showStandIn && (
+          <span className="glyph"><Icon name={grade.icon} stroke="currentColor" /></span>
+        )}
+        <span className="pick-label">{option.title}</span>
+        {showStandIn && <span className="pick-credit">area photo · Wikipedia</span>}
+      </span>
+      <span className="pick-body">
+        <span className="pick-name">
+          <span className="n">{option.dates || grade.full}</span>
+        </span>
+        <span className="pick-cta">
+          {option.batchCount > 1
+            ? `${option.batchCount} batches · View trip details →`
+            : 'View trip details →'}
+        </span>
+      </span>
+    </button>
   )
 }
 
@@ -922,25 +967,13 @@ function HomeSection({ trip, photo }) {
   /**
    * A credited photograph of the destination, shown ONLY where the school has
    * given none of its own — Grade 7 has a real one, the rest had a flat colour
-   * (the school, 2026-08-21). Never fetched when `photo` is set, so a school
-   * photograph is never replaced and no request is made for nothing.
+   * (the school, 2026-08-21). Nothing is fetched when `photo` is set, so a
+   * school photograph is never replaced.
    *
    * `trip.title` is the destination, and `placeCandidates` splits a compound one
    * like "Jaipur-Abhaneri-Ranthambore" and takes the first place that resolves.
    */
-  const [found, setFound] = useState(null)
-  const wanted = !photo && config().autoDestinationPhoto !== false && trip.title
-  useEffect(() => {
-    if (!wanted) { setFound(null); return }
-    let cancelled = false
-    // A failed lookup is not worth telling a parent about: the banner just stays
-    // the grade's colour, which is what it did before this existed.
-    fetchDestinationPhoto(trip.title)
-      .then((r) => { if (!cancelled) setFound(r) })
-      .catch(() => {})
-    return () => { cancelled = true }
-  }, [wanted, trip.title])
-
+  const found = useDestinationPhoto(trip.title, !photo)
   const [standInBroken, setStandInBroken] = useState(false)
   const showStandIn = !showPhoto && found && !standInBroken
   // One card per batch. A sheet with no batch rows still has the trip's own dates,

@@ -40,10 +40,48 @@ export function imageUrl(url, width) {
  * It lives in config rather than in code so the school can change or add one by
  * editing a deployed JSON file, the same way the spreadsheet pointer works.
  */
-export function tripPhotoFor(gradeId) {
+export function tripPhotoFor(gradeId, destination = '') {
   const photos = config().tripPhotos || {}
-  const url = String(photos[gradeId] || '').trim()
+  const url = pickPhoto(photos, gradeId, destination)
   return url ? imageUrl(url, 1600) : ''
+}
+
+/**
+ * "Jaipur-Abhaneri-Ranthambore" -> "jaipur-abhaneri-ranthambore", so a trip can
+ * be addressed in config by the place it goes to.
+ */
+export function photoSlug(destination) {
+  return String(destination || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+}
+
+/**
+ * A grade's photo, or a single TRIP's within it.
+ *
+ * Grade 11 travels to four different places on the same dates, so one photograph
+ * per grade cannot serve them: all four cards would carry the same picture and it
+ * would be wrong for three of them. So a trip may be keyed
+ * `"<gradeId>.<destination-slug>"`, falling back to the grade's own entry:
+ *
+ *   "g11.mokhamal": "https://drive.google.com/file/d/…/view"
+ *   "g11.ambapani": "…"
+ *
+ * **Keyed by the destination, not by position.** A `g11.0` would silently point
+ * at a different trip the moment the school inserts a row above it — the same
+ * reason `slidePreviews` is keyed by section name rather than by column order.
+ *
+ * Keys are flat strings for the reason recorded in `slidePreviews`: config
+ * merging walks one level and would stringify a nested object.
+ */
+function pickPhoto(map, gradeId, destination) {
+  const slug = photoSlug(destination)
+  if (slug) {
+    const own = String(map[`${gradeId}.${slug}`] || '').trim()
+    if (own) return own
+  }
+  return String(map[gradeId] || '').trim()
 }
 
 /**
@@ -57,10 +95,10 @@ export function tripPhotoFor(gradeId) {
  * photograph still covers both places; with neither, the card keeps the grade's
  * own colour and icon and no picture is invented.
  */
-export function tripCardPhotoFor(gradeId) {
+export function tripCardPhotoFor(gradeId, destination = '') {
   const cards = config().tripCardPhotos || {}
-  const url = String(cards[gradeId] || '').trim()
+  const url = pickPhoto(cards, gradeId, destination)
   // 1200 rather than the banner's 1600: the card is a 132px strip, so the wider
   // fetch would be bytes no parent ever sees.
-  return url ? imageUrl(url, 1200) : tripPhotoFor(gradeId)
+  return url ? imageUrl(url, 1200) : tripPhotoFor(gradeId, destination)
 }

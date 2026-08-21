@@ -5,6 +5,7 @@ import { GRADES, gradeById, isComingSoon } from '../lib/grades'
 import { tripCardPhotoFor } from '../lib/tripPhoto'
 import { useTripTitles } from '../data/useTripTitles'
 import { Icon } from '../components/Icon'
+import { useDestinationPhoto } from '../data/useDestinationPhoto'
 import { initials } from '../components/TopBar'
 
 export default function ChildPicker() {
@@ -155,27 +156,53 @@ function PickCard({ grade, title, code, status, line, cta, comingSoon = false, o
   const [broken, setBroken] = useState(false)
   const showPhoto = photo && !broken
 
+  /**
+   * A credited stand-in where the school has supplied no photograph for this
+   * grade. `line` is the destination — the trip's own name, already on the card
+   * — so a grade travelling to several places passes all of them and the first
+   * that Wikipedia can match wins.
+   *
+   * Not fetched for a coming-soon grade: there is no trip to illustrate yet.
+   */
+  const found = useDestinationPhoto(comingSoon ? '' : line, !photo)
+  const [standInBroken, setStandInBroken] = useState(false)
+  const showStandIn = !showPhoto && found && !standInBroken
+
   return (
     <Tag
       className={comingSoon ? 'pick-card is-soon' : 'pick-card'}
       onClick={comingSoon ? undefined : onClick}
     >
       <span
-        className={showPhoto ? 'pick-media has-photo' : 'pick-media'}
+        className={showPhoto || showStandIn ? 'pick-media has-photo' : 'pick-media'}
         style={{ background: `linear-gradient(150deg, ${grade.color}, #1B2560)` }}
       >
         {showPhoto && (
           <img className="pick-photo" src={photo} alt="" loading="lazy" onError={() => setBroken(true)} />
         )}
+        {showStandIn && (
+          <img
+            className="pick-photo"
+            src={found.url}
+            alt=""
+            loading="lazy"
+            onError={() => setStandInBroken(true)}
+          />
+        )}
         <span className="pick-code">{code}</span>
         {status && <span className="pick-status">{status}</span>}
         {/* The gradient's icon is the placeholder for a missing photograph, not a
             decoration on top of one. */}
-        {!showPhoto && <span className="glyph"><Icon name={grade.icon} stroke="currentColor" /></span>}
+        {!showPhoto && !showStandIn && <span className="glyph"><Icon name={grade.icon} stroke="currentColor" /></span>}
         {/* The destination, or "Coming soon" — named on the picture itself, which
             is what the school asked for (2026-08-17): the card's head used to be a
             block of colour that said nothing. */}
         <span className="pick-label">{comingSoon ? 'Coming soon' : line}</span>
+        {/* Plain text, not a link: the card is a <button> and an anchor may not
+            be nested inside one. The trip page carries the linked credit. It is
+            still said here, because a photograph on a card is read as the trip's
+            photograph just as readily as one on the banner. */}
+        {showStandIn && <span className="pick-credit">area photo · Wikipedia</span>}
       </span>
       <span className="pick-body">
         {/* The trip's name moved onto the picture above, so it is not repeated

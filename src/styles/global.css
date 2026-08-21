@@ -281,6 +281,16 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible {
   text-align: center; font-size: 12.5px; line-height: 1.6; color: var(--soft);
 }
 
+/* The card's version of the credit. Bottom-RIGHT, opposite the destination
+   label, so the two never collide on a 132px strip. Plain text rather than a
+   link because the card is a <button>. */
+.pick-credit {
+  position: absolute; right: 10px; bottom: 8px;
+  font-size: 9.5px; font-weight: 600; letter-spacing: 0.04em;
+  text-transform: uppercase; color: rgba(255, 255, 255, 0.72);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.55);
+}
+
 /* ---------- the credited destination stand-in ---------- */
 /* Shown only where the school has supplied no photograph of its own. The credit
    is load-bearing, not ornament: it is what stops a library photograph of the

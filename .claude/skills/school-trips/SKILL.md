@@ -1781,6 +1781,41 @@ Current behaviour on the live destinations:
 | Manali (MLC) | "Manali, Himachal Pradesh", 976 kB |
 | Mokhamal · Ambapani · Kilad · Kevdi | **none** — banner stays the grade colour |
 
+### On the CARDS too, and photos keyed per trip (2026-08-21)
+
+*"i want to images here"*, pointing at the grade cards and the Choose-a-trip cards. Same credited
+stand-in, via `useDestinationPhoto()` — one hook shared by the grade picker, the trip picker and
+the Overview banner, so the three cannot drift and they share the module cache.
+
+- **`.pick-credit` is bottom-RIGHT**, opposite the destination label, so the two never collide on
+  a 132px strip. **Plain text, not a link:** the card is a `<button>` and an anchor may not be
+  nested in one. The trip page carries the linked credit.
+- **The glyph placeholder is suppressed** when a stand-in shows (`!showPhoto && !showStandIn`),
+  or the icon draws on top of the photograph.
+- **`has-photo` must be set for a stand-in too**, or the card keeps the no-photo treatment behind
+  the image.
+
+**Photos are now keyed per trip**, not only per grade: `"<gradeId>.<destination-slug>"` —
+`"g11.mokhamal"` — falling back to the grade's own key. Grade 11's four trips go to four places,
+so one entry for the grade would put the same picture on all four cards and be wrong on three.
+**Keyed by destination, not position:** a `"g11.0"` would silently point at a different trip the
+moment a row is inserted above it, the same reason `slidePreviews` is keyed by section name.
+`tripPhotoFor` and `tripCardPhotoFor` both take the destination now.
+
+What actually gained a picture: **g8 → Jabalpur, g10 → Jodhpur, mlc → Manali, Himachal Pradesh**.
+g7 keeps the school's own. Grade 11's card and all four trip cards keep the grade colour.
+
+**There is no image to be had for Mokhamal, Ambapani, Kilad or Kevdi, and this was checked, not
+assumed.** Wikipedia has no article. Wikimedia Commons and Openverse return other places
+entirely: "Ambapani" is a village in **Jharkhand**, 1,500 km away; "Kilad" gives a 1661 Dutch
+still life and a Leipzig memorial stone; "Mokhamal" gives photographs of people. Only
+"Kevdi,mandvi,gujarat,india.jpg" is real, which also confirms Wikipedia's earlier
+*Mandvi, Surat district* match was imprecise rather than wrong. **Google Images is not an
+option**: there is no free API (Bing's were retired), scraping breaches its terms and is
+CORS-blocked, and the results are Shutterstock, Instagram and YouTube thumbnails — republishing
+those on a parent portal is the school's legal exposure, not a technical detail. The answer for
+those four is a real photograph in `tripPhotos` under the per-trip keys.
+
 Those last four are Grade 11's local campsites, which Wikipedia has no article for. **Refusing
 is the correct outcome**, and it is why the relevance guard exists: a photo of the wrong town is
 worse than the flat colour it replaces. To give them a picture, put a real one in
@@ -2772,6 +2807,11 @@ Raised in `docs/DATA-HANDOVER.md`; none answered yet. Do not assume any of these
   yet". The real `renderButton` gained `shape: 'pill'` + `logo_alignment: 'left'` to match the white
   rounded button the school pointed at. **The placeholder is not and cannot be a working sign-in**;
   the site still needs the OAuth client from `docs/GOOGLE-SIGN-IN.md` before anyone can get in.
+- 2026-08-21 — **The stand-in photo now shows on the grade and trip CARDS too** ("i want to images
+  here"), through a shared `useDestinationPhoto()` hook, and **photos can be keyed per trip** as
+  `"<gradeId>.<destination-slug>"`. Gained: g8 Jabalpur, g10 Jodhpur, mlc Manali. Grade 11's four
+  campsites have no licensed image anywhere — verified against Commons and Openverse, which return
+  other places — so they keep the grade colour until the school supplies one.
 - 2026-08-21 — **Reinstated the credited destination stand-in photo** ("grade 7 have picture other
   grade not have picture on overview"), reversing the 2026-08-14 removal but contained: a school
   photo always wins, the credit says the picture is of the area and not of the trip, and
