@@ -45,10 +45,15 @@ export function titlesFrom(sets) {
   // row (the grade cell is merged, so the rest of the group inherits it).
   if (sets?.flat && looksLikeTripApp(sets.flat)) {
     for (const [gradeId, rows] of groupByGrade(sets.flat)) {
+      // EVERY destination, not the first: a grade can travel to more than one
+      // place — Grade 11 goes batch-wise to different destinations — and naming
+      // only the first would put one group's trip on the card both groups read.
+      const names = []
       for (const row of rows) {
         const name = String(pick(row, 'destination', 'place', 'location') || '').trim()
-        if (name) { out[gradeId] = name; break }
+        if (name && !names.includes(name)) names.push(name)
       }
+      if (names.length) out[gradeId] = names.join('  ·  ')
     }
     return out
   }

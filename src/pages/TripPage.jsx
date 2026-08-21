@@ -31,9 +31,17 @@ export default function TripPage() {
   // the term, so narrowing the page to the batch the sheet lists their section
   // against would go stale. The section is still passed so the data layer can warn
   // when the sheet lists no batch for it — it no longer filters anything.
+  /**
+   * Which of the grade's trips is being read. A grade does not always travel to
+   * one place — Grade 11 goes batch-wise to different destinations — so the data
+   * layer splits the grade's rows on the Destination column and this picks one.
+   * Zero for every grade with a single destination, which is all of 7-10.
+   */
+  const [tripIndex, setTripIndex] = useState(0)
   const { status, trip, error, retry } = useTrip(gradeId, {
     enabled: allowed && !soon,
     section: activeStudent?.section || '',
+    tripIndex,
   })
   const grade = gradeById(gradeId)
   const photo = tripPhotoFor(gradeId)
@@ -86,9 +94,51 @@ export default function TripPage() {
       )}
 
       {status === 'ready' && trip && (
-        <TripBody sections={sections} active={active} onSelect={setChosen} />
+        <>
+          <TripSwitcher
+            options={trip.tripOptions}
+            active={trip.tripIndex}
+            onSelect={(i) => {
+              // The tab set belongs to the trip being read: Manali may publish a
+              // Photos tab where the other trip has none, so a remembered tab id
+              // would land on a tab that is not there.
+              setChosen('')
+              setTripIndex(i)
+            }}
+          />
+          <TripBody sections={sections} active={active} onSelect={setChosen} />
+        </>
       )}
     </>
+  )
+}
+
+/**
+ * Offered only when the grade travels on more than one trip. Grades 7-10 have a
+ * single destination, so `tripOptions` is length 1 there and this renders
+ * nothing rather than a control with one choice in it.
+ *
+ * It names each trip by its destination and dates, because "Trip 1 / Trip 2"
+ * tells a parent nothing about which one their child is on — the destination is
+ * the thing they recognise from the school's letter.
+ */
+function TripSwitcher({ options, active, onSelect }) {
+  if (!options || options.length < 2) return null
+  return (
+    <div className="trip-switch" role="group" aria-label="Choose a trip">
+      {options.map((o) => (
+        <button
+          key={o.index}
+          type="button"
+          className={o.index === active ? 'trip-switch-item is-on' : 'trip-switch-item'}
+          aria-pressed={o.index === active}
+          onClick={() => onSelect(o.index)}
+        >
+          <span className="t">{o.title}</span>
+          {o.dates && <span className="d">{o.dates}</span>}
+        </button>
+      ))}
+    </div>
   )
 }
 

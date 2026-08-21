@@ -312,10 +312,73 @@ function normalizeSection(s) {
   return String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '')
 }
 
-export function assembleTripApp(gradeId, rows, { section } = {}) {
+/**
+ * Splits one grade's rows into TRIPS, because a grade does not always travel to
+ * one place. Grade 11 goes batch-wise to different destinations (the school,
+ * 2026-08-21: "sometime batch wise different trips so one grade have many
+ * trips"), and until now the second destination was silently discarded —
+ * `firstWith` took the first non-empty Destination cell for the whole grade, so
+ * both batches were labelled with one trip's name, and the two trips' safety
+ * rules and packing lists were pooled into one list shown to everyone.
+ *
+ * **The Destination cell is the divider, and no new column is needed.** It is
+ * already how the school types the sheet:
+ *
+ *   - a row WITH a Destination starts a new trip
+ *   - a row with it BLANK is another batch of the trip above
+ *
+ * So Grades 7-10 — destination typed once on the merged first row, blank on the
+ * continuation rows — come out as exactly one trip with two batches, unchanged.
+ * Grade 11 becomes two trips the moment its second destination is filled in.
+ *
+ * Rows before the first Destination cell stay with the first group: a grade
+ * whose destination has not been decided yet is still one trip, not a headless
+ * one plus a real one.
+ */
+export function splitIntoTrips(rows) {
+  const out = []
+  for (const row of rows) {
+    const hasDestination = !!val(row, 'destination', 'place', 'location')
+    if (!out.length || (hasDestination && out[out.length - 1].some((r) => val(r, 'destination', 'place', 'location')))) {
+      out.push([row])
+      continue
+    }
+    out[out.length - 1].push(row)
+  }
+  return out
+}
+
+/** What the trip switcher shows. One entry per trip the grade travels on. */
+function tripOptionsFor(groups) {
+  return groups.map((group, index) => {
+    const dest = group.map((r) => val(r, 'destination', 'place', 'location')).find(Boolean) || ''
+    const dates = group
+      .map((r) => stripBatchPrefix((val(r, ...DATE_ALIASES).split('\n')[0] || '').trim()))
+      .filter(Boolean)
+    return {
+      index,
+      title: dest || 'Educational trip',
+      dates: [...new Set(dates)].join('  ·  '),
+      batchCount: group.length,
+    }
+  })
+}
+
+/**
+ * `tripIndex` picks which of the grade's trips to assemble. It defaults to the
+ * first, so every existing caller keeps its behaviour; `trip.tripOptions` tells
+ * the page whether there is more than one to offer.
+ */
+export function assembleTripApp(gradeId, rows, { section, tripIndex = 0 } = {}) {
   const groups = groupByGrade(rows)
-  const all = groups.get(gradeId)
-  if (!all || all.length === 0) return null
+  const forGrade = groups.get(gradeId)
+  if (!forGrade || forGrade.length === 0) return null
+
+  const tripGroups = splitIntoTrips(forGrade)
+  const tripOptions = tripOptionsFor(tripGroups)
+  // Out-of-range falls back to the first trip rather than blanking the page: a
+  // stale bookmark pointing at a trip the sheet no longer has must still read.
+  const all = tripGroups[tripIndex] || tripGroups[0]
 
   /**
    * **Every batch, for everyone** (2026-08-19). A grade travels in batches and a
@@ -477,6 +540,13 @@ export function assembleTripApp(gradeId, rows, { section } = {}) {
   return {
     grade: gradeId,
     title: destination || 'Educational trip',
+    /**
+     * Every trip this grade travels on, so the page can offer a switcher. Length
+     * 1 for a grade with a single destination, which is all of 7-10 — the
+     * switcher hides itself rather than showing a control with one option.
+     */
+    tripOptions,
+    tripIndex: tripOptions[tripIndex] ? tripIndex : 0,
     dates: batches.map((b) => b.headline).filter(Boolean).join('  ·  '),
     batches,
     /**

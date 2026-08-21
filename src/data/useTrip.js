@@ -11,7 +11,7 @@ import { expandFolderDocuments } from '../lib/drive'
  * authorised. With mock/sheets the whole set arrives and we slice it here —
  * which is why the caller must check `canAccessGrade` before mounting this.
  */
-export function useTrip(gradeId, { enabled = true, section = '' } = {}) {
+export function useTrip(gradeId, { enabled = true, section = '', tripIndex = 0 } = {}) {
   const [state, setState] = useState({ status: 'idle', trip: null, error: null })
   const [attempt, setAttempt] = useState(0)
 
@@ -29,7 +29,7 @@ export function useTrip(gradeId, { enabled = true, section = '' } = {}) {
           isServerEnforced() && sets.trip
             ? sets.trip
             : sets.flat
-              ? assembleTripApp(gradeId, sets.flat, { section })
+              ? assembleTripApp(gradeId, sets.flat, { section, tripIndex })
               : assembleTrip(gradeId, sets)
         if (!assembled) return { status: 'ready', trip: null, error: null }
 
@@ -59,7 +59,7 @@ export function useTrip(gradeId, { enabled = true, section = '' } = {}) {
       })
 
     return () => { cancelled = true }
-  }, [gradeId, enabled, section, attempt])
+  }, [gradeId, enabled, section, tripIndex, attempt])
 
   return { ...state, retry: () => setAttempt((n) => n + 1) }
 }

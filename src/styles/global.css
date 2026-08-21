@@ -281,6 +281,30 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible {
   text-align: center; font-size: 12.5px; line-height: 1.6; color: var(--soft);
 }
 
+/* ---------- trip switcher (a grade with more than one trip) ---------- */
+/* Shown only for a grade that travels to more than one destination — Grade 11
+   goes batch-wise to different places. Each option names its destination and
+   dates, because "Trip 1 / Trip 2" tells a parent nothing about which one is
+   their child's. Wraps rather than scrolls: there are two or three of these,
+   not a strip, and a hidden option is worse than a second line. */
+.trip-switch {
+  display: flex; flex-wrap: wrap; gap: 10px; margin: 0 0 22px;
+}
+.trip-switch-item {
+  display: flex; flex-direction: column; gap: 2px; align-items: flex-start;
+  padding: 11px 16px; border: 1px solid var(--rule); border-radius: var(--r-chip);
+  background: #fff; font: inherit; text-align: left; cursor: pointer;
+  transition: border-color 0.18s ease, background 0.18s ease;
+}
+.trip-switch-item:hover { border-color: var(--accent); }
+.trip-switch-item .t { font-weight: 700; font-size: 14.5px; color: var(--ink); }
+.trip-switch-item .d { font-size: 12.5px; color: var(--muted); }
+.trip-switch-item.is-on {
+  border-color: var(--navy); background: var(--navy);
+}
+.trip-switch-item.is-on .t { color: #fff; }
+.trip-switch-item.is-on .d { color: rgba(255, 255, 255, 0.75); }
+
 /* ---------- dashboard head + grade/child cards ---------- */
 .dash-head {
   display: flex; align-items: flex-end; justify-content: space-between;

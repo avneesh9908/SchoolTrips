@@ -1778,6 +1778,53 @@ and returns `{}`, and the cards fall back to "Not published yet" while still ope
 name is a nicety; the card must work without it. Live: g7 Jaipur-Abhaneri-Ranthambore, g8
 Jabalpur-Panchmarhi, g10 Jodhpur & Jaisalmer; g9/g11/g12 read "Not published yet".
 
+## A grade can travel on MORE THAN ONE trip (2026-08-21)
+
+The school: *"sometime batch wise different trips so one grade have many trips"* — Grade 11
+goes batch-wise to different destinations, not to one place in two date batches.
+
+**The Destination cell is the divider. No new column.** `splitIntoTrips()` in `tripApp.js`:
+
+- a row **with** a Destination starts a new trip
+- a row with it **blank** is another batch of the trip above
+- rows before the first Destination stay with the first group, so a grade whose destination is
+  undecided is one headless trip rather than a phantom plus a real one
+
+This is chosen precisely because it is **already how the school types the sheet** — destination
+once on the merged first row, blank on continuation rows. Verified against the real sheet:
+g7/g8/g10 come out as one trip with two batches each, same titles as before, nothing to
+re-enter. Grade 11 becomes two trips the moment its second Destination is filled in.
+
+**What this fixed, which was silent data loss.** `firstWith('destination', …)` took the first
+non-empty Destination for the whole grade, so a second, different destination was **discarded**
+and both batches were labelled with one trip's name. Worse, `textLines()` **pooled** Safety,
+Do/Dont's and Things to carry across every row of the grade, so two trips' rules merged into
+one list shown to both groups — Manali's snow-gear briefing on the Coorg parents' page.
+Splitting first makes all of those per-trip; a test with Manali + Coorg confirms
+`safety=["Snow gear briefing"]` and `safety=["Leech socks briefing"]` stay apart.
+
+**Shape and UI.**
+- `assembleTripApp(gradeId, rows, { section, tripIndex = 0 })` — `tripIndex` picks which trip.
+  Defaults to the first, so every existing caller is unchanged. Out of range falls back to the
+  first rather than blanking the page, so a stale bookmark still reads.
+- `trip.tripOptions` = `[{ index, title, dates, batchCount }]`. **Length 1 for a single-
+  destination grade, and `TripSwitcher` renders nothing below 2** — never a control with one
+  option in it.
+- Options are named by **destination and dates, never "Trip 1 / Trip 2"**: the destination is
+  what a parent recognises from the school's letter.
+- Switching trips **clears the chosen tab** (`setChosen('')`). The tab set belongs to the trip —
+  one may publish Photos where the other has none — so a remembered tab id would land on a tab
+  that is not there.
+- `titlesFrom()` joins **every** destination for the picker card (`"Manali  ·  Coorg"`). Naming
+  only the first put one group's trip on the card both groups read.
+
+**Two sheet rules to tell the school**, and they are the whole of it:
+1. **Grades column: the grade number.** A trip name there is dropped silently — the sheet's
+   `MlC` row (Manali) is discarded today with only a console warning, so if that is Grade 11's
+   second trip it is invisible to parents. Write `11` and put `Manali` in Destination.
+2. **Destination column: fill it on the first row of each different trip, leave it blank for
+   another batch of the same trip.**
+
 ## Both Grade 7 rows said "Batch 1" in the sheet — how the app compensates
 Measured 2026-08-14: the content sheet's two Grade 7 rows **both** begin `Batch 1:` (12-19 December
 and 13-20 December). The second should say Batch 2. Taking the sheet at face value did two visible
@@ -2493,6 +2540,13 @@ Raised in `docs/DATA-HANDOVER.md`; none answered yet. Do not assume any of these
   yet". The real `renderButton` gained `shape: 'pill'` + `logo_alignment: 'left'` to match the white
   rounded button the school pointed at. **The placeholder is not and cannot be a working sign-in**;
   the site still needs the OAuth client from `docs/GOOGLE-SIGN-IN.md` before anyone can get in.
+- 2026-08-21 — **A grade can now travel on more than one trip** ("sometime batch wise different
+  trips so one grade have many trips"). `splitIntoTrips()` divides a grade's rows on the Destination
+  column — the way the school already types it — so g7/g8/g10 are byte-for-byte unchanged while
+  Grade 11 splits as soon as its second destination is filled in. This also fixed real data loss:
+  a second destination used to be discarded, and Safety/Do-Dont/Things-to-carry were pooled across
+  the whole grade, putting one trip's rules on the other trip's page. `TripSwitcher` appears only
+  above 1 trip. See the section above for the two sheet rules the school needs.
 - 2026-08-21 — **Dropped the school's "Please go through the details below…" sentence from the
   Overview** on their instruction, via `stripBoilerplate()` in `TripPage.jsx`. It is sheet content
   in six grade rows, so this is a stopgap for the six spreadsheet edits — see the section above,
