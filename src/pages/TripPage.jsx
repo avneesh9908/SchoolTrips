@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef, Fragment } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, useNavigate, Link } from 'react-router-dom'
 import { TRIP_LAYOUT } from '../lib/layout'
 import { useAuth } from '../auth/AuthContext'
 import { useTrip } from '../data/useTrip'
@@ -32,16 +32,23 @@ export default function TripPage() {
   // against would go stale. The section is still passed so the data layer can warn
   // when the sheet lists no batch for it — it no longer filters anything.
   /**
-   * Which of the grade's trips is being read. A grade does not always travel to
-   * one place — Grade 11 goes batch-wise to different destinations — so the data
-   * layer splits the grade's rows on the Destination column and this picks one.
-   * Zero for every grade with a single destination, which is all of 7-10.
+   * Which of the grade's trips is being read, taken from the URL rather than
+   * state: `/trip/g11/t/2` is a real address, so Back leaves a trip for the
+   * picker instead of the child list, and a parent can bookmark the one their
+   * child is on.
+   *
+   * Absent on `/trip/:gradeId`, which is the picker's own address. A junk or
+   * out-of-range segment is treated as absent, so a stale bookmark lands on the
+   * picker rather than silently showing trip 0 under a URL claiming trip 9.
    */
-  const [tripIndex, setTripIndex] = useState(0)
+  const { tripIndex: tripParam } = useParams()
+  const pickedTrip = /^\d+$/.test(tripParam || '') ? Number(tripParam) : null
   const { status, trip, error, retry } = useTrip(gradeId, {
     enabled: allowed && !soon,
     section: activeStudent?.section || '',
-    tripIndex,
+    // tripOptions is the same whichever trip is assembled, so the picker can be
+    // drawn from a load of the first one.
+    tripIndex: pickedTrip ?? 0,
   })
   const grade = gradeById(gradeId)
   const photo = tripPhotoFor(gradeId)
@@ -56,6 +63,17 @@ export default function TripPage() {
   // remembered index would land on the wrong one.
   const [chosen, setChosen] = useState('')
   const active = sections.some((s) => s.id === chosen) ? chosen : sections[0]?.id || ''
+
+  /**
+   * Show the picker only when there is a real choice to make and none has been
+   * made. A grade with ONE trip goes straight to it: an extra page carrying a
+   * single card is a click that tells a parent nothing.
+   *
+   * An out-of-range index counts as no choice, so `/trip/g11/t/9` offers the
+   * picker instead of quietly rendering trip 0.
+   */
+  const count = trip?.tripOptions?.length || 0
+  const needsPick = count > 1 && (pickedTrip === null || pickedTrip >= count)
 
   // Someone typed another grade into the address bar.
   if (!allowed) {
@@ -93,19 +111,18 @@ export default function TripPage() {
         />
       )}
 
-      {status === 'ready' && trip && (
+      {/* More than one trip and none chosen yet: the picker is the whole page. It
+          is not shown alongside a trip, because a grade with four trips had four
+          switch buttons stacked above every tab bar. */}
+      {status === 'ready' && trip && needsPick && (
+        <TripSelect grade={grade} options={trip.tripOptions} gradeId={gradeId} />
+      )}
+
+      {status === 'ready' && trip && !needsPick && (
         <>
-          <TripSwitcher
-            options={trip.tripOptions}
-            active={trip.tripIndex}
-            onSelect={(i) => {
-              // The tab set belongs to the trip being read: Manali may publish a
-              // Photos tab where the other trip has none, so a remembered tab id
-              // would land on a tab that is not there.
-              setChosen('')
-              setTripIndex(i)
-            }}
-          />
+          {trip.tripOptions.length > 1 && (
+            <Link className="trip-back" to={`/trip/${gradeId}`}>← Choose another trip</Link>
+          )}
           <TripBody sections={sections} active={active} onSelect={setChosen} />
         </>
       )}
@@ -114,34 +131,68 @@ export default function TripPage() {
 }
 
 /**
- * Offered only when the grade travels on more than one trip. Grades 7-10 have a
- * single destination, so `tripOptions` is length 1 there and this renders
- * nothing rather than a control with one choice in it.
+ * The trip picker — its own page between the grade and the trip, for a grade
+ * that travels on several (the school, 2026-08-21: "show extra page after the
+ * grade to selected the trip when more then one trip").
  *
- * It names each trip by its destination and dates, because "Trip 1 / Trip 2"
- * tells a parent nothing about which one their child is on — the destination is
- * the thing they recognise from the school's letter.
+ * It replaced an inline row of switch buttons above the tab bar. Grade 11 has
+ * FOUR trips, and four buttons stacked over every tab of every trip is a
+ * permanent band of navigation on a page whose job is to be read.
+ *
+ * Deliberately reuses the grade picker's own `card-grid` / `pick-card` classes so
+ * the step reads as the same kind of choice a parent has just made, rather than a
+ * new interface. **No photograph, unlike the grade cards:** `tripCardPhotoFor` is
+ * keyed by grade, so every card here would carry the same image and the picture
+ * would say nothing about which trip it is. The gradient and the grade's glyph
+ * stand in, and the destination is named on the media itself exactly as it is
+ * over there.
  */
-function TripSwitcher({ options, active, onSelect }) {
-  if (!options || options.length < 2) return null
+function TripSelect({ grade, options, gradeId }) {
+  const navigate = useNavigate()
   return (
-    <div className="trip-switch" role="group" aria-label="Choose a trip">
-      {options.map((o) => (
-        <button
-          key={o.index}
-          type="button"
-          className={o.index === active ? 'trip-switch-item is-on' : 'trip-switch-item'}
-          aria-pressed={o.index === active}
-          onClick={() => onSelect(o.index)}
-        >
-          {/* The programme tag comes FIRST and is small: it answers "which
-              group is this" before the destination answers "where". */}
-          {o.name && <span className="n">{o.name}</span>}
-          <span className="t">{o.title}</span>
-          {o.dates && <span className="d">{o.dates}</span>}
-        </button>
-      ))}
-    </div>
+    <>
+      <div className="dash-head">
+        <div>
+          <div className="crumbs">
+            <span>School Trips</span><span>/</span>
+            <Link to="/children" className="crumb-link">Grades</Link><span>/</span>
+            <span className="here">{grade.full}</span>
+          </div>
+          <h2>Choose a trip</h2>
+          <p className="lede">
+            {grade.full} travels on {options.length} trips. Open the one your child is going on —
+            each has its own dates, travel details and things to carry.
+          </p>
+        </div>
+      </div>
+
+      <div className="card-grid">
+        {options.map((o) => (
+          <button
+            key={o.index}
+            className="pick-card"
+            onClick={() => navigate(`/trip/${gradeId}/t/${o.index}`)}
+          >
+            <span
+              className="pick-media"
+              style={{ background: `linear-gradient(150deg, ${grade.color}, #1B2560)` }}
+            >
+              {o.name && <span className="pick-code">{o.name}</span>}
+              <span className="glyph"><Icon name={grade.icon} stroke="currentColor" /></span>
+              <span className="pick-label">{o.title}</span>
+            </span>
+            <span className="pick-body">
+              <span className="pick-name">
+                <span className="n">{o.dates || grade.full}</span>
+              </span>
+              <span className="pick-cta">
+                {o.batchCount > 1 ? `${o.batchCount} batches · View trip details →` : 'View trip details →'}
+              </span>
+            </span>
+          </button>
+        ))}
+      </div>
+    </>
   )
 }
 

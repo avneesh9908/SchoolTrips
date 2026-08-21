@@ -1818,6 +1818,37 @@ Splitting first makes all of those per-trip; a test with Manali + Coorg confirms
 - `titlesFrom()` joins **every** destination for the picker card (`"Manali  ·  Coorg"`). Naming
   only the first put one group's trip on the card both groups read.
 
+### Choosing between a grade's trips is its OWN PAGE (2026-08-21)
+
+*"show extra page after the grade to selected the trip when more then one trip"*. Two routes,
+one component:
+
+| URL | Renders |
+|---|---|
+| `/trip/:gradeId` | the trip when the grade has one; the **picker** when it has several |
+| `/trip/:gradeId/t/:tripIndex` | that trip |
+
+- **The index is in the URL, not in state.** Back leaves a trip for the picker rather than
+  jumping to the child list, and a parent can bookmark the trip their child is on.
+- **A junk or out-of-range segment counts as no choice**, so `/trip/g11/t/9` offers the picker
+  instead of quietly rendering trip 0 under a URL that claims trip 9.
+- **A single-trip grade never sees the extra page.** `needsPick` requires `count > 1`; a page
+  carrying one card is a click that tells a parent nothing.
+- **This replaced an inline `TripSwitcher`** (a row of buttons above the tab bar, deleted the
+  same day). Grade 11 has **four** trips, so that row was a permanent band of navigation above
+  every tab of every trip, on a page whose job is to be read.
+- **The picker reuses `card-grid` / `pick-card` from the grade picker** so the step reads as the
+  same kind of choice a parent just made. **No photograph, unlike the grade cards:**
+  `tripCardPhotoFor` is keyed by grade, so every card here would carry the same image and the
+  picture would say nothing about which trip it is.
+- `.trip-back` on a chosen trip is the one quiet line back to the picker.
+
+**Verified against the LIVE published sheet**, not the local fixture: g7, g8, g9, g10 and mlc
+report `trips=1` and go straight through, while g11 reports `trips=4` — Mokhamal, Ambapani,
+Kilad, Kevdi, all `22-23-24 October 2026`, one batch each — and gets the picker. Fetch it with
+`curl -sL "https://docs.google.com/spreadsheets/d/e/<publishedId>/pub?output=csv"`; that is the
+fastest way to check a grouping claim against what parents actually see.
+
 ### MLC is a GRADE, not a trip name (2026-08-21)
 
 First reading of *"add one tab after grade in trip sheet available mlc"* was a Trip name column.
@@ -2621,6 +2652,11 @@ Raised in `docs/DATA-HANDOVER.md`; none answered yet. Do not assume any of these
   yet". The real `renderButton` gained `shape: 'pill'` + `logo_alignment: 'left'` to match the white
   rounded button the school pointed at. **The placeholder is not and cannot be a working sign-in**;
   the site still needs the OAuth client from `docs/GOOGLE-SIGN-IN.md` before anyone can get in.
+- 2026-08-21 — **Choosing between a grade's trips is now its own page** ("show extra page after the
+  grade to selected the trip when more then one trip"), at `/trip/:gradeId`, with the chosen trip at
+  `/trip/:gradeId/t/:tripIndex`. Replaced the inline `TripSwitcher`, which put four buttons above
+  every tab for Grade 11. Verified against the live published sheet: g11 has four trips and gets the
+  picker; g7/g8/g9/g10/mlc have one and go straight through.
 - 2026-08-21 — **`mlc.safety` / `mlc.dodont` / `mlc.carry` filled with Grade 7's decks**, confirmed
   deliberate by the school after being flagged as identical to `g7.*`. Verified published and
   anonymously reachable, and each deck's title matches its key — the titles also show these are the

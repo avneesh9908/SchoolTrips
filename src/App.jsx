@@ -47,7 +47,14 @@ export default function App() {
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/children" element={<RequireAuth><Page><ChildPicker /></Page></RequireAuth>} />
+        {/* Two routes, one component. `/trip/:gradeId` lands on the trip when the
+            grade has one, and on the trip picker when it has several — the extra
+            step the school asked for (2026-08-21: "show extra page after the grade
+            to selected the trip when more then one trip"). `/t/:tripIndex` is the
+            chosen trip, a real URL so Back leaves a trip for the picker and a
+            parent can bookmark the one their child is on. */}
         <Route path="/trip/:gradeId" element={<RequireStudent><Page><TripPage /></Page></RequireStudent>} />
+        <Route path="/trip/:gradeId/t/:tripIndex" element={<RequireStudent><Page><TripPage /></Page></RequireStudent>} />
         <Route path="*" element={<Navigate to="/children" replace />} />
       </Routes>
 
