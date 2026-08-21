@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex, nofollow" />
+<title>Photos — 3D motion collage (demo)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600&family=Manrope:wght@400;700;800&display=swap" rel="stylesheet" />
+<!--
+  DEMO ONLY — never deployed. `vite.config.js` lists this file in LOCAL_ONLY, so
+  `npm run build` deletes it from dist/ on every build, Netlify's included.
+
+  It exists to show the school the 3D motion collage before their own photographs
+  are available: the trip-photo folders in Drive are shared with named people
+  rather than "anyone with the link", so nothing can be read from them yet.
+
+  The pictures below are PLACEHOLDERS from picsum.photos — random stock images,
+  deliberately not pictures of any school or any place on the itinerary. The app
+  itself never substitutes a stock image for a missing photograph, and this file
+  is not part of the app.
+
+  The CSS and the handlers are copies of the real ones in
+  src/styles/global.css and src/pages/TripPage.jsx, so what you feel here is what
+  the Photos tab does. Twenty-four tiles rather than the twelve this file started
+  with, because a scroll reveal cannot be seen in a collage that fits on one screen.
+-->
+<style>
+  :root {
+    --bg: #fafbfd; --ink: #0f172a; --muted: #5a6478; --soft: #8a93a6;
+    --amber: #e08707; --r-tile: 18px;
+    --font-display: 'Fraunces', Georgia, serif;
+    --font-body: 'Manrope', system-ui, -apple-system, sans-serif;
+    --shadow-card: 0 22px 48px -22px rgba(19, 28, 62, 0.34);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 40px 30px 80px; background: var(--bg); color: var(--ink);
+    font-family: var(--font-body); -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1400px; margin-inline: auto; }
+  .head { text-align: center; margin-bottom: 10px; }
+  .eyebrow {
+    font-size: 12.5px; font-weight: 800; letter-spacing: 0.09em;
+    text-transform: uppercase; color: var(--soft);
+  }
+  h1 {
+    font-family: var(--font-display); font-weight: 600; margin: 6px 0 0;
+    font-size: clamp(25px, min(2.5vw, 4.2vh), 38px); letter-spacing: -0.01em;
+  }
+  h1::after {
+    content: ''; display: block; width: 44px; height: 3px; border-radius: 2px;
+    background: var(--amber); margin: 14px auto 0;
+  }
+  .note {
+    max-width: 660px; margin: 18px auto 22px; text-align: center;
+    font-size: 14px; line-height: 1.6; color: var(--muted);
+  }
+  .note b { color: var(--ink); }
+  .note:last-of-type { margin-bottom: 30px; }
+  .steps {
+    max-width: 620px; margin: 0 auto 26px; padding-left: 24px;
+    font-size: 14px; line-height: 1.6; color: var(--muted);
+  }
+  .steps b { color: var(--ink); }
+  .steps li { margin-bottom: 7px; }
+
+  /* ---- from src/styles/global.css: .photo-collage ---- */
+  .photo-collage {
+    display: grid; gap: 14px; grid-auto-flow: dense;
+    grid-template-columns: repeat(auto-fit, minmax(min(150px, 100%), 1fr));
+    grid-auto-rows: 130px;
+    perspective: 1200px;
+  }
+  .photo-item {
+    display: block; border-radius: var(--r-tile); overflow: hidden;
+    background: linear-gradient(150deg, #2b3a8f, #7a4a12); color: #fff;
+    position: relative; text-decoration: none;
+    --tilt-x: 0deg; --tilt-y: 0deg;
+    --mx: 50%; --my: 50%;
+    transform-style: preserve-3d;
+    transform: perspective(1200px) rotateX(var(--tilt-x)) rotateY(var(--tilt-y)) translateZ(0);
+    transition: transform 0.35s cubic-bezier(0.2, 0.7, 0.3, 1), box-shadow 0.35s ease;
+    /* `backwards`, not `both`: a filling animation overrides the element's own `transform`,
+       so `both` left the finished entrance's `to` keyframe applied and the pointer tilt and
+       hover lift computed to identity from 0.55s onward. */
+    animation: collage-rise 0.55s cubic-bezier(0.2, 0.7, 0.3, 1) backwards;
+  }
+  .photo-collage > .photo-item:first-child { grid-column: span 2; grid-row: span 2; }
+  .photo-collage > .photo-item:only-child { grid-column: 1 / -1; grid-row: span 2; }
+  .photo-item img { width: 100%; height: 100%; object-fit: cover; display: block;
+    transition: transform 0.5s cubic-bezier(0.2, 0.7, 0.3, 1); }
+  .photo-item:nth-child(6n + 1) { animation-delay: 0.00s; }
+  .photo-item:nth-child(6n + 2) { animation-delay: 0.06s; }
+  .photo-item:nth-child(6n + 3) { animation-delay: 0.12s; }
+  .photo-item:nth-child(6n + 4) { animation-delay: 0.18s; }
+  .photo-item:nth-child(6n + 5) { animation-delay: 0.24s; }
+  .photo-item:nth-child(6n + 6) { animation-delay: 0.30s; }
+  .photo-item:hover, .photo-item:focus-visible {
+    transform: perspective(1200px) rotateX(var(--tilt-x)) rotateY(var(--tilt-y)) translateZ(38px);
+    box-shadow: 0 30px 60px -28px rgba(19, 28, 62, 0.55);
+    z-index: 1;
+  }
+  .photo-item:hover img { transform: scale(1.06); }
+
+  /* GLARE — a highlight sitting wherever the cursor is inside the tile. */
+  .photo-item::after {
+    content: ''; position: absolute; inset: 0; pointer-events: none;
+    background: radial-gradient(
+      220px circle at var(--mx) var(--my),
+      rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.06) 45%, transparent 70%
+    );
+    opacity: 0; transition: opacity 0.35s ease;
+  }
+  .photo-item:hover::after, .photo-item:focus-visible::after { opacity: 1; }
+
+  /* REVEAL ON SCROLL — `js-reveal` is added from inside the observer's FIRST callback, never
+     up front: it is what holds an unreached tile invisible, and a document that is not being
+     rendered (a background tab) never receives that callback at all. Added early, such a page
+     would hide the whole collage for ever; added on arrival, the worst case is that every tile
+     simply animates at load as it did before. */
+  .photo-collage.js-reveal > .photo-item { animation-play-state: paused; }
+  .photo-collage.js-reveal > .photo-item.is-in { animation-play-state: running; }
+
+  /* AMBIENT DRIFT — the lead photograph only, so one layer animates forever rather than
+     twenty-four. `scale`/`translate` rather than `transform`, so the hover scale still runs. */
+  .photo-collage > .photo-item:first-child img {
+    animation: collage-drift 22s ease-in-out infinite alternate;
+  }
+  @keyframes collage-drift {
+    from { scale: 1.02; translate: -1% 0; }
+    to { scale: 1.08; translate: 1% -1%; }
+  }
+
+  .cap {
+    position: absolute; left: 12px; bottom: 12px; padding: 5px 11px; border-radius: 999px;
+    background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(6px);
+    font-size: 11.5px; font-weight: 700; color: #fff;
+    z-index: 2; /* above the glare, which is a later sibling and would otherwise wash it out */
+  }
+  @keyframes collage-rise {
+    from { opacity: 0; transform: perspective(1200px) rotateX(8deg) translateZ(-70px); }
+    to { opacity: 1; transform: perspective(1200px) rotateX(0deg) translateZ(0); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .photo-item { animation: none; transition: none; transform: none; }
+    .photo-item:hover, .photo-item:focus-visible { transform: none; }
+    .photo-item img, .photo-item:hover img { transition: none; transform: none; }
+    .photo-item::after, .photo-item:hover::after { display: none; }
+    .photo-collage > .photo-item:first-child img {
+      animation: none; scale: 1; translate: none;
+    }
+    .note .motion-off { display: inline; }
+  }
+  .note .motion-off { display: none; color: var(--amber); font-weight: 700; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <span class="eyebrow">Memories from the journey</span>
+    <h1>Trip photos</h1>
+  </div>
+
+  <p class="note"><b>Move your cursor across the pictures, then scroll down.</b>
+    Four things happen:</p>
+
+  <ol class="steps">
+    <li><b>Lean</b> — a tile tips toward the pointer, so it turns as you move across it.</li>
+    <li><b>Light</b> — a highlight follows the cursor inside the tile, like glass catching
+      the light.</li>
+    <li><b>Lift</b> — hover pulls the tile forward out of the page, and the photograph inside
+      drifts a little further than its frame.</li>
+    <li><b>Arrive</b> — tiles rise into place as you scroll down to them, a few at a time,
+      instead of all of them before you get there. The big picture also drifts slowly on its
+      own, so the page is never completely still.</li>
+  </ol>
+
+  <p class="note">
+    These are <b>placeholder stock images</b>, not the school's photographs — the trip-photo
+    folders in Drive are shared with named people rather than "anyone with the link", so
+    nothing can be read from them yet. The layout and the motion are exactly what the real
+    Photos tab does.
+    <span class="motion-off"><br /><br />Your system has "reduce motion" turned on, so the
+    animation is switched off — this is what that reader sees.</span>
+  </p>
+
+  <div class="photo-collage" id="collage"></div>
+</div>
+
+<script>
+  /* Twenty-four: enough rows that the scroll reveal has something left to reveal. The real
+     tab shows however many links the sheet holds. */
+  var TILES = [
+    ['jaipur-fort', 'Amber Fort'],
+    ['camel-desert', 'Desert crossing'],
+    ['abhaneri-stepwell', 'Chand Baori'],
+    ['ranthambore-tiger', 'Ranthambore safari'],
+    ['palace-window', 'City Palace'],
+    ['group-train', 'On the train'],
+    ['campfire-night', 'Camp evening'],
+    ['market-colour', 'Bazaar walk'],
+    ['bus-window', 'On the road'],
+    ['lake-evening', 'Lake at dusk'],
+    ['temple-steps', 'Temple steps'],
+    ['group-photo', 'The whole group'],
+    ['hawa-mahal', 'Hawa Mahal'],
+    ['jantar-mantar', 'Jantar Mantar'],
+    ['breakfast-hall', 'Breakfast'],
+    ['courtyard-shade', 'In the courtyard'],
+    ['kite-sky', 'Kites overhead'],
+    ['jeep-track', 'Into the park'],
+    ['spotted-deer', 'Deer at the gate'],
+    ['fort-walls', 'On the ramparts'],
+    ['craft-workshop', 'Block printing'],
+    ['dinner-long-table', 'Dinner together'],
+    ['sunrise-departure', 'Early start'],
+    ['coach-goodbye', 'Heading home']
+  ];
+
+  var grid = document.getElementById('collage');
+  TILES.forEach(function (entry, i) {
+    var seed = entry[0];
+    var caption = entry[1];
+    var a = document.createElement('a');
+    a.className = 'photo-item';
+    a.href = 'https://picsum.photos/seed/' + seed + '/1600/1200';
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    // The lead tile is twice the size, so it asks for twice the pixels.
+    var w = i === 0 ? 1200 : 600;
+    var h = i === 0 ? 900 : 450;
+    a.innerHTML =
+      '<img src="https://picsum.photos/seed/' + seed + '/' + w + '/' + h + '" alt="" loading="lazy" />' +
+      '<span class="cap">' + caption + '</span>';
+    grid.appendChild(a);
+  });
+
+  /* ---- from src/pages/TripPage.jsx: the pointer tilt, and now the glare with it ---- */
+  var MAX_TILT = 7;
+  var reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (!reduced) {
+    grid.addEventListener('pointermove', function (e) {
+      if (e.pointerType === 'touch') return;
+      var tile = e.target.closest('.photo-item');
+      if (!tile) return;
+      var b = tile.getBoundingClientRect();
+      var px = (e.clientX - b.left) / b.width - 0.5;
+      var py = (e.clientY - b.top) / b.height - 0.5;
+      tile.style.setProperty('--tilt-y', (px * MAX_TILT * 2).toFixed(2) + 'deg');
+      tile.style.setProperty('--tilt-x', (-py * MAX_TILT * 2).toFixed(2) + 'deg');
+      tile.style.setProperty('--mx', ((px + 0.5) * 100).toFixed(1) + '%');
+      tile.style.setProperty('--my', ((py + 0.5) * 100).toFixed(1) + '%');
+    }, { passive: true });
+    grid.addEventListener('pointerout', function (e) {
+      var tile = e.target.closest('.photo-item');
+      if (!tile) return;
+      tile.style.setProperty('--tilt-x', '0deg');
+      tile.style.setProperty('--tilt-y', '0deg');
+      tile.style.setProperty('--mx', '50%');
+      tile.style.setProperty('--my', '50%');
+    }, { passive: true });
+  }
+
+  /* ---- from src/pages/TripPage.jsx: useScrollReveal ---- */
+  if (!reduced && 'IntersectionObserver' in window) {
+    var armed = false;
+    var io = new IntersectionObserver(function (entries) {
+      // Arm on the first callback, not before — see the CSS comment. Same task as the
+      // releases below, so nothing paints in between.
+      if (!armed) { armed = true; grid.classList.add('js-reveal'); }
+      entries.forEach(function (entry) {
+        if (!entry.isIntersecting) return;
+        entry.target.classList.add('is-in');
+        io.unobserve(entry.target);
+      });
+    }, { rootMargin: '0px 0px -8% 0px', threshold: 0.15 });
+    Array.prototype.forEach.call(grid.children, function (tile) { io.observe(tile); });
+  }
+</script>
+</body>
+</html>
