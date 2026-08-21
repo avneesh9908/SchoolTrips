@@ -115,8 +115,34 @@ function revealTab(id) {
  */
 const LEAD_MAX = 200
 
+/**
+ * The school's boilerplate "read the rest of this page" sentence, dropped from
+ * the Overview on the school's instruction (2026-08-21).
+ *
+ * It is CONTENT, and content belongs in the sheet — this is a stopgap, not the
+ * fix. It sits here because the sentence is pasted into the Header Text cell of
+ * six separate grade rows, so removing it properly means six edits in the
+ * school's spreadsheet, and until those are made this is the only way to take
+ * it off the page. **Delete this filter once the cells are clean**: an app that
+ * quietly rewrites what staff typed is exactly the thing this codebase avoids
+ * everywhere else.
+ *
+ * Deliberately narrow. It matches only this one sentence, anchored to its own
+ * paragraph, so a reworded intro is left alone rather than half-eaten — if the
+ * school changes the wording the sentence reappears, which is the honest
+ * failure and a visible prompt to fix the sheet instead.
+ */
+const BOILERPLATE =
+  /(^|\n)\s*Please go through the details below for the upcoming trip[^\n]*\.?\s*(?=\n|$)/gi
+
+export function stripBoilerplate(raw) {
+  return String(raw || '').replace(BOILERPLATE, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}
+
 export function splitHeader(raw) {
-  const text = String(raw || '').trim()
+  const text = stripBoilerplate(raw)
   if (!text) return { lead: '', body: '' }
   const [first, ...others] = text.split('\n')
   const lead = first.trim()
@@ -166,7 +192,7 @@ function buildSections(trip, photo, grade) {
   const hasComm = trip.coordinator || trip.coordinatorPhone || trip.coordinatorEmail || trip.emergency
   const out = []
 
-  if (trip.overview || photo) {
+  if (stripBoilerplate(trip.overview) || photo) {
     out.push({
       id: 'home',
       label: 'Overview',

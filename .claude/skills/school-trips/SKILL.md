@@ -1714,6 +1714,25 @@ The login screen is the design's two-up split: a gradient art panel (headline, l
 beside the white sign-in card. **The design shows Google only; the typed email/mobile field stays**,
 because no OAuth client id has ever been set and typing is the only path that works today.
 
+## The "Please go through the details below" sentence is filtered out (2026-08-21)
+
+The school asked for it off the Overview. It is **content, not code** — the last paragraph of
+the Header Text / Starting Text cell — and it is pasted into **six** grade rows, so the real
+fix is six edits in their spreadsheet. `stripBoilerplate()` in `TripPage.jsx` removes it at
+the render boundary until those are made.
+
+- **This is a stopgap and should be deleted once the cells are clean.** An app that quietly
+  rewrites what staff typed is the thing this codebase avoids everywhere else; leaving the
+  filter in permanently means the page and the sheet disagree, and the next person to wonder
+  why their edit "did nothing" loses an hour to it.
+- **It is deliberately narrow** — anchored to its own paragraph, matching only this sentence.
+  A reworded intro is left alone rather than half-eaten, so if the school rephrases it the
+  sentence reappears. That is the honest failure: a visible prompt to fix the sheet.
+- **`buildSections` gates on `stripBoilerplate(trip.overview)`, not `trip.overview`.** A cell
+  holding nothing *but* the boilerplate would otherwise leave an empty Overview tab behind.
+- Editing `public/local-roster/*.csv` does **not** help: those are dev fixtures, stripped from
+  `dist` by `vite.config.js` LOCAL_ONLY, and production reads the published spreadsheet.
+
 ## The Header Text column, and where it renders
 `Header Text` / `Starting Text` reaches the app as `trip.overview` (aliases in
 `OVERVIEW_ALIASES`, `tripApp.js`). `splitHeader()` in `TripPage.jsx` cuts it at the first
@@ -2474,6 +2493,11 @@ Raised in `docs/DATA-HANDOVER.md`; none answered yet. Do not assume any of these
   yet". The real `renderButton` gained `shape: 'pill'` + `logo_alignment: 'left'` to match the white
   rounded button the school pointed at. **The placeholder is not and cannot be a working sign-in**;
   the site still needs the OAuth client from `docs/GOOGLE-SIGN-IN.md` before anyone can get in.
+- 2026-08-21 — **Dropped the school's "Please go through the details below…" sentence from the
+  Overview** on their instruction, via `stripBoilerplate()` in `TripPage.jsx`. It is sheet content
+  in six grade rows, so this is a stopgap for the six spreadsheet edits — see the section above,
+  and delete the filter when the cells are clean. Tested against the real cell, a boilerplate-only
+  cell (Overview then hides rather than rendering empty) and a reworded variant (left alone).
 - 2026-08-21 — **`npm start` now loads `.env`** (`node --env-file-if-exists=.env server.js`). It
   never did, so `ADMIN_EMAILS` and `ROSTER_CSV_URL` were invisible to the local server and local
   sign-in could not work for a reason that looked like a bug in the code. Added a
