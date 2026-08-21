@@ -281,6 +281,22 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible {
   text-align: center; font-size: 12.5px; line-height: 1.6; color: var(--soft);
 }
 
+/* ---------- the credited destination stand-in ---------- */
+/* Shown only where the school has supplied no photograph of its own. The credit
+   is load-bearing, not ornament: it is what stops a library photograph of the
+   destination reading as a picture of the child's trip, which is why the
+   fallback was removed in the first place. Bottom-left, over a gradient so it
+   stays legible on a bright sky or a dark fort wall alike. */
+.home-photo-band.is-standin { position: relative; }
+.home-photo-credit {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  padding: 26px 20px 10px;
+  background: linear-gradient(to top, rgba(12, 16, 40, 0.72), rgba(12, 16, 40, 0));
+  color: rgba(255, 255, 255, 0.92); text-decoration: none;
+  font-size: 12px; line-height: 1.4; letter-spacing: 0.01em;
+}
+.home-photo-credit:hover { text-decoration: underline; }
+
 /* ---------- choosing between a grade's trips ---------- */
 /* The picker itself reuses .card-grid / .pick-card from the grade picker, so
    there is nothing to style here but the way back out of a chosen trip. It sits

@@ -1733,6 +1733,59 @@ the render boundary until those are made.
 - Editing `public/local-roster/*.csv` does **not** help: those are dev fixtures, stripped from
   `dist` by `vite.config.js` LOCAL_ONLY, and production reads the published spreadsheet.
 
+## The destination stand-in photo is BACK, credited and bounded (2026-08-21)
+
+`src/lib/destinationPhoto.js`, restored from the commit that deleted it. It was removed
+2026-08-14 when the school said they would supply real photographs; a term later only Grade 7
+had one, and they asked for it back: *"grade 7 have picture other grade not have picture on
+overview i want to like not have any picture to take on the internet releate to trip area"*.
+
+**The original objection still stands — a picture of a place reads as a picture of the child's
+trip — so this is contained, not simply reverted:**
+
+- **A school photo always wins.** `config.tripPhotos` is checked first and no lookup is even
+  fired when it has an entry.
+- **The credit is load-bearing, not ornament.** `.home-photo-credit` reads
+  "<title> · a photograph of the area, not of this trip · Wikipedia" over the image and links to
+  the article. **Do not remove it** — it is the entire reason the fallback is allowed back.
+- **`config.autoDestinationPhoto: false` turns it off** from a deployed JSON file, no rebuild,
+  if the school changes its mind again.
+- Only the Overview banner. The picker cards still invent nothing.
+
+**Two bugs were fixed in the restored code, both found by testing the real destinations:**
+
+1. **`Object.values(pages)[0]` is not the top search result.** The API keys pages by id, so key
+   order is arbitrary. For "Manali" it picked the one page of six with no image and gave up on a
+   place Wikipedia illustrates well. Now: `gsrlimit=6`, filter to pages that have a thumbnail,
+   and rank by each page's own `index`.
+2. **Wikipedia always returns *something*, and it is often the wrong place.** "Kevdi" came back
+   as *Mandvi, Surat district* and "Kilad" as *Vansda National Park*. `titleScore()` refuses any
+   title that does not contain the searched word, and prefers exact over leading over mention —
+   which is also what picks "Manali, Himachal Pradesh" over "Leh-Manali Highway".
+
+**And a bandwidth trap.** `pithumbsize` is a request, not a promise: when the original is
+narrower, the API returns the original and marks it `thumbnail_unscaled`. Jabalpur's lead image
+arrived at **2.25 MB** — a banner, US-West origin, parents on phones in India. `boundedThumb()`
+rewrites a Commons file path to `/thumb/…/<w>px-…`. **It must never ask for more than
+`original.width`**: Commons refuses to upscale and answers 400 with HTML, which broke Jabalpur
+and Jodhpur on the first attempt precisely because they were unscaled for being narrow. Capped
+at `min(1400, original.width)`, Jabalpur is 414 kB.
+
+Current behaviour on the live destinations:
+
+| Destination | Result |
+|---|---|
+| Jaipur-Abhaneri-Ranthambore | "Jaipur", 991 kB |
+| Jabalpur-Panchmarhi | "Jabalpur", 414 kB |
+| Jodhpur & Jaisalmer | "Jodhpur", 346 kB |
+| Manali (MLC) | "Manali, Himachal Pradesh", 976 kB |
+| Mokhamal · Ambapani · Kilad · Kevdi | **none** — banner stays the grade colour |
+
+Those last four are Grade 11's local campsites, which Wikipedia has no article for. **Refusing
+is the correct outcome**, and it is why the relevance guard exists: a photo of the wrong town is
+worse than the flat colour it replaces. To give them a picture, put a real one in
+`config.tripPhotos`.
+
 ## The Header Text column, and where it renders
 `Header Text` / `Starting Text` reaches the app as `trip.overview` (aliases in
 `OVERVIEW_ALIASES`, `tripApp.js`). `splitHeader()` in `TripPage.jsx` cuts it at the first
@@ -2719,6 +2772,12 @@ Raised in `docs/DATA-HANDOVER.md`; none answered yet. Do not assume any of these
   yet". The real `renderButton` gained `shape: 'pill'` + `logo_alignment: 'left'` to match the white
   rounded button the school pointed at. **The placeholder is not and cannot be a working sign-in**;
   the site still needs the OAuth client from `docs/GOOGLE-SIGN-IN.md` before anyone can get in.
+- 2026-08-21 — **Reinstated the credited destination stand-in photo** ("grade 7 have picture other
+  grade not have picture on overview"), reversing the 2026-08-14 removal but contained: a school
+  photo always wins, the credit says the picture is of the area and not of the trip, and
+  `autoDestinationPhoto: false` switches it off. Fixed two bugs in the restored code — page order is
+  not search rank, and Wikipedia's first hit is often the wrong place ("Kevdi" → Mandvi) — plus a
+  2.25 MB unscaled image now capped at `min(1400, original.width)`.
 - 2026-08-21 — **Deploys now run through GitHub Actions** (`.github/workflows/railway.yml`), because
   Railway has no GitHub App here and so does not deploy on push. Includes a token-presence
   assertion, `--ci` so a failed build fails the run, `paths-ignore` for docs/skill-only commits, and

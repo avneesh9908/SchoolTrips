@@ -32,6 +32,13 @@ const FROM_ENV = {
    * without a developer; a grade with no entry gets no photo, never a stock one.
    */
   tripPhotos: {},
+  /**
+   * When a grade has no photograph of its own in `tripPhotos`, look one up for
+   * the destination on Wikipedia and show it CREDITED on the Overview banner.
+   * `false` restores the 2026-08-14 behaviour: no photo, just the grade colour.
+   * A school photo always wins; this only fills an empty banner.
+   */
+  autoDestinationPhoto: ENV.VITE_AUTO_DESTINATION_PHOTO !== 'false',
   googleClientId: ENV.VITE_GOOGLE_CLIENT_ID || '',
   driveApiKey: ENV.VITE_GOOGLE_API_KEY || '',
   driveApiBase: ENV.VITE_DRIVE_API_BASE || 'https://www.googleapis.com/drive/v3',

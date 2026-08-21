@@ -5,6 +5,8 @@ import { useAuth } from '../auth/AuthContext'
 import { useTrip } from '../data/useTrip'
 import { gradeById, isComingSoon } from '../lib/grades'
 import { tripPhotoFor, imageUrl } from '../lib/tripPhoto'
+import { fetchDestinationPhoto } from '../lib/destinationPhoto'
+import { config } from '../config'
 import { describeDoc } from '../lib/docPreview'
 import { LiveList } from '../components/LiveList'
 import { slidePreviewFor } from '../lib/slidePreviews'
@@ -916,6 +918,31 @@ function HomeSection({ trip, photo }) {
   const [broken, setBroken] = useState(false)
   const { lead, body } = splitHeader(trip.overview)
   const showPhoto = photo && !broken
+
+  /**
+   * A credited photograph of the destination, shown ONLY where the school has
+   * given none of its own — Grade 7 has a real one, the rest had a flat colour
+   * (the school, 2026-08-21). Never fetched when `photo` is set, so a school
+   * photograph is never replaced and no request is made for nothing.
+   *
+   * `trip.title` is the destination, and `placeCandidates` splits a compound one
+   * like "Jaipur-Abhaneri-Ranthambore" and takes the first place that resolves.
+   */
+  const [found, setFound] = useState(null)
+  const wanted = !photo && config().autoDestinationPhoto !== false && trip.title
+  useEffect(() => {
+    if (!wanted) { setFound(null); return }
+    let cancelled = false
+    // A failed lookup is not worth telling a parent about: the banner just stays
+    // the grade's colour, which is what it did before this existed.
+    fetchDestinationPhoto(trip.title)
+      .then((r) => { if (!cancelled) setFound(r) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [wanted, trip.title])
+
+  const [standInBroken, setStandInBroken] = useState(false)
+  const showStandIn = !showPhoto && found && !standInBroken
   // One card per batch. A sheet with no batch rows still has the trip's own dates,
   // and one card saying so beats an empty row where two cards should be.
   const cards = trip.batches?.length
@@ -938,6 +965,29 @@ function HomeSection({ trip, photo }) {
             alt={`${trip.title} — photograph from the school trip`}
             onError={() => setBroken(true)}
           />
+        </div>
+      )}
+
+      {/* The stand-in. The credit is not decoration and must not be removed: it
+          is the whole reason this is allowed back on the page. Without it a
+          library photograph of Pachmarhi reads as a picture of the trip, and a
+          parent looks for their child in it. */}
+      {showStandIn && (
+        <div className="home-photo-band is-standin">
+          <img
+            className="home-photo"
+            src={found.url}
+            alt={`${found.title} — a general photograph of the area, not from this trip`}
+            onError={() => setStandInBroken(true)}
+          />
+          <a
+            className="home-photo-credit"
+            href={found.pageUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            {found.title} · a photograph of the area, not of this trip · Wikipedia
+          </a>
         </div>
       )}
 
