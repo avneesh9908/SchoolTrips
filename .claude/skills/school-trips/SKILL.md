@@ -1849,6 +1849,29 @@ students' roster rows as MLC; or let a Grade 11/12 parent see MLC as well as the
 leave it staff-only. **Do not quietly pick one** — each hands a different set of families a
 different trip's information.
 
+### MLC shows cards, not inline decks — and that is config, not code (2026-08-21)
+
+*"here see mlc not show preview"*. Grade 7's Safety, Do's and don'ts and Things to carry are
+framed decks; MLC's are a card with an Open link. **Nothing is broken.** The inline frame comes
+only from `config.slidePreviews`, keyed `"<gradeId>.<section>"`, and only the three `g7.*` keys
+were ever filled. `slidePreviewFor()` returns `''` for MLC, so `TripPage` takes the documented
+`c.docs` fallback. Empty `mlc.safety` / `mlc.dodont` / `mlc.carry` keys were added to
+`public/config.json` with a `_mlc` note, so filling them is a paste and no rebuild.
+
+**Do NOT "fix" this by passing `preview` to the guideline `DocCard`s.** `describeDoc()` does
+derive an `embed` from any ordinary share link, and DocCard's `preview && embed` branch would
+frame it — so it looks like a one-line win. It is not: a deck that is not published renders
+**Google's sign-in box inside the card**, which is worse than the card. That is the same trap
+recorded for Drive thumbnails and for the one-afternoon `cover` mode — *the sharing has to be
+fixed first, the code was never the problem*. Publishing is what `slidePreviews` encodes.
+
+**Diagnosing this locally will mislead you.** `public/local-roster/trip-app.csv` reports MLC's
+four document cells as `pending=true, url=""`, which suggests dead cards. That is a CSV
+artefact: a smart chip exports without its URL. Production reads the published **workbook**
+first (`workbookUrlFor` → `xlsxToObjects`), which keeps chip links — which is why the school's
+screenshot shows a working "Open ↗" where the local fixture predicts "link not added yet".
+**Check a chip-related claim against the workbook path, never against the CSV.**
+
 ### The **Trip name** column (2026-08-21)
 
 Optional column after Grades, for the *other* thing the school described: *"sometime batch wise
@@ -2587,6 +2610,11 @@ Raised in `docs/DATA-HANDOVER.md`; none answered yet. Do not assume any of these
   yet". The real `renderButton` gained `shape: 'pill'` + `logo_alignment: 'left'` to match the white
   rounded button the school pointed at. **The placeholder is not and cannot be a working sign-in**;
   the site still needs the OAuth client from `docs/GOOGLE-SIGN-IN.md` before anyone can get in.
+- 2026-08-21 — **MLC's guideline sections show cards, not framed decks, because `slidePreviews` has
+  no `mlc.*` keys** ("here see mlc not show preview") — the documented fallback, not a fault. Added
+  the three empty keys with a `_mlc` note so the school can paste published URLs without a rebuild.
+  Recorded why passing `preview` to the guideline DocCards is the wrong fix, and that the local CSV
+  misreports chip cells as linkless where production's workbook path keeps the links.
 - 2026-08-21 — **MLC is now a grade with its own card after Grade 12** ("grade name is mlc show
   after grade 12"). It was on the sheet as `MlC` in the Grades column, unreadable, so the row was
   discarded and the trip was invisible; it now assembles as Manali, 12-19 December 2026. `MIC` is
