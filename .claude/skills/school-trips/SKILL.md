@@ -1858,6 +1858,17 @@ were ever filled. `slidePreviewFor()` returns `''` for MLC, so `TripPage` takes 
 `c.docs` fallback. Empty `mlc.safety` / `mlc.dodont` / `mlc.carry` keys were added to
 `public/config.json` with a `_mlc` note, so filling them is a paste and no rebuild.
 
+**Filled 2026-08-21 with Grade 7's three decks, and that is deliberate.** It was flagged first —
+the three URLs the school sent were byte-identical to the `g7.*` values, which is exactly the
+copy-paste slip these per-grade keys exist to prevent — and the school confirmed it. Fetching
+each `/embed` anonymously **corroborates the answer**: the titles come back
+`safety-guidelines-poster`, `do-and-donts`, `things-to-carry`, which are the same file names the
+MLC row's own chips carry. So the school runs ONE shared poster set across trips rather than a
+deck per grade; `g7.*` was pointing at those same posters all along. No rotation this time —
+each key's deck matches its name. **Still confirm before reusing a deck across grades**: the one
+real cost stands, MLC is Manali in December and Grade 7 is Jaipur-Abhaneri-Ranthambore, so a
+shared packing list is a content decision the school owns.
+
 **Do NOT "fix" this by passing `preview` to the guideline `DocCard`s.** `describeDoc()` does
 derive an `embed` from any ordinary share link, and DocCard's `preview && embed` branch would
 frame it — so it looks like a one-line win. It is not: a deck that is not published renders
@@ -2610,6 +2621,11 @@ Raised in `docs/DATA-HANDOVER.md`; none answered yet. Do not assume any of these
   yet". The real `renderButton` gained `shape: 'pill'` + `logo_alignment: 'left'` to match the white
   rounded button the school pointed at. **The placeholder is not and cannot be a working sign-in**;
   the site still needs the OAuth client from `docs/GOOGLE-SIGN-IN.md` before anyone can get in.
+- 2026-08-21 — **`mlc.safety` / `mlc.dodont` / `mlc.carry` filled with Grade 7's decks**, confirmed
+  deliberate by the school after being flagged as identical to `g7.*`. Verified published and
+  anonymously reachable, and each deck's title matches its key — the titles also show these are the
+  school's shared poster set, the same files the MLC row's chips name, so it is one poster set across
+  trips rather than a mix-up.
 - 2026-08-21 — **MLC's guideline sections show cards, not framed decks, because `slidePreviews` has
   no `mlc.*` keys** ("here see mlc not show preview") — the documented fallback, not a fault. Added
   the three empty keys with a `_mlc` note so the school can paste published URLs without a rebuild.
