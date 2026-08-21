@@ -1818,6 +1818,38 @@ Splitting first makes all of those per-trip; a test with Manali + Coorg confirms
 - `titlesFrom()` joins **every** destination for the picker card (`"Manali  ·  Coorg"`). Naming
   only the first put one group's trip on the card both groups read.
 
+### A merged cell is shared by all a grade's trips — counted, not assumed (2026-08-21)
+
+*"overview text for all you see this is common"*. **This was a regression the trip split
+introduced, and the school found it before anyone else did.** A merged cell exports its value
+onto the **first row it covers** and blanks the rest, so Grade 11's Header Text — merged down all
+four rows — lands on Mokhamal's row alone. After splitting, `firstWith` scanned only the trip's
+own rows, so Ambapani, Kilad and Kevdi got `overview: ''`; `buildSections` gates the Overview on
+it, so **three of the four trips lost the tab entirely**.
+
+The rule, in `firstWith` and `textLines` alike:
+
+> A column written on **exactly one** of the grade's trip-groups is a merged, grade-level value
+> and is shared by all of them. Written on **two or more**, each trip keeps its own and nothing
+> is pooled.
+
+`groupsCarrying(aliases)` counts the groups; the `<= 1` guard is the whole safety of it. **It is
+deliberately not a plain "fall back when empty"** — that would hand a trip with no safety cell
+the other trip's briefing, which is the exact leak the split was written to stop. Sharing happens
+only where there is a single value in the grade to share.
+
+Verified three ways, on the live sheet and on fixtures:
+
+| Case | Result |
+|---|---|
+| Live g11, Header Text merged down the grade | all four trips `overview=484 chars` |
+| Two trips each filling safety *and* carry | `Manali ["Snow gear briefing"]` / `Coorg ["Leech socks briefing"]` — separate, while both share the merged overview |
+| Safety written once for the grade | reaches **both** trips |
+
+Full live regression after the change: g7 2 batches / 12 docs, g8 2 / 5, g9 0 / 1, g10 2 / 3,
+g11 four trips, mlc 1 / 5 — every grade `overview=484`, which is the shared intro reaching all of
+them.
+
 ### Choosing between a grade's trips is its OWN PAGE (2026-08-21)
 
 *"show extra page after the grade to selected the trip when more then one trip"*. Two routes,
@@ -2652,6 +2684,12 @@ Raised in `docs/DATA-HANDOVER.md`; none answered yet. Do not assume any of these
   yet". The real `renderButton` gained `shape: 'pill'` + `logo_alignment: 'left'` to match the white
   rounded button the school pointed at. **The placeholder is not and cannot be a working sign-in**;
   the site still needs the OAuth client from `docs/GOOGLE-SIGN-IN.md` before anyone can get in.
+- 2026-08-21 — **A merged cell is now shared by all of a grade's trips** ("overview text for all you
+  see this is common") — fixing a regression the trip split had introduced, where Grade 11's merged
+  Header Text reached only Mokhamal and the other three trips lost the Overview tab. A column
+  written on exactly one trip-group is treated as grade-level and shared; written on two or more,
+  each trip keeps its own, so nothing is pooled. Verified on the live sheet and on both the
+  merged-value and the two-distinct-values cases.
 - 2026-08-21 — **Choosing between a grade's trips is now its own page** ("show extra page after the
   grade to selected the trip when more then one trip"), at `/trip/:gradeId`, with the chosen trip at
   `/trip/:gradeId/t/:tripIndex`. Replaced the inline `TripSwitcher`, which put four buttons above

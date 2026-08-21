@@ -433,12 +433,43 @@ export function assembleTripApp(gradeId, rows, { section, tripIndex = 0 } = {}) 
     )
   }
 
-  // Grade-common values are read across the WHOLE group: the school types them
-  // once, on the merged first row.
+  /**
+   * How many of the grade's trips carry this column at all.
+   *
+   * This is what tells a MERGED cell apart from a per-trip one, and it has to be
+   * counted rather than assumed. A merged cell exports its value onto the first
+   * row it covers and blanks the rest, so a Header Text merged down the whole of
+   * Grade 11 lands on Mokhamal's row alone. Before this, splitting the grade into
+   * four trips left Ambapani, Kilad and Kevdi with `overview: ''` — and since
+   * `buildSections` gates the Overview on it, three of the four trips lost the
+   * tab entirely. The school caught it: "overview text for all you see this is
+   * common".
+   */
+  const groupsCarrying = (aliases) =>
+    tripGroups.filter((group) => group.some((r) => val(r, ...aliases))).length
+
+  /**
+   * The trip's own value, falling back to the grade's when the column is written
+   * **once** across the whole grade — which is what a merged cell looks like
+   * after the split, and is the school's own way of saying "this applies to all
+   * of them".
+   *
+   * The `<= 1` guard is the whole safety of it, and it is deliberately not a
+   * plain "fall back if empty". Where two trips each fill a column, neither
+   * inherits the other's: that is how Manali's snow-gear briefing stays off the
+   * Coorg parents' page. Sharing happens only where there is a single value in
+   * the grade to share.
+   */
   const firstWith = (...aliases) => {
     for (const row of all) {
       const v = val(row, ...aliases)
       if (v) return v
+    }
+    if (groupsCarrying(aliases) <= 1) {
+      for (const row of forGrade) {
+        const v = val(row, ...aliases)
+        if (v) return v
+      }
     }
     return ''
   }
@@ -518,18 +549,27 @@ export function assembleTripApp(gradeId, rows, { section, tripIndex = 0 } = {}) 
 
   /** Text columns become lines on the page, one list item per line. */
   const textLines = (aliases) => {
-    const seen = new Set()
-    for (const row of all) {
-      const cell = val(row, ...aliases)
-      if (!cell || isUrl(cell)) continue
-      for (const line of cell.split('\n')) {
-        const t = line.replace(/^[-•*\s]+/, '').trim()
-        // A chip's leftover file name ("safety-guidelines-poster") is not
-        // guidance; printing it would read as a broken attachment.
-        if (t && !looksLikeFileName(t)) seen.add(t)
+    const collect = (rows) => {
+      const seen = new Set()
+      for (const row of rows) {
+        const cell = val(row, ...aliases)
+        if (!cell || isUrl(cell)) continue
+        for (const line of cell.split('\n')) {
+          const t = line.replace(/^[-•*\s]+/, '').trim()
+          // A chip's leftover file name ("safety-guidelines-poster") is not
+          // guidance; printing it would read as a broken attachment.
+          if (t && !looksLikeFileName(t)) seen.add(t)
+        }
       }
+      return [...seen]
     }
-    return [...seen]
+    const own = collect(all)
+    if (own.length) return own
+    // Same rule as `firstWith`: a list written once for the whole grade is a
+    // merged cell and belongs to every trip. Written by two trips it stays with
+    // each, never pooled — which is what would put one trip's packing list on
+    // another trip's page.
+    return groupsCarrying(aliases) <= 1 ? collect(forGrade) : []
   }
 
   /**
