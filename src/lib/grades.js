@@ -13,6 +13,21 @@ export const GRADES = [
   { id: 'g10', label: 'G10', full: 'Grade 10', color: '#7BB92B', icon: 'globe' },
   { id: 'g11', label: 'G11', full: 'Grade 11', color: '#B45BD4', icon: 'flag' },
   { id: 'g12', label: 'G12', full: 'Grade 12', color: '#1E9E8C', icon: 'star' },
+  /**
+   * MLC is a named programme, not a numbered year, and the school wants its own
+   * card at the end of the picker — after Grade 12 (2026-08-21: "grade name is
+   * mlc show after grade 12").
+   *
+   * It was on the content sheet all along, written into the Grades column as
+   * `MlC`, which `normalizeGradeId` could not read — so `groupByGrade` discarded
+   * the row and the trip was invisible on the site. Adding it here is what makes
+   * that row land somewhere.
+   *
+   * `full` is deliberately just "MLC": the school has not told us what it stands
+   * for, and inventing an expansion would put words on a parent's screen that
+   * nobody at the school wrote.
+   */
+  { id: 'mlc', label: 'MLC', full: 'MLC', color: '#D9822B', icon: 'tent' },
 ]
 
 const FALLBACK = { id: 'unknown', label: '?', full: 'Grade', color: '#767066', icon: 'map' }
@@ -50,7 +65,16 @@ export function isComingSoon(id) {
  */
 export const STUDENT_LOGIN_FROM_GRADE = 7
 
-/** 0 for the two kindergartens, 1-12 for the numbered grades, -1 for anything else. */
+/**
+ * 0 for the two kindergartens, 1-12 for the numbered grades, -1 for anything
+ * else — which includes `mlc`, because a named programme has no year number.
+ *
+ * The consequence is deliberate: `allowsStudentLogin('mlc')` is false, so if the
+ * roster ever files a student under MLC their own address will not open it and a
+ * parent's will. That is the fail-closed side, and the school should be asked
+ * before it is loosened. It is moot while every roster row carries a numbered
+ * grade, which is the case today.
+ */
 export function gradeNumber(id) {
   if (id === 'jk' || id === 'sk') return 0
   const m = /^g(\d{1,2})$/.exec(String(id || ''))
@@ -78,6 +102,18 @@ export function normalizeGradeId(raw) {
   // falls through to jk. Getting this wrong silently drops a whole year group.
   if (s === 'sk' || (s.includes('senior') && (s.includes('kg') || s.includes('kinder')))) return 'sk'
   if (s === 'jk' || s.includes('junior') || s.includes('kinder')) return 'jk'
+  /**
+   * MLC, the named programme. Tested before the numeric parse because a cell
+   * like "MLC-Manali (2026-27)" would otherwise match the year and be read as a
+   * grade number.
+   *
+   * `mic` is accepted as the same thing on purpose. The sheet already carries
+   * both spellings — a capital I for a lowercase L is invisible in the school's
+   * font — and the failure it causes is the silent one this whole entry exists
+   * to fix: an unreadable grade drops the row off the site with no error a
+   * parent or a member of staff would ever see.
+   */
+  if (/^m[li]c/.test(s) || s.startsWith('mlc') || s.startsWith('mic')) return 'mlc'
   const roman = { i: 1, ii: 2, iii: 3, iv: 4, v: 5, vi: 6, vii: 7, viii: 8, ix: 9, x: 10, xi: 11, xii: 12 }
   const bare = s.replace(/grade|class|std\.?|standard|-|_/g, '').trim()
   if (roman[bare]) return `g${roman[bare]}`

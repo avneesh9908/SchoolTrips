@@ -41,13 +41,13 @@ const val = (row, ...aliases) => String(pick(row, ...aliases) || '').trim()
 const DATE_ALIASES = ['datessections', 'dates', 'datesection', 'date', 'tripdates', 'sections']
 const OVERVIEW_ALIASES = ['headertext', 'startingtext', 'header', 'starttext', 'intro', 'introduction', 'overview']
 /**
- * The optional column immediately after Grades, added on the school's request
- * (2026-08-21) so a named programme can sit inside a grade: "MLC" is a trip
- * Grade 11 runs alongside its main one, and it was previously being written into
- * the **Grades** column as `MlC`, where `normalizeGradeId` cannot read it and the
- * whole row is discarded — the trip was invisible to parents.
+ * Optional column for naming a trip, when one grade runs more than one and the
+ * destination alone does not say which is which.
  *
- * Grades now always holds the grade number; this holds the programme's name.
+ * NOT how MLC is modelled — that was the first reading of the school's request
+ * and it was wrong. MLC is its own entry in `GRADES` with its own card after
+ * Grade 12; see `src/lib/grades.js`. This column is for the other thing they
+ * described: "sometime batch wise different trips so one grade have many trips".
  */
 const TRIPNAME_ALIASES = ['tripname', 'trip', 'programme', 'program', 'camp', 'triptype', 'tripcode']
 
@@ -379,10 +379,10 @@ function tripOptionsFor(groups) {
       index,
       /**
        * The destination is the headline because it is what a parent recognises
-       * from the school's letter. The programme name rides alongside it as a
-       * short tag rather than replacing it — "MLC" alone would not tell a parent
-       * where their child is going, and "Manali" alone would not tell them this
-       * is the MLC group and not the main trip.
+       * from the school's letter. A trip name rides alongside it as a short tag
+       * rather than replacing it: a name alone would not tell a parent where
+       * their child is going, and a destination alone would not tell them which
+       * of the grade's two groups this is.
        */
       title: dest || name || 'Educational trip',
       name: dest ? name : '',

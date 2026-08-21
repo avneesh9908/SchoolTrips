@@ -1818,33 +1818,55 @@ Splitting first makes all of those per-trip; a test with Manali + Coorg confirms
 - `titlesFrom()` joins **every** destination for the picker card (`"Manali  ·  Coorg"`). Naming
   only the first put one group's trip on the card both groups read.
 
-### The **Trip name** column (added on the school's request, 2026-08-21)
+### MLC is a GRADE, not a trip name (2026-08-21)
 
-*"add one tab after grade in trip sheet available mlc"* — an optional column immediately after
-Grades, holding a programme's name. `TRIPNAME_ALIASES = ['tripname', 'trip', 'programme',
-'program', 'camp', 'triptype', 'tripcode']`.
+First reading of *"add one tab after grade in trip sheet available mlc"* was a Trip name column.
+**Wrong** — the school corrected it: *"no this is different grade name is mlc show after grade 12
+in screen shot i mentioned"*. MLC is its own entry in `GRADES`, its own card at the end of the
+picker, `id: 'mlc'`, `full: 'MLC'`.
 
-**It exists because the school was writing `MlC` into the Grades column**, where
-`normalizeGradeId` cannot read it and `groupByGrade` discards the row — MLC-Manali was on the
-sheet and invisible on the site, warning to a console nobody reads. Grades now always holds the
-grade number and this holds the programme name.
+- **`full` is just "MLC" on purpose.** The school has not said what it stands for, and inventing
+  an expansion puts words on a parent's screen nobody at the school wrote.
+- **`normalizeGradeId` reads `MLC`, `MlC` AND `MIC` as `mlc`**, and is tested before the numeric
+  parse so `"MLC-Manali (2026-27)"` is not read as a year. The `MIC` spelling is accepted
+  deliberately: the sheet carries both, a capital I for a lowercase L is invisible in the
+  school's font, and the failure it causes is the silent row-drop this entry exists to fix.
+- **`gradeNumber('mlc')` is -1, so `allowsStudentLogin('mlc')` is false.** Fail-closed and
+  deliberate; moot today because every roster row carries a numbered grade. Ask the school
+  before loosening it.
+- Not in `COMING_SOON`, so the card is openable. `ALL_GRADE_IDS` picks it up from `GRADES`, so
+  staff see it with no further change.
+- Verified against the real sheet: `groupByGrade` now yields `g7, g8, g9, g10, g11, mlc`, and the
+  mlc trip assembles as `title="Manali" dates="12-19 December 2026" batches=1`. It used to be
+  discarded entirely.
 
-- **It divides trips exactly as Destination does.** `namesATrip(row)` is true for either
-  column, and `splitIntoTrips` starts a new trip on a naming row once the current group is
-  itself named — which is what keeps an unnamed leading row as the head of the first trip
-  instead of a phantom of its own.
+**⚠️ NO PARENT CAN OPEN THE MLC CARD YET, and this is not a bug in the card.** Access is
+`canAccessGrade(gradeId)`, and a session's grades come from the matched students' `Grade` column.
+The roster's 2,618 rows hold only `Junior KG`…`Grade 12` — **no row says MLC** — so `mlc` never
+enters any parent's `session.grades`. Only staff, whose scope is `ALL_GRADE_IDS`, see it. Making
+it reachable for parents is a decision the school has to make, and the options are: mark those
+students' roster rows as MLC; or let a Grade 11/12 parent see MLC as well as their own grade; or
+leave it staff-only. **Do not quietly pick one** — each hands a different set of families a
+different trip's information.
+
+### The **Trip name** column (2026-08-21)
+
+Optional column after Grades, for the *other* thing the school described: *"sometime batch wise
+different trips so one grade have many trips"*. It names a trip when one grade runs more than one
+and the destination alone does not distinguish them. `TRIPNAME_ALIASES = ['tripname', 'trip',
+'programme', 'program', 'camp', 'triptype', 'tripcode']`.
+
+- **It divides trips exactly as Destination does.** `namesATrip(row)` is true for either column,
+  and `splitIntoTrips` starts a new trip on a naming row once the current group is itself named —
+  which keeps an unnamed leading row as the head of the first trip instead of a phantom of its own.
 - **The destination stays the headline; the name is a tag beside it.** `tripOptions[].name`
-  renders as a small uppercase chip above `.title`. "MLC" alone would not tell a parent where
-  their child is going; "Manali" alone would not tell them this is the MLC group rather than
-  the main trip. `name` is deliberately blanked when there is no destination, so a name-only
-  trip is titled by its name rather than tagged with it and titled "Educational trip".
-- `'tripname'` was added to `FLAT_MARKERS`, so a sheet leaning on this column is still detected
-  as the school's flat shape.
+  renders as a small uppercase chip above `.title`, and is blanked when there is no destination so
+  a name-only trip is titled by its name rather than tagged with it and titled "Educational trip".
+- `'tripname'` was added to `FLAT_MARKERS`.
 
 **Three sheet rules to tell the school**, and they are the whole of it:
-1. **Grades column: the grade number, never a programme name.** A non-grade value is dropped
-   silently.
-2. **Trip name column: only for a named programme** (`MLC`). Optional; starts a new trip.
+1. **Grades column: a grade number, or `MLC`.** Anything else drops the row silently.
+2. **Trip name column: only when one grade runs two trips.** Optional.
 3. **Destination column: fill it on the first row of each different trip, leave it blank for
    another batch of the same trip.**
 
@@ -2565,10 +2587,14 @@ Raised in `docs/DATA-HANDOVER.md`; none answered yet. Do not assume any of these
   yet". The real `renderButton` gained `shape: 'pill'` + `logo_alignment: 'left'` to match the white
   rounded button the school pointed at. **The placeholder is not and cannot be a working sign-in**;
   the site still needs the OAuth client from `docs/GOOGLE-SIGN-IN.md` before anyone can get in.
-- 2026-08-21 — **Added the optional `Trip name` column after Grades** ("add one tab after grade in
-  trip sheet available mlc"). It divides trips like Destination does, and it exists because `MlC`
-  was being written into the **Grades** column, where the row is discarded silently — MLC-Manali
-  was on the sheet and absent from the site. Documented for the school in `docs/SHEET-SCHEMA.md`.
+- 2026-08-21 — **MLC is now a grade with its own card after Grade 12** ("grade name is mlc show
+  after grade 12"). It was on the sheet as `MlC` in the Grades column, unreadable, so the row was
+  discarded and the trip was invisible; it now assembles as Manali, 12-19 December 2026. `MIC` is
+  read as `mlc` too, because the sheet carries both spellings. **Open question left with the
+  school: no roster row says MLC, so only staff can open the card** — see the section above for
+  the three ways to change that and why none was picked unilaterally.
+- 2026-08-21 — **Added the optional `Trip name` column after Grades**, for one grade running two
+  trips. Corrected: this is NOT how MLC is modelled — that was a misreading, fixed the same day.
   Verified: Grade 11 splits into Kevdi (2 batches) and MLC-Manali (1), with their safety lists and
   packing lists no longer pooled; g7/g8/g10 unchanged.
 - 2026-08-21 — **A grade can now travel on more than one trip** ("sometime batch wise different
