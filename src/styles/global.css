@@ -297,11 +297,16 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible {
   transition: border-color 0.18s ease, background 0.18s ease;
 }
 .trip-switch-item:hover { border-color: var(--accent); }
+.trip-switch-item .n {
+  font-size: 10.5px; font-weight: 800; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--accent);
+}
 .trip-switch-item .t { font-weight: 700; font-size: 14.5px; color: var(--ink); }
 .trip-switch-item .d { font-size: 12.5px; color: var(--muted); }
 .trip-switch-item.is-on {
   border-color: var(--navy); background: var(--navy);
 }
+.trip-switch-item.is-on .n { color: rgba(255, 255, 255, 0.7); }
 .trip-switch-item.is-on .t { color: #fff; }
 .trip-switch-item.is-on .d { color: rgba(255, 255, 255, 0.75); }
 

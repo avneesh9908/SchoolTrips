@@ -20,7 +20,7 @@ import { normalizeGradeId } from '../lib/grades.js'
  * every batch after the first into an orphan row that silently vanishes.
  */
 
-const FLAT_MARKERS = ['destination', 'headertext', 'startingtext', 'parentorientation', 'studentorientation']
+const FLAT_MARKERS = ['destination', 'headertext', 'startingtext', 'parentorientation', 'studentorientation', 'tripname']
 
 /** True when the rows look like the Trip app sheet rather than a Trips tab. */
 export function looksLikeTripApp(rows) {
@@ -40,6 +40,16 @@ const val = (row, ...aliases) => String(pick(row, ...aliases) || '').trim()
  */
 const DATE_ALIASES = ['datessections', 'dates', 'datesection', 'date', 'tripdates', 'sections']
 const OVERVIEW_ALIASES = ['headertext', 'startingtext', 'header', 'starttext', 'intro', 'introduction', 'overview']
+/**
+ * The optional column immediately after Grades, added on the school's request
+ * (2026-08-21) so a named programme can sit inside a grade: "MLC" is a trip
+ * Grade 11 runs alongside its main one, and it was previously being written into
+ * the **Grades** column as `MlC`, where `normalizeGradeId` cannot read it and the
+ * whole row is discarded — the trip was invisible to parents.
+ *
+ * Grades now always holds the grade number; this holds the programme's name.
+ */
+const TRIPNAME_ALIASES = ['tripname', 'trip', 'programme', 'program', 'camp', 'triptype', 'tripcode']
 
 /** Groups the flat rows by grade, carrying the merged grade cell downwards. */
 export function groupByGrade(rows) {
@@ -335,15 +345,24 @@ function normalizeSection(s) {
  * whose destination has not been decided yet is still one trip, not a headless
  * one plus a real one.
  */
+const destinationOf = (row) => val(row, 'destination', 'place', 'location')
+const tripNameOf = (row) => val(row, ...TRIPNAME_ALIASES)
+/** A row "names a trip" if it carries either identifying column. */
+const namesATrip = (row) => !!(destinationOf(row) || tripNameOf(row))
+
 export function splitIntoTrips(rows) {
   const out = []
   for (const row of rows) {
-    const hasDestination = !!val(row, 'destination', 'place', 'location')
-    if (!out.length || (hasDestination && out[out.length - 1].some((r) => val(r, 'destination', 'place', 'location')))) {
+    const previous = out[out.length - 1]
+    // A row that names a trip starts a new one — but only once the group it would
+    // join is itself named. That is what keeps an unnamed leading row (a grade
+    // whose destination is not decided yet) as the head of the first trip rather
+    // than a phantom trip of its own.
+    if (!previous || (namesATrip(row) && previous.some(namesATrip))) {
       out.push([row])
       continue
     }
-    out[out.length - 1].push(row)
+    previous.push(row)
   }
   return out
 }
@@ -351,13 +370,22 @@ export function splitIntoTrips(rows) {
 /** What the trip switcher shows. One entry per trip the grade travels on. */
 function tripOptionsFor(groups) {
   return groups.map((group, index) => {
-    const dest = group.map((r) => val(r, 'destination', 'place', 'location')).find(Boolean) || ''
+    const dest = group.map(destinationOf).find(Boolean) || ''
+    const name = group.map(tripNameOf).find(Boolean) || ''
     const dates = group
       .map((r) => stripBatchPrefix((val(r, ...DATE_ALIASES).split('\n')[0] || '').trim()))
       .filter(Boolean)
     return {
       index,
-      title: dest || 'Educational trip',
+      /**
+       * The destination is the headline because it is what a parent recognises
+       * from the school's letter. The programme name rides alongside it as a
+       * short tag rather than replacing it — "MLC" alone would not tell a parent
+       * where their child is going, and "Manali" alone would not tell them this
+       * is the MLC group and not the main trip.
+       */
+      title: dest || name || 'Educational trip',
+      name: dest ? name : '',
       dates: [...new Set(dates)].join('  ·  '),
       batchCount: group.length,
     }
@@ -547,6 +575,8 @@ export function assembleTripApp(gradeId, rows, { section, tripIndex = 0 } = {}) 
      */
     tripOptions,
     tripIndex: tripOptions[tripIndex] ? tripIndex : 0,
+    /** The programme's name from the Trip name column, "" when unnamed. */
+    tripName: firstWith(...TRIPNAME_ALIASES),
     dates: batches.map((b) => b.headline).filter(Boolean).join('  ·  '),
     batches,
     /**

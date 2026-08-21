@@ -1818,12 +1818,37 @@ Splitting first makes all of those per-trip; a test with Manali + Coorg confirms
 - `titlesFrom()` joins **every** destination for the picker card (`"Manali  ·  Coorg"`). Naming
   only the first put one group's trip on the card both groups read.
 
-**Two sheet rules to tell the school**, and they are the whole of it:
-1. **Grades column: the grade number.** A trip name there is dropped silently — the sheet's
-   `MlC` row (Manali) is discarded today with only a console warning, so if that is Grade 11's
-   second trip it is invisible to parents. Write `11` and put `Manali` in Destination.
-2. **Destination column: fill it on the first row of each different trip, leave it blank for
+### The **Trip name** column (added on the school's request, 2026-08-21)
+
+*"add one tab after grade in trip sheet available mlc"* — an optional column immediately after
+Grades, holding a programme's name. `TRIPNAME_ALIASES = ['tripname', 'trip', 'programme',
+'program', 'camp', 'triptype', 'tripcode']`.
+
+**It exists because the school was writing `MlC` into the Grades column**, where
+`normalizeGradeId` cannot read it and `groupByGrade` discards the row — MLC-Manali was on the
+sheet and invisible on the site, warning to a console nobody reads. Grades now always holds the
+grade number and this holds the programme name.
+
+- **It divides trips exactly as Destination does.** `namesATrip(row)` is true for either
+  column, and `splitIntoTrips` starts a new trip on a naming row once the current group is
+  itself named — which is what keeps an unnamed leading row as the head of the first trip
+  instead of a phantom of its own.
+- **The destination stays the headline; the name is a tag beside it.** `tripOptions[].name`
+  renders as a small uppercase chip above `.title`. "MLC" alone would not tell a parent where
+  their child is going; "Manali" alone would not tell them this is the MLC group rather than
+  the main trip. `name` is deliberately blanked when there is no destination, so a name-only
+  trip is titled by its name rather than tagged with it and titled "Educational trip".
+- `'tripname'` was added to `FLAT_MARKERS`, so a sheet leaning on this column is still detected
+  as the school's flat shape.
+
+**Three sheet rules to tell the school**, and they are the whole of it:
+1. **Grades column: the grade number, never a programme name.** A non-grade value is dropped
+   silently.
+2. **Trip name column: only for a named programme** (`MLC`). Optional; starts a new trip.
+3. **Destination column: fill it on the first row of each different trip, leave it blank for
    another batch of the same trip.**
+
+`docs/SHEET-SCHEMA.md` carries this as a table with a worked example, for handing to the school.
 
 ## Both Grade 7 rows said "Batch 1" in the sheet — how the app compensates
 Measured 2026-08-14: the content sheet's two Grade 7 rows **both** begin `Batch 1:` (12-19 December
@@ -2540,6 +2565,12 @@ Raised in `docs/DATA-HANDOVER.md`; none answered yet. Do not assume any of these
   yet". The real `renderButton` gained `shape: 'pill'` + `logo_alignment: 'left'` to match the white
   rounded button the school pointed at. **The placeholder is not and cannot be a working sign-in**;
   the site still needs the OAuth client from `docs/GOOGLE-SIGN-IN.md` before anyone can get in.
+- 2026-08-21 — **Added the optional `Trip name` column after Grades** ("add one tab after grade in
+  trip sheet available mlc"). It divides trips like Destination does, and it exists because `MlC`
+  was being written into the **Grades** column, where the row is discarded silently — MLC-Manali
+  was on the sheet and absent from the site. Documented for the school in `docs/SHEET-SCHEMA.md`.
+  Verified: Grade 11 splits into Kevdi (2 batches) and MLC-Manali (1), with their safety lists and
+  packing lists no longer pooled; g7/g8/g10 unchanged.
 - 2026-08-21 — **A grade can now travel on more than one trip** ("sometime batch wise different
   trips so one grade have many trips"). `splitIntoTrips()` divides a grade's rows on the Destination
   column — the way the school already types it — so g7/g8/g10 are byte-for-byte unchanged while

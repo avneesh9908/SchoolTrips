@@ -55,6 +55,41 @@ ignored. Alias columns are listed where more than one name works.
 
 Every tab except **Students** has a `Grade` column, and rows are filtered by it.
 
+## Which rows are one trip — Grades, Trip name, Destination
+
+The school's own sheet is one flat tab, one row per **batch**, with the Grades cell merged down
+a grade's rows. Three columns decide how those rows are grouped, and they are the first three:
+
+| Column | Fill it | Effect |
+|---|---|---|
+| **Grades** | always, on the first row of the grade | The grade number — `11`, `Grade 11`, `XI`. **Never a trip or programme name**: anything that is not a grade cannot be read and the row is dropped silently. |
+| **Trip name** | only for a named programme | Optional. `MLC`, a camp name, anything. Starts a new trip inside the grade, and shows as a small tag beside the destination. |
+| **Destination** | on the first row of each different trip | Where that trip goes. Starts a new trip. Leave **blank** on a row that is just another batch of the trip above. |
+
+So:
+
+- **A grade going to one place in two date batches** — destination on the first row, blank on
+  the second. This is what Grades 7 to 10 already look like; nothing to change.
+- **A grade running two different trips** — fill Destination again (and Trip name, if it has
+  one) on the row where the second trip starts.
+
+```
+Grades | Trip name | Destination | Dates/ Sections
+11     |           | Kevdi       | Batch 1: 12-19 December 2026
+       |           |             | Batch 2: 14-21 December 2026
+11     | MLC       | Manali      | 12-19 December 2026
+```
+
+That is three batches across **two** trips: Kevdi with two, MLC-Manali with one. Everything
+else on a row — Safety guidelines, Do/Dont's, Things to carry, Travel details, orientation
+links — belongs to **that row's trip**, so the MLC group never sees the Kevdi packing list.
+
+**The one thing to avoid:** writing the programme name in the Grades column. `MlC` there is not
+a grade, so the whole row vanishes from the site with no visible error. Put `11` in Grades and
+`MLC` in Trip name.
+
+---
+
 ## Grade column
 Accepts `7`, `Grade 7`, `grade-7`, `Class 7`, `VII`, plus `JK` / `Junior KG` and
 `SK` / `Senior KG`. Anything it cannot read is treated as no grade, and the row is dropped —

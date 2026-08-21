@@ -134,6 +134,9 @@ function TripSwitcher({ options, active, onSelect }) {
           aria-pressed={o.index === active}
           onClick={() => onSelect(o.index)}
         >
+          {/* The programme tag comes FIRST and is small: it answers "which
+              group is this" before the destination answers "where". */}
+          {o.name && <span className="n">{o.name}</span>}
           <span className="t">{o.title}</span>
           {o.dates && <span className="d">{o.dates}</span>}
         </button>
