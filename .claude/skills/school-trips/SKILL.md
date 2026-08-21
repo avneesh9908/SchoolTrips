@@ -2344,6 +2344,18 @@ Raised in `docs/DATA-HANDOVER.md`; none answered yet. Do not assume any of these
 - `legacy/trip-explorer.html` is frozen reference. Do not edit it.
 
 ## Changelog
+- 2026-08-20 — **The student list shows exactly fifteen rows** ("you show 16 name i want to show like
+  only 15 names"). Replaced the `dvh` clamp with a row-count cap:
+  `--live-row: 33px`, `--live-head: 29px`, `--live-rows: 15` → `max-height: 524px`. The unit was the
+  real fix — a viewport clamp showed 11 rows on a 720px laptop, 16 on the school's screen and 18 on a
+  1080px desktop, so every "make it taller/shorter" request was really about a count.
+  Two supporting changes, both necessary for the count to hold: `line-height` pinned on `th` (14px)
+  and `td` (18px), since `normal` makes row height font-dependent and the count would drift as the
+  webfont loaded; and `white-space: nowrap` on `thead th`, because "STUDENT NAME" wrapped to two lines
+  in a narrow column, grew the sticky head by 14px and ate a row — 15 on desktop, 14 on a phone.
+  Verified exactly 15 fully-visible rows at 1280x720 (both cards), 1920x1080 and 375x812, with 54 rows
+  still scrollable; the phone's table scrolls 28px inside its own box and the page itself does not.
+  Clean console, clean build.
 - 2026-08-20 — **Pushed and live: `0fd3bb6`.** `LiveList` (the student list rendered from
   `tqx=out:csv&gid=`, with the split heading, sticky head and `clamp(320px, 58dvh, 680px)` body), the
   `.doc-open` anchor fix on the framed orientation cards, `parseCsv` exported from `data/csv.js`, and
@@ -2397,11 +2409,20 @@ Raised in `docs/DATA-HANDOVER.md`; none answered yet. Do not assume any of these
   glued title off "… Sr.No" so the long half becomes a caption and the short half stays the column
   head — the actual cause of the wide column. The serial column is `width: 1%; white-space: nowrap`,
   the head is sticky, and the body is capped at
-  `clamp(320px, 58dvh, 680px)` so a 25-name list cannot push the card's "Open" line past the fold.
-  **Window-relative, not a flat number** (raised from 300px on 2026-08-20, "give list more height"): a
-  fixed cap was a third of a laptop screen and a sixth of a desktop one. `dvh` not `vh`, or the box
-  overhangs on a phone where `vh` means the address bar's tallest state. Measured — 360px/9 rows at
-  1280x620, 418px/11 rows at 1280x720, 626px/18 rows at 1920x1080, 471px/13 rows at 375x812. An HTML response (Google's sign-in page) is treated as an error, so an unshared
+  **exactly fifteen rows** — `calc(var(--live-head) + var(--live-rows) * var(--live-row))`, i.e.
+  `29px + 15 x 33px = 524px`. Change `--live-rows` to change the count; the other two are measured
+  from the type, not chosen.
+
+  It went 300px → a `dvh` clamp → a row count over three passes, and the row count is the right unit:
+  "how many names can I see" was what the school was specifying all along, and a viewport clamp gave a
+  different answer on every screen (11 rows at 720px, 16 on theirs, 18 at 1080px).
+  **Two things make fifteen actually fifteen, and both are load-bearing.** `line-height` is pinned on
+  `th` (14px) and `td` (18px) — with `normal` the row height follows whatever the font resolves to, so
+  the count would drift as Manrope loaded or on a machine that substituted it. And `thead th` is
+  `white-space: nowrap` — left to wrap, "STUDENT NAME" took two lines in a narrow column, the sticky
+  head grew 14px and ate a row, giving 15 on a desktop and 14 on a phone. Verified 15 at 1280x720,
+  1920x1080 and 375x812; the phone's table now scrolls 28px sideways inside its own box, which is
+  ordinary table behaviour and does not touch the page. An HTML response (Google's sign-in page) is treated as an error, so an unshared
   sheet falls back to the link rather than rendering markup.
   **Rows carrying only a serial number are dropped once names exist**; while none are filled the whole
   table is shown, so an empty list still previews ("open preview when the list is empty").

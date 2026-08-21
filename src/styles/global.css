@@ -724,25 +724,40 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible {
 }
 /* Capped and scrolled rather than uncapped: a batch is ~25 names, and a card that grows to
    fit them all pushes its own "Open" line past the fold.
-   Taller on the school's instruction (2026-08-20, "give list more height of the list card"),
-   and sized against the WINDOW rather than a flat number — a fixed 300px was a third of a
-   laptop screen and a sixth of a desktop one. `dvh` not `vh`, because on a phone `vh` is the
-   address bar's tallest state and the box would overhang. The 680px ceiling keeps the card
-   from outgrowing the tab on a tall monitor; the 320px floor keeps ~8 rows visible on a
-   short one. */
+
+   The cap is **a row count, not a length** (2026-08-20: "you show 16 name i want to show like
+   only 15 names"). A `dvh` clamp showed a different number of names on every screen — 11 on a
+   720px laptop, 16 on the school's, 18 on a 1080px desktop — and "how many names can I see"
+   turned out to be the thing they were actually specifying. Change `--live-rows` alone to
+   change it; the two other values are measured, not chosen.
+
+   This only holds because the line-heights below are PINNED. With `line-height: normal` the
+   row height follows whatever the font resolves to, so fifteen rows would be fifteen only
+   until Manrope loaded, or on a machine that substituted it. */
 .live-list-scroll {
-  max-height: clamp(320px, 58dvh, 680px);
+  --live-row: 33px;   /* 18px line + 7px+7px padding + 1px rule */
+  --live-head: 29px;  /* 14px line + 7px+7px padding + 1px rule */
+  --live-rows: 15;
+  max-height: calc(var(--live-head) + var(--live-rows) * var(--live-row));
   overflow-y: auto; border-radius: 12px; background: #fff;
 }
 .live-list table { width: 100%; border-collapse: collapse; font-size: 13px; }
+/* `line-height` is explicit on both, and that is load-bearing: `--live-row` above counts on
+   it to make "fifteen rows" mean fifteen rows. Re-measure both if the font or padding moves. */
 .live-list th, .live-list td {
   text-align: left; padding: 7px 10px; color: var(--ink);
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--line); line-height: 18px;
 }
 .live-list thead th {
   position: sticky; top: 0; background: var(--wash); z-index: 1;
   font-size: 11.5px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase;
-  color: var(--muted);
+  color: var(--muted); line-height: 14px;
+  /* One line, always. Left to wrap, "STUDENT NAME" took two lines in a narrow column, the
+     sticky head grew by 14px and ate one of the fifteen rows — 15 on a desktop, 14 on a
+     phone. A header that wraps makes `--live-rows` a promise the layout cannot keep. If the
+     headings ever outgrow the box the table scrolls sideways inside its own scroller, which
+     is the ordinary behaviour for a table and costs nothing here. */
+  white-space: nowrap;
 }
 .live-list tbody tr:last-child td { border-bottom: none; }
 /* The serial column takes what it needs and no more — the whole point of this rewrite. */
