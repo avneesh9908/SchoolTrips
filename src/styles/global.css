@@ -247,6 +247,22 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible {
 }
 .gsi-slot { display: flex; justify-content: center; min-height: 44px; }
 .gsi-slot.is-disabled { opacity: 0.5; pointer-events: none; }
+/* The stand-in shown only while `googleClientId` is unset. Matched to Google's
+   own pill button — 40px tall, 20px radius, #dadce0 hairline, Roboto — so the
+   login page has the right shape in the right place before the school has
+   created the OAuth client. It is not a working sign-in and cannot be made
+   one; see GoogleButton.jsx. */
+.gsi-placeholder {
+  display: inline-flex; align-items: center; gap: 10px;
+  width: 340px; max-width: 100%; height: 40px; padding: 0 16px;
+  background: #fff; border: 1px solid #dadce0; border-radius: 20px;
+  font-family: Roboto, var(--font, inherit), sans-serif;
+  font-size: 14px; font-weight: 500; color: #3c4043;
+  cursor: pointer; transition: background 0.15s ease, box-shadow 0.15s ease;
+}
+.gsi-placeholder[aria-disabled='true'] { cursor: default; }
+.form-error.is-under-control { margin: 14px 0 0; }
+.gsi-placeholder svg { width: 18px; height: 18px; flex: none; }
 .auth-hint { margin: 16px 0 0; text-align: center; font-size: 13.5px; line-height: 1.6; color: var(--muted); }
 .auth-badge { display: flex; justify-content: center; margin-top: 14px; }
 .auth-badge code {

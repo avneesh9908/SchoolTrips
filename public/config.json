@@ -3,7 +3,7 @@
 
   "dataSource": "sheets",
 
-  "_rosterApiUrl": "SOURCE 1 — login. /api/lookup is the Netlify function. Requires ROSTER_CSV_URL — and ADMIN_EMAILS for staff — in the SERVER environment.",
+  "_rosterApiUrl": "SOURCE 1 — login. /api/lookup is the Netlify function. Requires GOOGLE_CLIENT_ID and ROSTER_CSV_URL — and ADMIN_EMAILS for staff — in the SERVER environment. It accepts nothing but a Google ID token: an email address posted to it is refused.",
   "rosterApiUrl": "/api/lookup",
 
   "_sheetId": "SOURCE 2 — everything else. Share link of the single spreadsheet holding the trip content. Needs 'Anyone with the link → Viewer'. Leave blank if you are using publishedId instead.",
@@ -24,7 +24,7 @@
   "_driveApiBase": "Leave blank for Google.",
   "driveApiBase": "",
 
-  "_adminEmails": "Leave empty. Staff are configured via ADMIN_EMAILS in the server environment — this file is public, and listing staff here would tell anyone which address unlocks every grade.",
+  "_adminEmails": "Leave empty. Staff are configured via ADMIN_EMAILS in the server environment — this file is public, and there is no reason to publish which addresses unlock every grade. A listed address still has to arrive with a verified Google token for that address.",
   "adminEmails": [],
 
   "_tripPhotos": "The school's own photograph of each grade's trip, shown on the Overview tab with the sheet's Header Text over it. Keyed by grade id. PREFERRED: paste the Drive share link of the photo (Share → Anyone with the link → Viewer, then Copy link) — the app turns it into Drive's thumbnail URL itself and Drive resizes it to the width each place renders, so the school's bandwidth bill stays off the site's host and nobody has to hand-build a URL. A local file in public/trip-photos/ or any other public image URL still works and is passed through untouched. A link that is NOT shared 'anyone with the link' returns a sign-in page instead of an image; the banner catches that and falls back to the grade colour, so a wrongly-shared photo looks like no photo rather than a broken one — open the link in a private window to check. A grade with no entry shows no photograph — nothing is searched for and no stock image is substituted, because a picture of a place reads to a parent as a picture of their child's trip. NOTE: anything listed here is served publicly and is NOT behind the parent login, so adding a photograph of students is a publishing decision, not a configuration one. The g7 entry was published on 2026-08-17 on the school's instruction, with parental consent confirmed as on file.",
@@ -44,6 +44,6 @@
     "g7.dodont": "https://docs.google.com/presentation/d/e/2PACX-1vRsFT2Z1r8ixbcpNTrPfui4OdEX__Pc_pUUDTkITRu8L66eZiRG7-A-qAD_CIuX0em8GiRux5IQ2xNr/pub?start=true&loop=true&delayms=3000"
   },
 
-  "_googleClientId": "OAuth 2.0 Web client id. When set, the login page shows Google Sign-In and One Tap signs a returning parent in with no typing.",
-  "googleClientId": ""
+  "_googleClientId": "OAuth 2.0 Web client id. REQUIRED — Google Sign-In is the only way into this app, so with this blank nobody can sign in and the login page says so. Set it and One Tap signs a returning parent in with no click. The SAME id must also be set as GOOGLE_CLIENT_ID in the server environment, which is where the token is actually verified; the two must match or every sign-in is refused.",
+  "googleClientId": "186304536151-rr9k52olv6as5l1umjn3saic02lun2md.apps.googleusercontent.com"
 }

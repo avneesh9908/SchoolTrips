@@ -35,10 +35,15 @@ export function loadGis() {
  * Reads the email out of the ID token.
  *
  * This is a decode, NOT a verification — the browser cannot check Google's
- * signature safely. It is fine for deciding which sheet row to show, because
- * the sheets adapter has no server-side secret to protect anyway. Once the api
- * adapter is in play the raw credential must be posted to the backend and
- * verified there; never trust this decoded email for a real access decision.
+ * signature safely, and anyone can hand-write a token whose payload says
+ * whatever they like. So the raw `credential` is returned alongside the
+ * claims and it is the credential, never the email, that goes to the server:
+ * `netlify/functions/googleToken.js` verifies the signature and the audience
+ * there, and reads the address out of the verified token itself.
+ *
+ * The decoded email is used for two cosmetic things only — greeting the parent
+ * before the server answers, and the demo adapter that runs against local CSV
+ * fixtures. Never trust it for a real access decision.
  */
 export function readEmailFromCredential(credential) {
   const payload = credential?.split('.')[1]

@@ -7,7 +7,7 @@
  * it runs `netlify/functions/lookup.js` as a function. This gives Railway the
  * equivalent: one Node process that serves the built SPA *and* the lookup.
  *
- * It imports `resolveParent` from the Netlify function rather than restating
+ * It imports `resolveSignIn` from the Netlify function rather than restating
  * the rules, which is what that module was written for ("the handler is a thin
  * wrapper... moves to Express, Vercel, Azure Functions unchanged"). The roster
  * matching, the grade gate, the admin list and the deliberately minimal reply
@@ -28,7 +28,7 @@ import { stat } from 'node:fs/promises'
 import { extname, join, normalize, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createGzip } from 'node:zlib'
-import { resolveParent } from './netlify/functions/lookup.js'
+import { resolveSignIn } from './netlify/functions/lookup.js'
 
 const ROOT = fileURLToPath(new URL('./dist/', import.meta.url))
 const PORT = Number(process.env.PORT) || 8080
@@ -201,7 +201,7 @@ const server = createServer(async (req, res) => {
       return
     }
     try {
-      const { status, body: out } = await resolveParent(body?.value ?? body?.identifier)
+      const { status, body: out } = await resolveSignIn(body?.credential)
       sendJson(res, status, out)
     } catch (err) {
       console.error('[lookup]', err)

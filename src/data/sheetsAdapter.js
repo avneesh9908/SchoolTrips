@@ -134,15 +134,21 @@ export const sheetsAdapter = {
   label: 'Google Sheets (public CSV)',
 
   /**
-   * Resolves a login. With `rosterApiUrl` set this happens server-side and the
-   * roster never enters the browser — the only safe arrangement for a feed
-   * carrying addresses and dates of birth. Without it, falls back to matching a
-   * client-side roster, which is fine for demo data and wrong for real data.
+   * Resolves a login. The caller has already been through Google Sign-In, so
+   * `credential` is the raw ID token and `email` is what the browser decoded
+   * out of it — a convenience for the demo path below, never an access
+   * decision: only the server checks Google's signature.
+   *
+   * With `rosterApiUrl` set the token goes to the server, which verifies it and
+   * matches the roster there. The roster never enters the browser, which is the
+   * only safe arrangement for a feed carrying addresses and dates of birth.
+   * Without it, falls back to matching a client-side roster, which is fine for
+   * demo data and wrong for real data.
    */
-  async lookup({ kind, value }) {
+  async lookup({ credential, email }) {
     const { rosterApiUrl } = config()
     if (!rosterApiUrl) {
-      if (kind === 'email' && isAdminEmailLocally(value)) {
+      if (isAdminEmailLocally(email)) {
         return { role: 'admin', students: [] }
       }
       const roster = await this.fetchStudents()
@@ -150,7 +156,7 @@ export const sheetsAdapter = {
       // two paths (a parent contact opens any grade; a student's own address only
       // Grade 7 and above).
       const matched = roster
-        .map((s) => ({ student: s, as: matchStudent(s, { kind, value }) }))
+        .map((s) => ({ student: s, as: matchStudent(s, { kind: 'email', value: email }) }))
         .filter((m) => m.as)
       return {
         role: 'parent',
@@ -162,11 +168,16 @@ export const sheetsAdapter = {
     const res = await fetch(rosterApiUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ kind, value }),
+      // The token and nothing else. Sending an email address alongside it would
+      // reopen the hole this replaced: the server must read the address out of
+      // the signature, not off the request.
+      body: JSON.stringify({ credential }),
     })
-    if (res.status === 404) return { role: 'parent', students: [] }
     if (!res.ok) {
       const detail = await res.json().catch(() => ({}))
+      // The server's own wording for 401/403 is written for a parent to read —
+      // expired sign-in, wrong account, no child on the roll — so pass it
+      // through rather than flattening it to a status code.
       throw new Error(detail.error || `Sign-in service returned HTTP ${res.status}.`)
     }
     const data = await res.json()

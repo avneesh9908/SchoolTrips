@@ -4,11 +4,13 @@
  *
  * Contract the backend must implement:
  *
- *   POST /auth/lookup      { kind, value }      -> { token, students: Student[] }
- *                          kind is 'email' | 'phone' | 'google'.
- *                          For 'google', value is the raw ID-token credential and the
- *                          backend MUST verify Google's signature before trusting the
- *                          email inside it — the browser only decodes it.
+ *   POST /auth/lookup      { credential }       -> { token, students: Student[] }
+ *                          credential is the raw Google ID token, and it is the ONLY
+ *                          thing the browser sends. The backend MUST verify Google's
+ *                          signature and the `aud` claim before trusting the email
+ *                          inside it — the browser only decodes it, so a decoded email
+ *                          is not evidence of anything. Never accept a caller-supplied
+ *                          email address here: that was the hole this replaced.
  *   GET  /trips/:gradeId   Authorization: Bearer <token>
  *                          -> TripSets, already filtered to that grade,
  *                             403 if the token's students do not include it
@@ -41,14 +43,16 @@ export const apiAdapter = {
    * The backend resolves the identifier, so this adapter exposes it directly
    * and the auth layer skips its own client-side matching.
    */
-  async lookup({ kind, value }) {
+  async lookup({ credential }) {
     const res = await fetch(`${requireBase()}/auth/lookup`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ kind, value }),
+      body: JSON.stringify({ credential }),
     })
-    if (res.status === 404) return []
-    if (!res.ok) throw new Error(`Login failed (HTTP ${res.status}).`)
+    if (!res.ok) {
+      const detail = await res.json().catch(() => ({}))
+      throw new Error(detail.error || `Login failed (HTTP ${res.status}).`)
+    }
     const data = await res.json()
     token = data.token
     return data.students || []

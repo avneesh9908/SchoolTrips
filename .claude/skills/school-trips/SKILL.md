@@ -6,8 +6,8 @@ description: Source of truth for the schoolTrips "Trip Explorer" React app — a
 # schoolTrips — Trip Explorer
 
 ## What this is
-A **React (Vite) single-page app** for parents. A parent signs in with the email address or
-mobile number the school has on file and sees the trip plan for **their own child's grade
+A **React (Vite) single-page app** for parents. A parent signs in **with Google**, on the email
+address the school has on file, and sees the trip plan for **their own child's grade
 only**. All content
 is authored by school management in Google Sheets — nothing is hard-coded.
 
@@ -29,6 +29,8 @@ docs/ARCHITECTURE.md   three diagrams + the reasoning; docs/diagrams/*.svg are
                       hand-written, self-contained, no build step
 docs/WHERE-TO-CONNECT.md the one-field answer: public/config.json → sheetId
 docs/CONNECT-SHEET.md step-by-step: upload the workbook, share it, paste the link
+docs/GOOGLE-SIGN-IN.md  step-by-step for the school: create the OAuth client, set the id
+                      in BOTH places, verify. Nobody can sign in until this is done.
 scripts/             generate_template.py (empty workbooks), generate_setup_deck.py
 sample-data/         EMPTY template workbook + the setup-guide deck for management
 sample-data/split/   the master-links-to-separate-sheets layout: Trip Master.xlsx
@@ -51,18 +53,87 @@ src/
 ## Routes
 | Path | Guard | Renders |
 |---|---|---|
-| `/login` | none | email-or-mobile entry, plus Google button when configured |
+| `/login` | none | Google Sign-In only; a refusal notice when no client id is set |
 | `/children` | `RequireAuth` | child picker — **always shown, even for a single child** |
 | `/trip/:gradeId` | `RequireStudent` | the trip page |
 | `*` | — | redirect to `/children` |
 
+## Sign-in is Google-only, and the server is what enforces it (2026-08-21)
+
+**This replaced the typed email-or-mobile box, which was an open door.** The identifier *was*
+the credential: anyone who knew a parent's registered address — a class WhatsApp group is
+enough — could sign in as them and read that family's trip details, and `POST /api/lookup`
+with `{"value":"parent@school.in"}` handed the children back to a bare curl with no browser
+involved. Hiding the box in the UI would not have fixed that; the server had to stop
+accepting addresses.
+
+How it works now:
+
+- **`netlify/functions/googleToken.js` is the only thing that turns a credential into an
+  email address.** It verifies the Google ID token through Google's `tokeninfo` endpoint and
+  then checks `aud` against `GOOGLE_CLIENT_ID`, `iss`, `exp` and `email_verified`. The caller
+  cannot name the account it wants to be — the address is read out of the verified token.
+- **`resolveSignIn(credential)` in `lookup.js` replaced `resolveParent(rawIdentifier)`.** Same
+  portable-core shape, same roster matching, same `matchStudent` grade rule; it just verifies
+  first and matches on the verified email. `server.js` calls the identical function, so
+  Railway and Netlify cannot drift.
+- **The request body is `{ credential }` and nothing else.** Deliberately: sending an email
+  alongside the token would invite a future edit to trust the wrong one.
+- **`aud` is why the client id must be set in TWO places with the SAME value** —
+  `googleClientId` in `public/config.json` (browser) and `GOOGLE_CLIENT_ID` in the server
+  environment. A mismatch refuses every sign-in with "that sign-in was not issued for this
+  site".
+- **Everything fails closed.** An unset `GOOGLE_CLIENT_ID` makes `requiredAudience()` throw,
+  so the server refuses all sign-ins rather than skipping the check; an unset
+  `googleClientId` makes the login page show a "sign-in is not configured" notice rather than
+  falling back to a typed box. That fallback is exactly how a site meant to be behind a login
+  shipped open — **do not reintroduce it.**
+- **The browser decode in `src/auth/googleSignIn.js` is still a decode, not a verification.**
+  Its `email` is used for the greeting and for the demo adapter that runs on local CSV
+  fixtures. It is never an access decision. The raw `credential` travels beside it for that.
+- **The button is Google's own `renderButton`, styled `shape: 'pill'` + `theme: 'outline'`**
+  to match the white rounded button the school pointed at. It is an iframe Google owns, and
+  it stays that way: a hand-built lookalike cannot return an **ID token**, and the ID token is
+  the whole credential the server verifies. `initTokenClient` would give an access token
+  instead, which this design has nothing to do with — do not "simplify" to it.
+- **`GoogleButtonPlaceholder` is the unconfigured state**, added 2026-08-21 when the school
+  asked to see the button on a site with no client id yet. It is a styled stand-in wired to
+  nothing but the "not set up yet" message, so the page has the right shape in the right place
+  before the OAuth client exists. It cannot be made to work — the token has to be minted for a
+  registered client — and it vanishes the moment `googleClientId` is set. **Nothing in
+  production should ever render it**; if a parent reports seeing it, the client id is missing
+  from the deployed `config.json`.
+- **`auto_select: true` plus `google.accounts.id.prompt()` in `GoogleButton.jsx` is the
+  "signs in automatically" behaviour** the school asked for: a parent already signed in to
+  Google in that browser, who has consented to this site once, lands on `/children` with no
+  click. First visit still needs the button — One Tap cannot consent on the parent's behalf.
+  `logout()` calls `disableAutoSelect()`, or the same account is silently signed straight
+  back in and nobody can switch.
+
+**Mobile-number sign-in is gone, and that is a roster problem now.** A parent whose row
+carries only `FatherPhone` cannot sign in at all. `FatherEmail` (or, from Grade 7,
+`StudentEmailID`) must be filled in and must be a Google account. `classifyIdentifier()` and
+the phone-matching branch of `matchStudent` are left in `lib/identity.js` but are no longer
+reached from any sign-in path.
+
+**The login copy was amended, and the school has NOT approved the new wording.** Their
+2026-08-19 text named the mobile-number route in all three sentences, so it could not stand
+unchanged. The edit was kept as small as possible — "school's email address or mobile number
+registered with the school" became "the Google account on the school's email address
+registered against their child", and the two grade lines dropped their "or registered mobile
+number" clauses. "email id" and the EY/Grade-6/Grade-7 structure are untouched. **Confirm
+this with the school**; it is the one part of this change that is an editorial decision
+rather than a security one.
+
 ## Access control — the important part
-One login box takes **either an email address or a mobile number**;
-`classifyIdentifier()` branches on the presence of `@`.
+Sign-in is Google-only since 2026-08-21 (see the section above); the rules below are what
+happens to the **verified** address once Google has proved the caller owns it.
 
 - **Email** → matched case-insensitively against `FatherEmail`.
-- **Mobile** → matched on the **last 10 digits** of `FatherPhone`. Handles `+91`, leading
-  `0`, spaces, dashes, Excel-numeric cells.
+- **Mobile** → *historical.* `matchStudent` still matches the **last 10 digits** of
+  `FatherPhone` (handling `+91`, leading `0`, spaces, dashes, Excel-numeric cells), but no
+  sign-in path reaches that branch any more, because a phone number is not something Google
+  can prove.
 - **A student row is reachable by whichever of the two columns is filled in.** Both blank
   → the child is reachable by nobody. This is the answer to "why can't this parent log in".
 - **From Grade 7, the student's own address works too** (2026-08-17, the school's rule:
@@ -82,9 +153,9 @@ One login box takes **either an email address or a mobile number**;
   Coming-soon is about content that is not published yet and shrinks when the sheet's junior
   worksheet is read; this is about who may sign in. `gradeNumber()` returns -1 for a grade that
   could not be read, so an unreadable row fails closed.
-- **A refused junior student gets the same reply as an unknown address**, deliberately: a
-  distinct "you are too young" would confirm to anyone typing addresses that this one is on the
-  school's roll. The rule is stated on the login screen instead (`.field-note`), where saying it
+- **A refused junior student gets the same reply as an unknown address**, deliberately. This
+  matters less than it did — a caller must now own the account to get any answer at all — but
+  one wording is still the right answer to "why did this not work". The rule is stated on the login screen instead (`.field-note`), where saying it
   costs nothing, and the failure message repeats it unconditionally — safe precisely because it
   is said whatever the reason for the failure was.
 - **The login copy is the school's own wording — do not reword it.** Current text, rewritten by them
@@ -1954,6 +2025,33 @@ serving the old snapshot forever** — the affected deploy must be deleted with
 means a deleted file still answers `200`, just with HTML. A status-only check reads as "still
 leaking" when it is fixed, and would read as "fine" for a file that never existed.
 
+## Running the login locally — `npm run dev` is NOT enough
+
+`npm run dev` is plain Vite. It serves the SPA and **nothing at `/api/lookup`** — the SPA
+fallback answers that POST with `index.html`, so a sign-in attempt fails on a JSON parse.
+Netlify's function only exists under `netlify dev`, and the CLI is not a dependency here.
+
+**Use `npm start`.** It runs `server.js`, which serves `dist` *and* `/api/lookup` from the
+same `resolveSignIn` core the deployed hosts use. Two consequences:
+
+- **Build first.** `server.js` serves `dist/`, not source, so an unbuilt or stale `dist` is
+  what you will be testing.
+- **It reads `.env` itself**, via `node --env-file-if-exists=.env` in the `start` script
+  (2026-08-21). Before that it read nothing: `server.js` has no dotenv and never did, so
+  `ADMIN_EMAILS` and `ROSTER_CSV_URL` were simply absent locally and every sign-in failed for
+  a reason that looked like a code bug. `-if-exists` rather than `--env-file` so production,
+  where there is no `.env` and the platform supplies the variables, is unaffected.
+
+Quick check that the server half is alive and refusing correctly:
+
+```bash
+curl -s -X POST http://localhost:8080/api/lookup -H 'Content-Type: application/json' -d '{"value":"someone@example.com"}'
+```
+
+`503` + "Sign-in is not available right now" means `GOOGLE_CLIENT_ID` is unset. `401` + "Sign
+in with Google to continue" means it is set and the endpoint is correctly rejecting a typed
+address. A list of students means an old build is being served.
+
 ## Local development against the real roster
 Two gitignored pieces make this work without ever committing PII or breaking the deploy:
 - **`public/config.local.json`** merges on top of `config.json` (see `loadConfig`). Needed
@@ -2081,7 +2179,7 @@ no roster or student-list view, deliberately, since that would put PII back in t
 - **Imports the frontend's own `csv.js` / `normalize.js` / `identity.js`** so column handling
   cannot drift. That is why those modules now use **explicit `.js` extensions** — Vite did not
   need them, plain Node does. Keep them.
-- `resolveParent()` is plain JS with no Netlify-specific types. **Only the thin `handler`
+- `resolveSignIn()` (called `resolveParent()` before 2026-08-21) is plain JS with no Netlify-specific types. **Only the thin `handler`
   wrapper is host-specific**, so moving to a paid domain/host means rewriting ~20 lines.
 - `ROSTER_CSV_URL` comes from the server environment and is **deliberately not committed** —
   the repo is public and the feed is unauthenticated.
@@ -2105,6 +2203,22 @@ Verified against production: a real parent email returns 200 with exactly
 address returns 404, and the browser flow reaches the child card. **Env changes need a redeploy
 to take effect** — setting the variable alone does nothing to a running site.
 
+## Hosting — RAILWAY IS PRODUCTION
+**`trips.fsksurat.in` is the site. It is served by Railway, and it is the only host worth
+verifying** — the school's instruction, 2026-08-20: "now i follow railway not netlify". Treat
+`fountainheadschooltrips.netlify.app` as a staging mirror; it tracks `main` on its own and proves
+nothing about what a parent sees.
+
+How to tell the two apart, since both serve the same app: Railway answers `/healthz` with
+`{"ok":true}` (only `server.js` has that route) and sends `Server: railway-hikari` +
+`x-railway-edge`; Netlify answers `/healthz` with the SPA shell and sends `Server: Netlify`.
+
+**Railway does not deploy on push** — no GitHub App on `avneesh9908` — so a green push means
+nothing here. Every change needs `railway up`, or the App installed once to end the problem.
+A push that only reaches Netlify has not shipped. Check with:
+`curl -sL https://trips.fsksurat.in/ | grep -o '/assets/index-[A-Za-z0-9_-]*\.js'` against
+`ls dist/assets/index-*.js`.
+
 ## Railway — the second host, and why it needed a server
 The repo auto-deploys to **two** public URLs from the same `main`:
 
@@ -2127,7 +2241,7 @@ The two failures are host-shaped and must not be confused:
 | `502` "Could not reach the school roster right now." | Node is serving, but `ROSTER_CSV_URL` is unset |
 
 **The fix.** `server.js` in the project root — one `node:http` process that serves the built
-SPA and `POST /api/lookup`. It **imports `resolveParent` from `netlify/functions/lookup.js`**
+SPA and `POST /api/lookup`. It **imports `resolveSignIn` from `netlify/functions/lookup.js`**
 rather than restating the roster matching, grade gate, admin list or the minimal reply shape,
 so the two hosts cannot drift. This is exactly the portability that module's header promised.
 It is **dependency-free** — no Express, no lockfile change; the routing is three cases
@@ -2344,6 +2458,50 @@ Raised in `docs/DATA-HANDOVER.md`; none answered yet. Do not assume any of these
 - `legacy/trip-explorer.html` is frozen reference. Do not edit it.
 
 ## Changelog
+- 2026-08-21 — **Sign-in is Google-only, and `/api/lookup` now demands a verified token.** The typed
+  email-or-mobile box was the whole credential: knowing a parent's address was the same as being them,
+  and the endpoint answered a bare curl. Added `netlify/functions/googleToken.js` (tokeninfo
+  verification + `aud`/`iss`/`exp`/`email_verified` checks), replaced `resolveParent(rawIdentifier)`
+  with `resolveSignIn(credential)` in `lookup.js` and `server.js`, moved the adapters and
+  `AuthContext` to a credential-only `lookup({ credential, email })`, and stripped the form from
+  `Login.jsx`. Everything fails closed: unset `GOOGLE_CLIENT_ID` refuses all sign-ins, unset
+  `googleClientId` shows a refusal notice instead of a typed box. Verified by direct call — a bare
+  email, a mobile number, an empty body and a **forged token carrying the correct `aud`** all refuse.
+  Two follow-ups are on the school, not on the code: **mobile-only roster rows can no longer sign in**
+  and need an email address, and **the amended login copy is unapproved**.
+- 2026-08-21 — **The sign-in button is now shown even with no client id** ("show email login here i
+  click to login"), as `GoogleButtonPlaceholder` — a styled stand-in that only reports "not set up
+  yet". The real `renderButton` gained `shape: 'pill'` + `logo_alignment: 'left'` to match the white
+  rounded button the school pointed at. **The placeholder is not and cannot be a working sign-in**;
+  the site still needs the OAuth client from `docs/GOOGLE-SIGN-IN.md` before anyone can get in.
+- 2026-08-21 — **`npm start` now loads `.env`** (`node --env-file-if-exists=.env server.js`). It
+  never did, so `ADMIN_EMAILS` and `ROSTER_CSV_URL` were invisible to the local server and local
+  sign-in could not work for a reason that looked like a bug in the code. Added a
+  `## Running the login locally` section: plain `npm run dev` has no `/api/lookup` at all.
+  Verified — the local server answers `/healthz` and refuses an unauthenticated lookup with 503
+  while `GOOGLE_CLIENT_ID` is unset.
+- 2026-08-20 — **Standing rule recorded: Railway is production, Netlify is a mirror** ("now i follow
+  railway not netlify"). Added a `## Hosting — RAILWAY IS PRODUCTION` section above the Railway notes
+  with the host-identification test and the one-line bundle check, so no future pass repeats the
+  mistake of verifying `netlify.app` and reporting a change as live. Consequence to keep in view: since
+  Railway does not deploy on push, **a push is not a release** — `a638933` is on `main` and on Netlify
+  while `trips.fsksurat.in` still serves `index-CaXvBcuT.js`, a build with no student-list table and no
+  `doc-open` fix.
+- 2026-08-20 — **`trips.fsksurat.in` — the school's real URL — is served by RAILWAY, not Netlify.**
+  Proven, not inferred: it answers `/healthz` with `{"ok":true}` (an endpoint that exists only in
+  `server.js`), its headers carry `Server: railway-hikari` and `x-railway-edge: sin1`, and it serves
+  byte-identical assets to `schooltrips-production.up.railway.app`. Netlify answers `/healthz` with the
+  SPA shell and `Server: Netlify`.
+  **This makes the missing GitHub App a live problem, not a housekeeping one.** Railway does not
+  deploy on push, so the domain parents actually use sat on `index-CaXvBcuT.js` — a build with **no
+  `live-list`, no `doc-open`** — while Netlify tracked `main` all day. That is why the school saw no
+  student list table and no "Open ↗" fix in production: the code was never there. Every earlier
+  "verified in production by matching the bundle hash" in this file checked **Netlify**, i.e. not the
+  URL that matters. **Verify `trips.fsksurat.in` from now on, and treat the netlify.app host as a
+  staging mirror.**
+  Fix, in order of preference: install Railway's GitHub App on `avneesh9908/SchoolTrips` so pushes
+  deploy (removes the whole class of problem), or run `railway up` after each push. Neither is
+  possible from this machine — no `railway` CLI, no `RAILWAY_TOKEN`, no `.railway` link.
 - 2026-08-20 — **The student list shows exactly fifteen rows** ("you show 16 name i want to show like
   only 15 names"). Replaced the `dvh` clamp with a row-count cap:
   `--live-row: 33px`, `--live-head: 29px`, `--live-rows: 15` → `max-height: 524px`. The unit was the

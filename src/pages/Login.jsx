@@ -1,8 +1,8 @@
-import { useState, useCallback } from 'react'
+import { useCallback, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { googleSignInEnabled } from '../auth/googleSignIn'
-import { GoogleButton } from '../components/GoogleButton'
+import { GoogleButton, GoogleButtonPlaceholder } from '../components/GoogleButton'
 
 const TAGS = ['Educational journeys', 'Verified trip information', 'Parent & student updates']
 
@@ -11,23 +11,28 @@ const TAGS = ['Educational journeys', 'Verified trip information', 'Parent & stu
 const ART =
   'https://images.unsplash.com/photo-1524492412937-b28074a5d7da?w=1600&q=80'
 
+const NOT_CONFIGURED =
+  'Sign-in is not set up for this site yet, so nobody can sign in. Please contact the school office.'
+
+/**
+ * Google Sign-In is the only way in.
+ *
+ * The typed "email address or mobile number" box was removed on 2026-08-21. It
+ * asked for an identifier, not a secret: anyone who knew a parent's address —
+ * a class WhatsApp group is enough — could sign in as them and read that
+ * family's trip details. Google proves the account belongs to the person at
+ * the keyboard, and the server checks that same address against the school's
+ * roster, so both halves must agree before a session exists.
+ *
+ * Nothing here decides access. If this page were bypassed entirely,
+ * `/api/lookup` would still refuse every request that arrives without a
+ * verified token.
+ */
 export default function Login() {
-  const [identifier, setIdentifier] = useState('')
   const [error, setError] = useState('')
-  const { login, loginWithGoogle, busy } = useAuth()
+  const { loginWithGoogle, busy } = useAuth()
   const navigate = useNavigate()
   const googleEnabled = googleSignInEnabled()
-
-  const submit = async (e) => {
-    e.preventDefault()
-    setError('')
-    try {
-      await login(identifier)
-      navigate('/children', { replace: true })
-    } catch (err) {
-      setError(err.message)
-    }
-  }
 
   const onGoogleIdentity = useCallback(
     async (identity) => {
@@ -79,61 +84,57 @@ export default function Login() {
 
           {error && <div className="form-error">{error}</div>}
 
-          {googleEnabled && (
+          {/* Both panels sit ABOVE the button, in the order the school drew on
+              2026-08-19: what to sign in with, then who may do it. The reader
+              finishes the whole instruction before reaching the control.
+
+              The wording is the school's own, amended here only where it named
+              the mobile-number route that no longer exists. This is the only
+              place the grade rule CAN be stated: a failed sign-in has to give
+              the same answer whatever the reason, or someone could learn which
+              addresses are on the school's roll. "EY" is the school's name for
+              the two kindergarten years, which `allowsStudentLogin` treats as
+              grade 0, and "email id" is theirs too — do not tidy either. */}
+          <p className="field-lede">
+            Parents should sign in with the Google account on the school's email address
+            registered against their child. You will only have access to the trip details
+            relevant to your child's grade.
+          </p>
+          <ul className="field-note">
+            <li>
+              <strong>EY to Grade 6:</strong> Parent login is required, using the school's email
+              id registered for the child.
+            </li>
+            <li>
+              <strong>Grade 7 onwards:</strong> Students may sign in with their own school email
+              address, and parents may also sign in with theirs.
+            </li>
+          </ul>
+
+          {googleEnabled ? (
             <>
               <GoogleButton onIdentity={onGoogleIdentity} onError={setError} disabled={busy} />
-              <p className="auth-hint">Sign in securely with your school-linked Google account.</p>
-              <div className="auth-badge"><code>No password required</code></div>
-              <div className="or-rule"><span>or</span></div>
+              <p className="auth-hint">
+                {busy
+                  ? 'Checking the school records…'
+                  : 'Already signed in to Google in this browser? You will be signed in automatically.'}
+              </p>
+              <div className="auth-badge"><code>No password to remember</code></div>
+            </>
+          ) : (
+            /* The control still occupies its place, so the page reads the way it
+               will once the client id is set — but it is a stand-in, and saying
+               so is the point. Before this, an unset client id simply hid the
+               Google button and left the typed box as the only way in, which is
+               how a site meant to be behind a login shipped open. */
+            <>
+              <GoogleButtonPlaceholder />
+              {/* Directly under the control it explains, and said ONCE. It was
+                  briefly both a standing line here and an error box at the top
+                  of the card, which read as two different problems. */}
+              <div className="form-error is-under-control">{NOT_CONFIGURED}</div>
             </>
           )}
-
-          <form onSubmit={submit}>
-            {/* BOTH panels sit ABOVE the field, in the order the school drew on 2026-08-19:
-                what to type, then who may type it, then the box. The reader finishes the
-                whole instruction before reaching the input rather than typing and then
-                finding a rule under their hands — and the two matched panels stay adjacent,
-                which is what makes them read as one instruction instead of two.
-
-                The wording is the school's own, rewritten by them on 2026-08-19 (third
-                revision that day). This is the only place the grade rule CAN be stated: a
-                failed sign-in has to give the same answer whatever the reason, or anyone
-                typing addresses could learn which are on the school's roll. "EY" is the
-                school's name for the two kindergarten years, which `allowsStudentLogin`
-                treats as grade 0, and "email id" is theirs too — do not tidy either. */}
-            <p className="field-lede">
-              Parents should sign in using the school's email address or mobile number registered
-              with the school. You will only have access to the trip details relevant to your
-              child's grade.
-            </p>
-            <ul className="field-note">
-              <li>
-                <strong>EY to Grade 6:</strong> Parent login is required using school's email id or
-                registered mobile number.
-              </li>
-              <li>
-                <strong>Grade 7 onwards:</strong> Students may sign in using their school email
-                address, and parents may also sign in using their school's email address or
-                registered mobile number.
-              </li>
-            </ul>
-            <div className="field">
-              <label htmlFor="identifier">Email address or mobile number</label>
-              <input
-                id="identifier"
-                type="text"
-                inputMode="email"
-                autoComplete="username"
-                placeholder="you@example.com or 98765 43210"
-                value={identifier}
-                onChange={(e) => setIdentifier(e.target.value)}
-                disabled={busy}
-              />
-            </div>
-            <button className="btn" type="submit" disabled={busy}>
-              {busy ? 'Checking…' : 'Continue'}
-            </button>
-          </form>
 
           <p className="auth-policy">
             By continuing, you agree to the school's trip communication and information policy.

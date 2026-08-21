@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useCallback, useMemo, useEffect } from 'react'
 import { getAdapter } from '../data'
-import { classifyIdentifier, normalizeEmail, matchStudent } from '../lib/identity'
+import { normalizeEmail, matchStudent } from '../lib/identity'
 import { ALL_GRADE_IDS, isAdminEmailLocally, nameFromEmail } from './roles.js'
 
 const AuthContext = createContext(null)
@@ -16,8 +16,8 @@ function readSession() {
 }
 
 const NO_MATCH =
-  'We could not find a student registered against this. Students in Grade 6 and below cannot sign in ' +
-  "themselves — please use a parent's email address or registered mobile number. If your details should " +
+  'We could not find a student registered against this Google account. Students in Grade 6 and below ' +
+  "cannot sign in themselves — please use the parent's school email address. If your details should " +
   'be on record, please check with the school office.'
 
 export function AuthProvider({ children }) {
@@ -68,27 +68,31 @@ export function AuthProvider({ children }) {
   }, [])
 
   /**
-   * The one place a credential becomes {students, role}. Both the typed box and
-   * Google Sign-In go through it, so the two paths cannot drift — an adapter
-   * returning the `{role, students}` shape used to be mishandled on the Google
-   * path only, which crashed the sign-in and lost staff access.
+   * The one place a credential becomes {students, role}. Every sign-in goes
+   * through it, so there is exactly one path into a session — the typed
+   * email/mobile box that used to sit beside it was removed on 2026-08-21,
+   * because knowing an address was the whole credential and anyone who knew a
+   * parent's could open that family's trip details.
+   *
+   * `credential` is the raw Google ID token and is the only thing sent onward.
+   * `email` is the browser's decode of it, passed for the demo adapter alone.
    */
-  const resolveIdentity = useCallback(async ({ kind, value }) => {
+  const resolveIdentity = useCallback(async ({ credential, email }) => {
     const adapter = getAdapter()
 
     if (adapter.lookup) {
-      const result = await adapter.lookup({ kind, value })
+      const result = await adapter.lookup({ credential, email })
       // A bare array is the older adapter shape.
       return Array.isArray(result)
         ? { students: result, role: undefined, signedInAs: 'parent' }
         : { students: result.students || [], role: result.role, signedInAs: result.signedInAs }
     }
 
-    // Last resort, for an adapter with no `lookup` of its own. Same matcher as the
-    // other two paths, so the grade rule holds here too.
+    // Last resort, for an adapter with no `lookup` of its own. Same matcher as
+    // the server, so the grade rule holds here too.
     const roster = await adapter.fetchStudents()
     const matched = roster
-      .map((s) => ({ student: s, as: matchStudent(s, { kind, value }) }))
+      .map((s) => ({ student: s, as: matchStudent(s, { kind: 'email', value: email }) }))
       .filter((m) => m.as)
     return {
       students: matched.map((m) => m.student),
@@ -97,41 +101,13 @@ export function AuthProvider({ children }) {
     }
   }, [])
 
-  /** Email or mobile, typed into the one login box. */
-  const login = useCallback(async (raw) => {
-    const { kind, value, valid } = classifyIdentifier(raw)
-    if (kind === 'empty') throw new Error('Please enter your email address or registered mobile number.')
-    if (!valid) {
-      throw new Error(
-        kind === 'email'
-          ? 'That does not look like a valid email address.'
-          : 'Please enter the 10-digit mobile number registered with the school.'
-      )
-    }
-
-    setBusy(true)
-    try {
-      const adapter = getAdapter()
-
-      // Fallback path (demo data, or no rosterApiUrl) — the server is the
-      // authority whenever there is one.
-      if (kind === 'email' && !adapter.lookup && isAdminEmailLocally(value)) {
-        startSession([], { via: kind, identifier: value, role: 'admin' })
-        return
-      }
-
-      const { students, role, signedInAs } = await resolveIdentity({ kind, value })
-      startSession(students, { via: kind, identifier: value, role, signedInAs })
-    } finally {
-      setBusy(false)
-    }
-  }, [startSession, resolveIdentity])
-
   /**
-   * Google has already proved the address, so this skips the typed path — but
-   * access still depends on that same address being on the school's records.
+   * The only way to start a session. Google has proved the address belongs to
+   * whoever is at the keyboard; the server then proves the school has that
+   * address on record. Neither half is sufficient alone, and the browser
+   * decides neither.
    */
-  const loginWithGoogle = useCallback(async ({ email, name }) => {
+  const loginWithGoogle = useCallback(async ({ email, name, credential }) => {
     const value = normalizeEmail(email)
     setBusy(true)
     try {
@@ -141,11 +117,9 @@ export function AuthProvider({ children }) {
         return
       }
 
-      const { students, role, signedInAs } = await resolveIdentity({ kind: 'email', value })
+      const { students, role, signedInAs } = await resolveIdentity({ credential, email: value })
       if (role !== 'admin' && students.length === 0) {
-        throw new Error(
-          `${value} is not on the school's records. Please sign in with the email address the school has on file, or contact the office.`
-        )
+        throw new Error(NO_MATCH)
       }
       startSession(students, { via: 'google', identifier: value, displayName: name, role, signedInAs })
     } finally {
@@ -169,7 +143,6 @@ export function AuthProvider({ children }) {
     return {
       session,
       busy,
-      login,
       loginWithGoogle,
       logout,
       selectStudent,
@@ -183,7 +156,7 @@ export function AuthProvider({ children }) {
       /** Guards data reads — a grade outside this list is never fetched. */
       canAccessGrade: (gradeId) => !!session?.grades.includes(gradeId),
     }
-  }, [session, busy, login, loginWithGoogle, logout, selectStudent])
+  }, [session, busy, loginWithGoogle, logout, selectStudent])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
