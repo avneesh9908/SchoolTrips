@@ -1884,6 +1884,17 @@ The current choice is the last one. **If someone later complains the deck is sma
 link to `.chip-head` — do not move it inside `.chip-slides`.** That is the one option that breaks
 the aspect ratio rather than merely costing height.
 
+**Spacing.** `.chip-col` carries no padding of its own — `.chip-slides` supplies the 14px inset
+around the frame — so a sibling after it sits flush on the card's bottom border, which the school
+caught immediately ("border here margin maitian"). `.gsp-open` therefore carries
+`margin: 0 auto 14px` and `width: calc(100% - 28px)`, so the rhythm is even and the button clears
+the rounded corners on a narrow column. Measured: head→deck 14, deck→button 14, button→border 15
+(14 + the 1px border), side insets 15/15 at 380px wide.
+
+**Total cost of the button, for the record:** the deck goes from 759x427 with no button at all to
+665x374 with the button and its margin — about 12% — ratio 1.78 throughout. That is the price of
+the position the school chose, and `.chip-head` remains the zero-cost alternative.
+
 **Known and pre-existing:** in a NARROW column the frame is squeezed rather than letterboxed,
 because `height: 100%` and `max-width: 100%` cannot both be honoured against a fixed
 `aspect-ratio`. Measured at 470x520: ratio 1.03. The old rule was as bad (0.85 at 420x360), so

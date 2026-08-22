@@ -312,8 +312,15 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible {
    never to move it back in. `.chip-head` is the zero-cost placement if the size
    ever matters more than the position. */
 .gsp-open {
-  flex: 0 0 auto; align-self: center; width: 100%; max-width: 420px;
-  display: block; margin: 0 auto; padding: 10px 14px;
+  /* `.chip-col` carries no padding of its own — `.chip-slides` supplies the 14px
+     inset around the frame — so a sibling after it sits flush on the card's bottom
+     border. The 14px bottom margin is that same inset, kept so the button has the
+     same breathing room below it as the deck has above it (the school: "border here
+     margin maitian"). `calc` on the side inset keeps the button off the rounded
+     corners on a narrow column, where 420px is wider than the card. */
+  flex: 0 0 auto; align-self: center;
+  width: calc(100% - 28px); max-width: 420px;
+  display: block; margin: 0 auto 14px; padding: 10px 14px;
   border-radius: var(--r-chip); background: var(--navy);
   color: #fff; text-decoration: none; text-align: center;
   font-size: 13.5px; font-weight: 700;
