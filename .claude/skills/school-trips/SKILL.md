@@ -1868,24 +1868,21 @@ values.
 deck. The deck stays on the page — a parent still reads the safety rules without leaving the
 site — and the link is the way out for anyone who wants it full size. **Both, not either.**
 
-### The open link goes in `.chip-head` — three placements were measured
+### The open link goes BELOW the deck — and never inside `.chip-slides`
 
-`SlidesOpenLink` is a separate component from `GoogleSlidesPreview` and renders in the panel's
-**head**, beside its title. The other two placements were both tried and both wrong:
+`SlidesOpenLink` is a separate component from `GoogleSlidesPreview`. Placement went through
+three rounds with the school; all four options were measured in a 1200x520 carry panel:
 
-| Placement | Deck | Why not |
+| Placement | Deck | Verdict |
 |---|---|---|
-| inside `.google-slides-preview` | — | **Invisible.** That box is `overflow: hidden` with a 16/9 `aspect-ratio` and the iframe fills it at `height: 100%`, so anything below the frame is clipped. A whole feature silently absent. |
-| inside `.chip-slides` as a 2nd child | tiny, letterboxed | That container sizes its **single** child. With a sibling, the frame's width came from the iframe's intrinsic 300px instead of from its height. This is the one the school saw: *"ok give you button dont change the slide size"*. |
-| sibling **below** `.chip-slides` | 686x386 | Ratio correct, but the panel is a fixed height so the link's 51px comes straight off the deck. Was 777x437. |
-| **in `.chip-head`** ✅ | **759x427** | Identical to the deck with no link at all. Measured both ways in a 1200x520 panel. |
+| inside `.google-slides-preview` | — | **Invisible.** `overflow: hidden` + 16/9 `aspect-ratio` + an iframe at `height: 100%` clips anything below the frame. A whole feature silently absent. |
+| inside `.chip-slides` as a 2nd child | tiny, letterboxed | **Never do this.** That container sizes its *single* child; with a sibling, the frame's width comes from the iframe's intrinsic 300px instead of from its height. The school caught it: *"ok give you button dont change the slide size"*. |
+| in `.chip-head` | 759x427 | Zero cost — identical to no link at all. Kept as the fallback if size ever matters more than position. |
+| **below `.chip-slides`** ✅ | **690x388** | Where the school asked for it, pointing at the panel's footer gap: *"button give here to adjust size"*. Costs ~9% of the deck, which they accepted. Ratio stays 1.78. |
 
-So: **do not move this link into the panel body.** The head is the only place it costs nothing,
-and the reason is the fixed-height layout, which is not going away. The label is "Open full
-screen ↗" rather than naming the deck, because the heading it sits beside already does.
-
-A `.gsp-wrap` grid wrapper existed for one iteration and was removed — if you find it referenced
-anywhere, it is stale.
+The current choice is the last one. **If someone later complains the deck is small again, move the
+link to `.chip-head` — do not move it inside `.chip-slides`.** That is the one option that breaks
+the aspect ratio rather than merely costing height.
 
 **Known and pre-existing:** in a NARROW column the frame is squeezed rather than letterboxed,
 because `height: 100%` and `max-width: 100%` cannot both be honoured against a fixed

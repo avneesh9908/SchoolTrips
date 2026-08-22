@@ -1215,12 +1215,18 @@ function CarrySection({ docs, lines, slides }) {
           <span className="chip-icon"><Icon name="carry" stroke="currentColor" /></span>
           <h4>Things to carry</h4>
           {!slides && <span className="chip-count">{docs.length || lines.length}</span>}
-          <SlidesOpenLink url={slides} />
         </div>
         {slides ? (
-          <div className="chip-slides">
-            <GoogleSlidesPreview title="Things to carry" url={slides} />
-          </div>
+          <>
+            <div className="chip-slides">
+              <GoogleSlidesPreview title="Things to carry" url={slides} />
+            </div>
+            {/* Below the deck, in the panel's own footer space — the school pointed
+                at exactly this gap (2026-08-21). It costs the deck ~51px of height
+                in the fixed-height layout, which they accepted: "button give here to
+                adjust size". `.chip-head` costs nothing if it ever needs to go back. */}
+            <SlidesOpenLink url={slides} />
+          </>
         ) : docs.length > 0 ? (
           <div className="chip-docs">
             {docs.map((d, i) => <DocCard key={`carry-${i}`} {...d} hideMeta eager />)}
@@ -1411,18 +1417,17 @@ function ItinerarySection({ trip, itineraryDocs, columns }) {
                 <span className="chip-icon"><Icon name={c.icon} stroke="currentColor" /></span>
                 <h4>{c.title}</h4>
                 {!c.slides && <span className="chip-count">{c.docs.length || c.lines.length}</span>}
-                {/* In the HEAD, not under the deck: the panel is a fixed height, so
-                    a link below the frame takes 51px off it and the deck drops from
-                    777x437 to 686x386. Here it costs 11px of width. Measured. */}
-                <SlidesOpenLink url={c.slides} />
               </div>
               {/* The live deck wins over everything else. It IS the school's
                   document, so a card linking to the same document beside it, or a
                   transcription of it below, would both be noise. */}
               {c.slides ? (
-                <div className="chip-slides">
-                  <GoogleSlidesPreview title={c.title} url={c.slides} />
-                </div>
+                <>
+                  <div className="chip-slides">
+                    <GoogleSlidesPreview title={c.title} url={c.slides} />
+                  </div>
+                  <SlidesOpenLink url={c.slides} />
+                </>
               ) : c.docs.length > 0 ? (
                 <div className="chip-docs">
                   {c.docs.map((d, i) => <DocCard key={`${c.key}-${i}`} {...d} hideMeta eager />)}
