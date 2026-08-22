@@ -1265,6 +1265,37 @@ function CarrySection({ docs, lines, slides }) {
  * (2026-08-19) is the same card with different words: one link per batch, and the batch's
  * dates and sections are exactly what tells a reader which list is theirs.
  */
+/**
+ * A card whose document is drawn ON the page — today only the student list.
+ *
+ * It shows the table OR the link, never both. The school, 2026-08-21: *"there is
+ * blank page on the webpage and it links to the spreadsheet too ... so if names
+ * are going to be displayed on web page than no need for link ... either of the
+ * the two is needed"*.
+ *
+ * So `names` decides:
+ *   - names on the page  -> the table, and no link. The scroller reaches the rest.
+ *   - no names yet, or the sheet could not be read -> no empty table, and the link
+ *     is what a parent uses.
+ *
+ * `null` means the fetch has not resolved: neither is shown, which is why the link
+ * does not flash in and then vanish under a table that was about to arrive.
+ */
+function LiveDocCard({ url, action, children }) {
+  const [names, setNames] = useState(null)
+  return (
+    <div className="itin-card is-live">
+      {children}
+      <LiveList url={url} onResolved={setNames} />
+      {names === 0 && (
+        <a className="itin-card-open" href={url} target="_blank" rel="noopener noreferrer">
+          {action} ↗
+        </a>
+      )}
+    </div>
+  )
+}
+
 function ItineraryCards({
   docs,
   batches,
@@ -1314,18 +1345,9 @@ function ItineraryCards({
          */
         if (isLive) {
           return (
-            <div className="itin-card is-live" key={`itin-${i}`}>
+            <LiveDocCard key={`itin-${i}`} url={d.url} action={action}>
               {body}
-              <LiveList url={d.url} />
-              <a
-                className="itin-card-open"
-                href={d.url}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                {action} ↗
-              </a>
-            </div>
+            </LiveDocCard>
           )
         }
 

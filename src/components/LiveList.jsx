@@ -20,7 +20,16 @@ import { parseCsv } from '../data/csv'
  * The file must be shared "anyone with the link", exactly as for every other document on
  * this page. When it is not, the fetch fails and the card falls back to its link.
  */
-export function LiveList({ url }) {
+/**
+ * `onResolved(namesOnPage)` reports upward whether this list actually shows any
+ * names, so the card can decide about its "Open the student list" link. The
+ * school's point (2026-08-21): *"if names are going to be displayed on web page
+ * than no need for link ... either of the the two is needed"*. Called with 0 for
+ * a list with no names yet and for a read failure — both are cases where the link
+ * IS the answer — and not called at all while loading, so no link flickers in and
+ * out under the table.
+ */
+export function LiveList({ url, onResolved }) {
   const [state, setState] = useState({ status: 'loading' })
 
   useEffect(() => {
@@ -54,6 +63,16 @@ export function LiveList({ url }) {
     }
   }, [url])
 
+  /**
+   * Must sit above the early returns: a hook cannot run conditionally, and the
+   * loading and error branches below return before this line would otherwise be
+   * reached.
+   */
+  useEffect(() => {
+    if (!onResolved || state.status === 'loading') return
+    onResolved(state.status === 'error' ? 0 : filledCount(state.rows))
+  }, [state, onResolved])
+
   if (state.status === 'loading') return <div className="live-list is-note">Loading the list…</div>
   if (state.status === 'error') {
     return <div className="live-list is-note">The list could not be read here — open it below.</div>
@@ -76,10 +95,14 @@ export function LiveList({ url }) {
    * discarded now rather than displayed. That split is what keeps the serial column narrow,
    * so it must not be removed along with the caption.
    *
-   * All rows are shown while none are filled, so the empty list still previews; once names
-   * arrive the unfilled tail is dropped, because by then the blanks carry nothing.
+   * **A list with no names renders NOTHING**, changed 2026-08-21. It used to show
+   * every empty row so the list still "previewed", and the school read exactly
+   * that as a fault: *"there is blank page on the webpage"*. Fifteen rows of
+   * nothing but serial numbers looks broken, and the note that once explained it
+   * was removed on 2026-08-20 at their own request — so there was nothing left to
+   * tell a reader why. The card's Open link takes over instead; see `onResolved`.
    */
-  const shown = filled.length ? filled : body
+  const shown = filled
 
   return (
     <div className="live-list">
@@ -107,6 +130,18 @@ export function LiveList({ url }) {
       )}
     </div>
   )
+}
+
+/**
+ * How many rows carry anything but their serial number.
+ *
+ * Shared by the render and by `onResolved` so the two cannot disagree about
+ * whether this list has names — which would show the table and the link together,
+ * or neither.
+ */
+function filledCount(rows) {
+  const [, ...body] = rows || []
+  return body.filter((r) => r.slice(1).some((c) => c.trim() !== '')).length
 }
 
 /**

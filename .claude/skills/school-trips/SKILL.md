@@ -1839,6 +1839,57 @@ Where the text has lived, in order: the page hero (2026-08-13) → an Overview p
 copy of the photo (2026-08-13) → on the single photograph, hero deleted (2026-08-14). The rule that
 survived all three: **it is never in two places, and the page never grows a bare-text hero.**
 
+## The school's 2026-08-21 feedback (Falguni Jariwala) — two fixes
+
+**1. "There is blank page on the webpage" — the student list.** A real bug, not a preference.
+`LiveList` used to render `filled.length ? filled : body`, so a list whose names had not been
+typed yet drew **every empty row** — fifteen lines of nothing but serial numbers, which reads as
+broken. The note that once explained it ("names have not been added yet") had been removed on
+2026-08-20 at the school's own request, so nothing was left to say why. Now an unfilled list
+renders **nothing**.
+
+**2. "Either of the two is needed" — table or link, never both.** `LiveDocCard` in `TripPage.jsx`
+holds the answer from `LiveList`'s new `onResolved(count)`:
+
+| State | Shows |
+|---|---|
+| names on the page | the table, **no** link — the scroller reaches the rest |
+| no names yet, or the sheet could not be read | **no** empty table, and the link |
+| still loading (`null`) | neither — so no link flashes in and out under a table about to arrive |
+
+**3. "Slides not easily readable ... full screen button not easy to find."** Google's full-screen
+control is a small icon inside a **cross-origin iframe**: it cannot be moved, enlarged or
+relabelled from here. So `GoogleSlidesPreview` now renders its own `Open <title> full screen ↗`
+link, which is what the principals asked for ("for ppt it has click open text (which is easy)").
+`toOpenUrl()` turns the `/embed` form back into `/pub`, verified to round-trip on the real config
+values.
+
+**This does NOT undo the 2026-08-17 decision** that replaced a card-and-link with the framed
+deck. The deck stays on the page — a parent still reads the safety rules without leaving the
+site — and the link is the way out for anyone who wants it full size. **Both, not either.**
+
+### The link MUST be a sibling of the frame, and the wrapper MUST be a grid
+
+Two traps, both measured rather than reasoned about:
+
+- **Inside `.google-slides-preview` the link is invisible.** That box is `overflow: hidden` with
+  a 16/9 `aspect-ratio` and the iframe fills it at `height: 100%`, so a child below the frame is
+  clipped away — a whole feature silently absent. Hence `.gsp-wrap`.
+- **`.gsp-wrap` is `display: grid`, not flex.** In a flex column the frame's width comes from
+  shrink-to-fit — the iframe's intrinsic 300px — so `aspect-ratio` had nothing to work against
+  and the box came out **302x341, ratio 0.89**: tall and narrow. `grid-template-rows: minmax(0,
+  1fr) auto` gives the frame a *definite* height and `aspect-ratio` derives the width from it:
+  **606x341, ratio 1.78**. And **no `margin: auto` on the wrap** — an auto margin in a flex
+  container centres the item and cancels its stretch, which left the wrap 221px tall inside a
+  420px column and collapsed the frame to 302x170.
+
+**Known, pre-existing, and part of why the slides are hard to read:** in a NARROW column the
+frame is squeezed rather than letterboxed, because `height: 100%` and `max-width: 100%` cannot
+both be honoured with a fixed `aspect-ratio`. Measured at 420x360: the old rule gave ratio 0.85,
+the new one 0.97. Not a regression — but on the Itinerary tab Safety and Do's-and-don'ts sit in
+**two columns**, so each deck is half-width and genuinely small. Making them full width would
+change the school's own 2026-08-17 two-column layout, so it has not been done unilaterally.
+
 ## Junior and middle school say "Coming soon" — they are not openable
 `isComingSoon(id)` in `lib/grades.js` holds a hard set: **jk, sk, g1…g6**. Set 2026-08-14 ("Grade
 cards show coming soon till Grade 6"). Those cards render as a plain `div`, never a disabled
@@ -2807,6 +2858,12 @@ Raised in `docs/DATA-HANDOVER.md`; none answered yet. Do not assume any of these
   yet". The real `renderButton` gained `shape: 'pill'` + `logo_alignment: 'left'` to match the white
   rounded button the school pointed at. **The placeholder is not and cannot be a working sign-in**;
   the site still needs the OAuth client from `docs/GOOGLE-SIGN-IN.md` before anyone can get in.
+- 2026-08-21 — **Acted on the school's feedback (Falguni Jariwala):** the student list no longer
+  draws a table of empty rows (the "blank page"), and it shows the table OR the Open link and never
+  both; the embedded decks gained their own "Open … full screen ↗" link, since Google's control is a
+  small icon in a cross-origin iframe that cannot be restyled. Two measured layout traps recorded —
+  the link is clipped if placed inside the frame box, and the wrapper must be a grid or
+  `aspect-ratio` collapses to 0.89.
 - 2026-08-21 — **The stand-in photo now shows on the grade and trip CARDS too** ("i want to images
   here"), through a shared `useDestinationPhoto()` hook, and **photos can be keyed per trip** as
   `"<gradeId>.<destination-slug>"`. Gained: g8 Jabalpur, g10 Jodhpur, mlc Manali. Grade 11's four
