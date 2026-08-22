@@ -1868,27 +1868,32 @@ values.
 deck. The deck stays on the page — a parent still reads the safety rules without leaving the
 site — and the link is the way out for anyone who wants it full size. **Both, not either.**
 
-### The link MUST be a sibling of the frame, and the wrapper MUST be a grid
+### The open link goes in `.chip-head` — three placements were measured
 
-Two traps, both measured rather than reasoned about:
+`SlidesOpenLink` is a separate component from `GoogleSlidesPreview` and renders in the panel's
+**head**, beside its title. The other two placements were both tried and both wrong:
 
-- **Inside `.google-slides-preview` the link is invisible.** That box is `overflow: hidden` with
-  a 16/9 `aspect-ratio` and the iframe fills it at `height: 100%`, so a child below the frame is
-  clipped away — a whole feature silently absent. Hence `.gsp-wrap`.
-- **`.gsp-wrap` is `display: grid`, not flex.** In a flex column the frame's width comes from
-  shrink-to-fit — the iframe's intrinsic 300px — so `aspect-ratio` had nothing to work against
-  and the box came out **302x341, ratio 0.89**: tall and narrow. `grid-template-rows: minmax(0,
-  1fr) auto` gives the frame a *definite* height and `aspect-ratio` derives the width from it:
-  **606x341, ratio 1.78**. And **no `margin: auto` on the wrap** — an auto margin in a flex
-  container centres the item and cancels its stretch, which left the wrap 221px tall inside a
-  420px column and collapsed the frame to 302x170.
+| Placement | Deck | Why not |
+|---|---|---|
+| inside `.google-slides-preview` | — | **Invisible.** That box is `overflow: hidden` with a 16/9 `aspect-ratio` and the iframe fills it at `height: 100%`, so anything below the frame is clipped. A whole feature silently absent. |
+| inside `.chip-slides` as a 2nd child | tiny, letterboxed | That container sizes its **single** child. With a sibling, the frame's width came from the iframe's intrinsic 300px instead of from its height. This is the one the school saw: *"ok give you button dont change the slide size"*. |
+| sibling **below** `.chip-slides` | 686x386 | Ratio correct, but the panel is a fixed height so the link's 51px comes straight off the deck. Was 777x437. |
+| **in `.chip-head`** ✅ | **759x427** | Identical to the deck with no link at all. Measured both ways in a 1200x520 panel. |
 
-**Known, pre-existing, and part of why the slides are hard to read:** in a NARROW column the
-frame is squeezed rather than letterboxed, because `height: 100%` and `max-width: 100%` cannot
-both be honoured with a fixed `aspect-ratio`. Measured at 420x360: the old rule gave ratio 0.85,
-the new one 0.97. Not a regression — but on the Itinerary tab Safety and Do's-and-don'ts sit in
-**two columns**, so each deck is half-width and genuinely small. Making them full width would
-change the school's own 2026-08-17 two-column layout, so it has not been done unilaterally.
+So: **do not move this link into the panel body.** The head is the only place it costs nothing,
+and the reason is the fixed-height layout, which is not going away. The label is "Open full
+screen ↗" rather than naming the deck, because the heading it sits beside already does.
+
+A `.gsp-wrap` grid wrapper existed for one iteration and was removed — if you find it referenced
+anywhere, it is stale.
+
+**Known and pre-existing:** in a NARROW column the frame is squeezed rather than letterboxed,
+because `height: 100%` and `max-width: 100%` cannot both be honoured against a fixed
+`aspect-ratio`. Measured at 470x520: ratio 1.03. The old rule was as bad (0.85 at 420x360), so
+this is not a regression — but on the Itinerary tab Safety and Do's-and-don'ts sit in **two
+columns**, so each deck is half-width and genuinely small. That is the real cause of *"the slides
+are not easily readable on main screen"*, and fixing it means changing the school's own
+2026-08-17 two-column layout, so it has not been done unilaterally.
 
 ## Junior and middle school say "Coming soon" — they are not openable
 `isComingSoon(id)` in `lib/grades.js` holds a hard set: **jk, sk, g1…g6**. Set 2026-08-14 ("Grade

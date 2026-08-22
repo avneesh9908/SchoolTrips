@@ -12,7 +12,7 @@ import { LiveList } from '../components/LiveList'
 import { slidePreviewFor } from '../lib/slidePreviews'
 import { Section } from '../components/Section'
 import { DocCard } from '../components/DocCard'
-import { GoogleSlidesPreview } from '../components/GoogleSlidesPreview'
+import { GoogleSlidesPreview, SlidesOpenLink } from '../components/GoogleSlidesPreview'
 import { Icon } from '../components/Icon'
 import { Loading, ErrorState, EmptyState } from '../components/States'
 
@@ -1215,6 +1215,7 @@ function CarrySection({ docs, lines, slides }) {
           <span className="chip-icon"><Icon name="carry" stroke="currentColor" /></span>
           <h4>Things to carry</h4>
           {!slides && <span className="chip-count">{docs.length || lines.length}</span>}
+          <SlidesOpenLink url={slides} />
         </div>
         {slides ? (
           <div className="chip-slides">
@@ -1410,6 +1411,10 @@ function ItinerarySection({ trip, itineraryDocs, columns }) {
                 <span className="chip-icon"><Icon name={c.icon} stroke="currentColor" /></span>
                 <h4>{c.title}</h4>
                 {!c.slides && <span className="chip-count">{c.docs.length || c.lines.length}</span>}
+                {/* In the HEAD, not under the deck: the panel is a fixed height, so
+                    a link below the frame takes 51px off it and the deck drops from
+                    777x437 to 686x386. Here it costs 11px of width. Measured. */}
+                <SlidesOpenLink url={c.slides} />
               </div>
               {/* The live deck wins over everything else. It IS the school's
                   document, so a card linking to the same document beside it, or a

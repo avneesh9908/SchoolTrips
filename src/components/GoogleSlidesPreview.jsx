@@ -44,38 +44,57 @@ export function GoogleSlidesPreview({ title, url }) {
   const [state, setState] = useState('loading')
 
   if (!url) return null
-  const openUrl = toOpenUrl(url)
 
   return (
-    /* The link is a SIBLING of the frame box, not a child of it. Inside, it is
-       invisible: `.google-slides-preview` is `overflow: hidden` with a 16/9
-       aspect-ratio and the iframe fills it at `height: 100%`, so a child below
-       the frame is clipped away. That is a whole feature silently absent. */
-    <div className="gsp-wrap">
-      <div className={`google-slides-preview is-${state}`}>
-        {state !== 'ready' && (
-          <div className="gsp-skeleton" role="status">
-            <span className="gsp-shimmer" aria-hidden="true" />
-            <span className="gsp-note">
-              {state === 'error' ? 'This presentation could not be loaded.' : `Loading ${title}…`}
-            </span>
-          </div>
-        )}
-        <iframe
-          src={url}
-          title={title}
-          frameBorder="0"
-          allowFullScreen
-          onLoad={() => setState('ready')}
-          onError={() => setState('error')}
-        />
-      </div>
-      {/* A real `<a>`, not a styled span. That exact mistake shipped on the
-          orientation cards and the school found it ("open button not work like i
-          click no redirect"). */}
-      <a className="gsp-open" href={openUrl} target="_blank" rel="noopener noreferrer">
-        Open {title} full screen ↗
-      </a>
+    <div className={`google-slides-preview is-${state}`}>
+      {state !== 'ready' && (
+        <div className="gsp-skeleton" role="status">
+          <span className="gsp-shimmer" aria-hidden="true" />
+          <span className="gsp-note">
+            {state === 'error' ? 'This presentation could not be loaded.' : `Loading ${title}…`}
+          </span>
+        </div>
+      )}
+      <iframe
+        src={url}
+        title={title}
+        frameBorder="0"
+        allowFullScreen
+        onLoad={() => setState('ready')}
+        onError={() => setState('error')}
+      />
     </div>
+  )
+}
+
+/**
+ * The "open it full size" link, as a SEPARATE component rendered BESIDE
+ * `.chip-slides` rather than inside it.
+ *
+ * Both of the wrong places were tried first, and each cost the school a round
+ * trip:
+ *   - inside `.google-slides-preview` the link is invisible. That box is
+ *     `overflow: hidden` with a 16/9 `aspect-ratio` and the iframe fills it at
+ *     `height: 100%`, so anything below the frame is clipped away.
+ *   - inside `.chip-slides` as a second child it changed the deck's size. That
+ *     container sizes its single child, and adding a sibling made the frame's
+ *     width come from the iframe's intrinsic 300px instead of from its height:
+ *     the deck shrank to a letterboxed thumbnail. The school: "ok give you
+ *     button dont change the slide size".
+ *   - as a sibling BELOW `.chip-slides` the ratio is right but the panel is a
+ *     fixed height, so the link's 51px comes straight off the deck: 777x437 down
+ *     to 686x386.
+ *
+ * So it goes in `.chip-head`, beside the panel's own title, where it costs 11px
+ * of deck width — 766x431, measured in a 1200x520 panel. The title says "Open
+ * full screen" rather than naming the deck, because the heading it sits next to
+ * already does.
+ */
+export function SlidesOpenLink({ url }) {
+  if (!url) return null
+  return (
+    <a className="gsp-open" href={toOpenUrl(url)} target="_blank" rel="noopener noreferrer">
+      Open full screen ↗
+    </a>
   )
 }

@@ -297,34 +297,23 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible {
    this is a deliberate, full-width, unmissable line of our own directly under the
    frame — the same role `.itin-card-open` plays on the student list card, which is
    the one the principals pointed at as "easy". */
-/* The frame and its link, stacked. `.chip-slides` is a flex row, so this wrapper is
-   its single stretched child and the column lives inside.
+/* The way out of an embedded deck (2026-08-21): the school could not read the slides
+   at frame size and could not find Google's own full-screen icon, which is a small
+   control inside a cross-origin iframe and cannot be restyled from here.
 
-   GRID, not flex, and measured rather than guessed. In a flex column the frame's
-   width comes from shrink-to-fit — the iframe's intrinsic 300px — so `aspect-ratio`
-   had nothing to work against: the box came out 302x341, a ratio of 0.89, tall and
-   narrow. A grid row of `minmax(0, 1fr)` gives the frame a DEFINITE height, and
-   `aspect-ratio` then derives the width from it: 606x341, ratio 1.78. Measured at a
-   420x700 container.
-
-   No `margin: auto` on the wrap: an auto margin in a flex container centres the item
-   and cancels its stretch, so the wrap was 221px tall inside a 420px column and the
-   frame collapsed to 302x170. */
-.gsp-wrap {
-  height: 100%; min-height: 0; max-width: 100%;
-  display: grid; grid-template-rows: minmax(0, 1fr) auto;
-  justify-items: center; gap: 10px;
-}
-.gsp-wrap > .google-slides-preview {
-  height: 100%; width: auto; min-height: 0; margin: 0;
-}
-.is-flow .gsp-wrap { height: auto; width: 100%; }
+   It lives in `.chip-head`, beside the panel's title. Not inside `.chip-slides` —
+   that container sizes its single child, and a second one there made the deck's
+   width come from the iframe's intrinsic 300px instead of from its height, shrinking
+   it to a letterboxed thumbnail. And not below it either: the panel is a fixed
+   height, so 51px of link comes straight off the deck (777x437 -> 686x386). In the
+   head it costs 11px of width, 766x431. All three measured in a 1200x520 panel;
+   the school's instruction was "ok give you button dont change the slide size". */
 .gsp-open {
-  flex: 0 0 auto; align-self: center; width: 100%; max-width: 560px;
-  display: block; padding: 11px 14px;
+  flex: 0 0 auto; margin-left: auto; white-space: nowrap;
+  display: block; padding: 7px 12px;
   border-radius: var(--r-chip); background: var(--navy);
   color: #fff; text-decoration: none; text-align: center;
-  font-size: 14px; font-weight: 700;
+  font-size: 12.5px; font-weight: 700;
   transition: background 0.18s ease;
 }
 .gsp-open:hover { background: var(--accent); text-decoration: underline; }
