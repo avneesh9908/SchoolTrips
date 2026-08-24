@@ -35,7 +35,44 @@ export function toEmbedUrl(raw) {
   const url = String(raw || '').trim()
   if (!url) return ''
   if (!/^https:\/\/docs\.google\.com\/presentation\//i.test(url)) return ''
-  return url.replace(/\/pub(\?|$)/i, '/embed$1')
+  // A published snapshot: /d/e/2PACX-…/pub is the standalone viewer.
+  if (/\/pub(\?|#|$)/i.test(url)) return url.replace(/\/pub(\?|#|$)/i, '/embed$1')
+  /**
+   * An ordinary share link — /presentation/d/<id>/edit?usp=sharing — which is what
+   * a smart chip in the sheet resolves to. `/embed` on the same id frames the deck
+   * for anyone the file is shared with, so a deck does NOT have to be published to
+   * the web to appear on the page; "Anyone with the link → Viewer" is enough.
+   * Measured anonymously 2026-08-24: all three of the school's poster decks answer
+   * 200 on /embed with no publish link involved.
+   *
+   * Everything after the id is dropped rather than kept — an /edit URL carries
+   * `usp=sharing` and can carry a slide anchor, neither of which belongs on a frame.
+   */
+  const base = url.match(/^(https:\/\/docs\.google\.com\/presentation\/d\/(?:e\/)?[^/?#]+)/i)
+  if (!base) return ''
+  return `${base[1]}/embed?start=false&loop=false&delayms=3000`
+}
+
+/**
+ * The deck a guideline column's own sheet cell points at.
+ *
+ * This is the route that makes every grade behave like Grade 7 (2026-08-24, the
+ * school: "other grades (8,9,10,11) does not show safety, do/donts and things to
+ * carry … i made changes as these posters were not reflected in all grades"). The
+ * sheet's Safety / Do-Dont's / Things-to-carry columns now hold a smart chip on
+ * EVERY grade's row, and `xlsxSheet.js` recovers each chip's URL — so the deck for
+ * a grade is already in the data and does not have to be pasted into config per
+ * grade. Verified 2026-08-24: all eleven trip rows point at the same three files,
+ * and each file's title matches its column, so there is no rotation to get wrong.
+ *
+ * **One deck, or none.** A column holding two files is a card grid, not a frame:
+ * framing the first would silently hide the second. So this returns '' unless the
+ * column resolved to exactly one document and that document is a Slides deck.
+ */
+export function soleSlideDeck(docs) {
+  const list = docs || []
+  if (list.length !== 1) return ''
+  return toEmbedUrl(list[0] && list[0].url)
 }
 
 /** '' when this grade has no deck for this section — the caller then falls back. */

@@ -1471,11 +1471,22 @@ directly inside the existing webpage."
   `do-and-donts`, `things-to-carry`. Verified after the fix by matching each card's iframe `src` against
   the config value **and** the title of the file behind it. The warning is repeated in `config.json`'s own
   `_slidePreviews` note, since that is where the next person will paste.
-- **The URLs live in `config.slidePreviews`, keyed `"<gradeId>.<section>"` — FLAT, and it must stay
-  flat.** `config.js`'s `merge()` walks one level into an object and calls `String()` on each value, so
-  a nested `{g7: {safety: …}}` reaches the app as the literal `"[object Object]"`. Keyed per grade
-  because Grade 8's parents must never be shown Grade 7's safety deck; only `g7` has entries today,
-  and a grade with no entry falls through to the sheet's card or text exactly as before.
+- **The deck URL comes from the SHEET, not from config — corrected 2026-08-24.** Each grade's
+  Safety / Do-Dont's / Things-to-carry cell holds a smart chip, `xlsxSheet.js` recovers its URL, and
+  `soleSlideDeck(docs)` rewrites that `/presentation/d/<id>/edit` link to `/embed`. So a grade gets
+  its deck framed because the school filled the cell, not because somebody pasted a URL into
+  `config.json` — which is what "these posters were not reflected in all grades" was about: only
+  `g7.*` and `mlc.*` were ever keyed, so every other grade fell back to a card.
+  **Publish-to-web is not needed for this**; "Anyone with the link → Viewer" is (measured
+  anonymously: `/embed` answers 200 on all three files). It frames only when the column resolved to
+  **exactly one** deck — two files stay a card grid, because framing the first would hide the second.
+- **`config.slidePreviews` survives as an OVERRIDE and is now `{}`.** Keys are still FLAT
+  `"<gradeId>.<section>"` — `config.js`'s `merge()` walks one level into an object and calls
+  `String()` on each value, so a nested `{g7: {safety: …}}` reaches the app as the literal
+  `"[object Object]"` — and an entry still **wins** over the sheet, which is exactly why the `g7.*`
+  and `mlc.*` entries were deleted: they shadowed the sheet, so a staff edit to a poster would not
+  have shown on those two grades, and `g7.safety`'s published URL had gone **401** and was silently
+  breaking Grade 7's Safety frame. Fill a key here only to point one grade somewhere else on purpose.
 - A deck **replaces** the card, the count pill and the `PendingNote` for that section. On the single page
   it also replaces the **carry card's own head**: the block heading above it already says "Things to
   carry", and with no count pill to carry (a deck has no item count) that head was the same words twice.
@@ -1500,8 +1511,15 @@ Measured, Grade 7, all zero overflow and zero window scroll: 1907×878 → Safet
 362×203 (1.785); 375×812 → 307×173 (1.778), `documentElement.scrollWidth` 375 so no horizontal
 overflow, both decks reachable.
 
-**The poster path below is now the fallback, not the main route** — it still runs for any grade or
-section with no deck configured.
+**The poster path below is now the fallback, not the main route** — since 2026-08-24 it runs only
+for a section whose cell holds no Slides chip at all, or holds two files. Every grade in the live
+sheet frames the deck.
+
+**The "Open full screen" link is derived from the embed URL, and the two forms need DIFFERENT
+endpoints.** `toOpenUrl` rewrites `/embed` → `/pub` for a published `/d/e/2PACX-…` snapshot, and
+`/embed` → **`/present`** for a `/d/<id>/` share link, because a share link has no `/pub` and the
+unconditional rewrite it used to do answered **401** — the button would have led every parent to a
+refusal. `/present` is the full-screen slideshow the label promises and answers 200 anonymously.
 
 **The poster is shown WHOLE, not as a strip** (2026-08-17: "i want hole preview i dont want like i
 click then show the poster"). In the chip columns `.doc-card` is `flex: 1 1 0` and `.doc-thumb` takes
@@ -2855,6 +2873,45 @@ Raised in `docs/DATA-HANDOVER.md`; none answered yet. Do not assume any of these
 - `legacy/trip-explorer.html` is frozen reference. Do not edit it.
 
 ## Changelog
+- 2026-08-24 — **Every grade now frames its guideline decks, from the SHEET's own chip, and
+  `config.slidePreviews` is empty.** The school (Falguni Jariwala): "other grades (8,9,10,11) does
+  not show safety, do/donts and things to carry" and, on being told the grade-wise split had caused
+  it, "no i made changes as these posters were not reflected in all grades" — plus "grade 7 show the
+  button i want to same every where". The cause was the per-grade keying of `config.slidePreviews`:
+  only `g7.*` and `mlc.*` had entries, so those two framed the deck with the **Open full screen**
+  button and every other grade fell through to a `DocCard` with a small "Open ↗". Fixed at the data
+  end rather than by pasting six more URLs: `soleSlideDeck(docs)` in `slidePreviews.js` turns a
+  guideline column's own chip URL into an `/embed` one, and `TripPage` reads
+  `slidePreviewFor(...) || soleSlideDeck(byCategory(...))` for all three sections. A grade the school
+  fills in gets the deck automatically, with nothing to configure.
+  - **`toEmbedUrl` now also rewrites an ordinary share link**, `/presentation/d/<id>/edit?usp=sharing`
+    → `/presentation/d/<id>/embed?start=false&loop=false&delayms=3000`, keeping the id and dropping
+    everything after it. Publish-to-web is **not** required for this: measured anonymously, all three
+    poster decks answer 200 on `/embed` with only "Anyone with the link → Viewer".
+  - **One deck or none.** `soleSlideDeck` returns '' unless the column resolved to exactly one
+    document and that document is a Slides deck — framing the first of two would silently hide the
+    second, so a two-file column stays a card grid.
+  - **`toOpenUrl` was wrong for these decks and is fixed.** It rewrote `/embed` → `/pub`
+    unconditionally, which is right for a published `/d/e/2PACX-…` snapshot and **401 for a
+    `/d/<id>/` share link** — the "Open full screen" button would have led every parent to a refusal.
+    It now branches on the form and uses **`/present`** for a share link, which is the full-screen
+    slideshow the label promises and answers 200 anonymously.
+  - **`slidePreviews` is now `{}`, and `g7.*` / `mlc.*` were deleted.** Two reasons, not one: they
+    duplicated what the sheet already says, and config **wins** over the sheet, so staff updating a
+    poster in the sheet would have kept seeing the old deck on exactly those two grades. Also
+    `g7.safety`'s published URL had **stopped resolving — 401** — so Grade 7's Safety frame was
+    already broken while the sheet's own link worked. The map stays in place as an override for a
+    grade whose deck must differ from its sheet cell; the `_slidePreviews` note now says so.
+  - **Verified against the live sheet**, all eleven trip rows: every grade resolves exactly one deck
+    per column, and each column gets the right file — safety `1UNklqhv…`, do-and-donts `1MmC3M6Z…`,
+    things-to-carry `1Q0ws9_W…`, titles matching their columns, so the 2026-08-17 rotation cannot
+    recur here. **All grades share ONE poster set**, which is the sheet's own doing, not a slip.
+    Rendered check on g7/g8/g9/g10/g11 (each of its four trips) and MLC: two frames on Itinerary at
+    558×313 (ar 1.783) and one on Things to carry at 794×446 (1.781) at 1280×720, 303×170 and
+    307×173 at 375×812 with no horizontal overflow, one **Open full screen** button per deck. Build
+    clean, no app console errors. g12 still has no row and correctly shows nothing.
+  - **Nothing needed re-publishing.** The spreadsheet's existing `publishedId` picks up new columns
+    and rows on the next page load, and the decks never needed publish-to-web at all.
 - 2026-08-21 — **Sign-in is Google-only, and `/api/lookup` now demands a verified token.** The typed
   email-or-mobile box was the whole credential: knowing a parent's address was the same as being them,
   and the endpoint answered a bare curl. Added `netlify/functions/googleToken.js` (tokeninfo

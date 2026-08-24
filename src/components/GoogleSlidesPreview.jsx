@@ -29,15 +29,27 @@ import { useState } from 'react'
  * the load event is what we are waiting for.
  */
 /**
- * The standalone viewer for the same published deck.
+ * The full-size view of the same deck, for the link under the frame.
  *
- * `slidePreviewFor` hands this component the `/embed` form, because that is what
- * frames cleanly. `/pub` is the same snapshot as a full page, which is what
- * should open in a new tab — so the one is derived from the other rather than
- * threading a second URL through every caller.
+ * `slidePreviewFor` / `soleSlideDeck` hand this component the `/embed` form,
+ * because that is what frames cleanly. What "open it properly" means depends on
+ * which kind of link the deck came from, and getting this wrong is silent:
+ *
+ *   - a PUBLISHED snapshot (`/d/e/2PACX-…/embed`) opens at `/pub`, the same
+ *     snapshot as a full page.
+ *   - an ordinary share link (`/d/<id>/embed`, which is what the sheet's smart
+ *     chips resolve to) has **no `/pub`** — rewriting it to one answers 401 for a
+ *     parent, measured 2026-08-24. `/present` is the right endpoint: it is the
+ *     full-screen slideshow, which is exactly what the link's own label offers,
+ *     and it answers 200 anonymously for a file shared "anyone with the link".
+ *
+ * Derived from the embed URL rather than threading a second URL through every
+ * caller, so there is one place this can be wrong.
  */
 function toOpenUrl(embedUrl) {
-  return String(embedUrl || '').replace(/\/embed(\?|$)/i, '/pub$1')
+  const url = String(embedUrl || '')
+  if (/\/presentation\/d\/e\//i.test(url)) return url.replace(/\/embed(\?|#|$)/i, '/pub$1')
+  return url.replace(/\/embed(\?|#|$)/i, '/present$1')
 }
 
 export function GoogleSlidesPreview({ title, url }) {

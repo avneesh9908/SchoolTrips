@@ -9,7 +9,7 @@ import { useDestinationPhoto } from '../data/useDestinationPhoto'
 import { config } from '../config'
 import { describeDoc } from '../lib/docPreview'
 import { LiveList } from '../components/LiveList'
-import { slidePreviewFor } from '../lib/slidePreviews'
+import { slidePreviewFor, soleSlideDeck } from '../lib/slidePreviews'
 import { Section } from '../components/Section'
 import { DocCard } from '../components/DocCard'
 import { GoogleSlidesPreview, SlidesOpenLink } from '../components/GoogleSlidesPreview'
@@ -354,12 +354,20 @@ function buildSections(trip, photo, grade) {
   /**
    * The three guideline columns, shown beside each other under the itinerary.
    *
-   * Each column prefers the sheet's own **chip** — a preview card that opens the
-   * school's poster — and only prints text when that column has no chip at all.
-   * That order is the school's instruction (2026-08-14): "in sheet have links and
-   * links have chips, show the chips … don't write according to you". The text
-   * path stays as the fallback so a school that pastes real guidance into a cell
-   * still gets it printed, per cell, with no code change.
+   * Each column prefers the sheet's own **chip** — and since 2026-08-24 it FRAMES
+   * that chip's deck live rather than showing a card that opens it, on every grade
+   * rather than only the ones listed in config. `soleSlideDeck` turns the chip's
+   * own /edit URL into an /embed one, so a grade gets the deck the school filed
+   * against it with nothing to paste into `config.slidePreviews` — which is what
+   * the school asked for: "i made changes as these posters were not reflected in
+   * all grades", and the button Grade 7 has "same every where".
+   *
+   * Order: an explicit `config.slidePreviews` entry, then the column's own chip,
+   * then a card, then printed text. Config staying first keeps the override — a
+   * grade whose deck must differ from the file in the sheet can still be pointed
+   * elsewhere. The text path is unchanged (2026-08-14): "in sheet have links and
+   * links have chips, show the chips … don't write according to you", so a school
+   * that pastes real guidance into a cell still gets it printed, per cell.
    */
   const guidelineColumns = [
     {
@@ -369,7 +377,7 @@ function buildSections(trip, photo, grade) {
       icon: 'safety',
       docs: byCategory('Safety'),
       lines: trip.safety,
-      slides: slidePreviewFor(grade.id, 'safety'),
+      slides: slidePreviewFor(grade.id, 'safety') || soleSlideDeck(byCategory('Safety')),
     },
     {
       key: 'dodont',
@@ -378,7 +386,7 @@ function buildSections(trip, photo, grade) {
       icon: 'dodont',
       docs: byCategory("Do's and don'ts"),
       lines: [...(trip.doDonts || []), ...trip.dos.map((t) => `Do: ${t}`), ...trip.donts.map((t) => `Don't: ${t}`)],
-      slides: slidePreviewFor(grade.id, 'dodont'),
+      slides: slidePreviewFor(grade.id, 'dodont') || soleSlideDeck(byCategory("Do's and don'ts")),
     },
   ].filter((c) => c.slides || c.docs.length || c.lines.length)
 
@@ -391,7 +399,7 @@ function buildSections(trip, photo, grade) {
   const carry = {
     docs: byCategory('Things to carry'),
     lines: trip.carry || [],
-    slides: slidePreviewFor(grade.id, 'carry'),
+    slides: slidePreviewFor(grade.id, 'carry') || soleSlideDeck(byCategory('Things to carry')),
   }
 
   const orientationDocs = byCategory('Parent orientation', 'Student orientation')

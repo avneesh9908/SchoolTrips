@@ -2,11 +2,12 @@
   "version": "0.0.1",
   "configurations": [
     {
+      "_comment": "Port moved 5180 -> 8080 by request (2026-08-24). NOTE: 5180 is the origin registered on the Google OAuth client, so a real Google Sign-In will be refused on 8080 until http://localhost:8080 is added to that client's Authorised JavaScript origins. Local development is unaffected today because public/config.local.json leaves googleClientId blank. --strictPort makes a busy 8080 fail loudly instead of silently landing on another port.",
       "name": "school-trips",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev"],
-      "port": 5180,
-      "autoPort": true
+      "runtimeArgs": ["run", "dev", "--", "--port", "8080", "--strictPort"],
+      "port": 8080,
+      "autoPort": false
     }
   ]
 }
