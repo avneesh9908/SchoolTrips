@@ -29,6 +29,21 @@ export function canReadXlsx() {
  * here, so a cell reference like "L3" always lands in the right place.
  */
 export async function readSheet(buffer, { sheetIndex = 0 } = {}) {
+  const sheets = await readSheets(buffer)
+  const sheet = sheets[sheetIndex]
+  if (!sheet) throw new Error('No worksheet in the workbook')
+  return sheet
+}
+
+/**
+ * EVERY worksheet, in tab order, each in the same shape `readSheet` returns.
+ *
+ * The school's content sheet is two tabs — "SS" for the senior school, "JS " for
+ * the junior one — and reading only the first is what left Junior KG to Grade 6
+ * with no trip on the site at all. One unzip covers both: a workbook is
+ * downloaded and inflated once, and picking a second tab out of it costs nothing.
+ */
+export async function readSheets(buffer) {
   const files = await unzip(buffer)
   const xml = (path) => {
     const bytes = files.get(path)
@@ -38,16 +53,18 @@ export async function readSheet(buffer, { sheetIndex = 0 } = {}) {
   const sheetPaths = [...files.keys()]
     .filter((p) => /^xl\/worksheets\/sheet\d+\.xml$/.test(p))
     .sort((a, b) => sheetNumber(a) - sheetNumber(b))
-  const sheetPath = sheetPaths[sheetIndex]
-  if (!sheetPath) throw new Error('No worksheet in the workbook')
+  if (!sheetPaths.length) throw new Error('No worksheet in the workbook')
 
   const strings = sharedStrings(xml('xl/sharedStrings.xml'))
-  const links = hyperlinks(
-    xml(sheetPath),
-    xml(sheetPath.replace('xl/worksheets/', 'xl/worksheets/_rels/') + '.rels')
-  )
 
-  return cells(xml(sheetPath), strings, links)
+  return sheetPaths.map((sheetPath) => {
+    const sheet = xml(sheetPath)
+    const links = hyperlinks(
+      sheet,
+      xml(sheetPath.replace('xl/worksheets/', 'xl/worksheets/_rels/') + '.rels')
+    )
+    return cells(sheet, strings, links)
+  })
 }
 
 function sheetNumber(path) {

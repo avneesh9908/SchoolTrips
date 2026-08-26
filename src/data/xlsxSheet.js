@@ -1,5 +1,5 @@
-import { normalizeKey, LINKS } from './csv'
-import { canReadXlsx, readSheet } from '../lib/xlsx'
+import { normalizeKey, LINKS, SOURCE } from './csv.js'
+import { canReadXlsx, readSheet, readSheets } from '../lib/xlsx.js'
 
 /**
  * Reads the published spreadsheet as a workbook rather than as CSV, so the
@@ -41,8 +41,39 @@ async function fetchWorkbook(url) {
 
 /** The workbook's first worksheet, as row objects with their links attached. */
 export async function xlsxToObjects(url, { sheetIndex = 0 } = {}) {
-  const rows = await readSheet(await loadWorkbook(url), { sheetIndex })
+  return objectsFrom(await readSheet(await loadWorkbook(url), { sheetIndex }), sheetIndex)
+}
 
+/**
+ * EVERY worksheet, as one array of row objects per tab, in tab order.
+ *
+ * The school's content sheet is two tabs: "SS" holds Grade 7 upwards and "JS "
+ * holds Senior KG to Grade 6, which is why the junior half of the school had no
+ * trip on the site — every read path took the first worksheet and stopped. Each
+ * tab keeps its OWN header row, because the two do not match (the junior tab has
+ * no Student List column and calls Header Text "Starting Text"), and every row
+ * is tagged with `SOURCE` so nothing can leak from one tab into the other.
+ *
+ * A tab with no header row of its own is dropped rather than thrown: a workbook
+ * may well carry a scratch or notes tab, and one of those must not take the
+ * whole site down. The first tab is the exception — it is the content, so if it
+ * cannot be read the caller must hear about it.
+ */
+export async function xlsxAllToObjects(url) {
+  const sheets = await readSheets(await loadWorkbook(url))
+  return sheets.map((rows, index) => {
+    if (index === 0) return objectsFrom(rows, index)
+    try {
+      return objectsFrom(rows, index)
+    } catch (err) {
+      console.warn(`[sheets] skipping worksheet ${index + 1}: ${err.message}`)
+      return []
+    }
+  })
+}
+
+/** One worksheet's cells into row objects, keyed by its own header row. */
+function objectsFrom(rows, sheetIndex) {
   const headerAt = rows.findIndex((r) => filled(r) >= 2)
   if (headerAt < 0) throw new Error('The spreadsheet has no header row.')
   const keys = rows[headerAt].map((c) => normalizeKey(c?.text || ''))
@@ -51,7 +82,7 @@ export async function xlsxToObjects(url, { sheetIndex = 0 } = {}) {
     .slice(headerAt + 1)
     .filter((r) => filled(r) > 0)
     .map((r) => {
-      const out = { [LINKS]: {} }
+      const out = { [LINKS]: {}, [SOURCE]: sheetIndex }
       keys.forEach((key, i) => {
         if (!key) return
         out[key] = String(r[i]?.text ?? '').trim()

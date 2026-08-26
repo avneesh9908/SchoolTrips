@@ -92,9 +92,33 @@ whole row off the site with no visible error.
 
 ---
 
+## More than one tab (`SS` and `JS `)
+
+The flat sheet may be spread over **several tabs of the same shape**, and every one of them is
+read: the school's workbook has `SS` for Grade 7 upwards and `JS ` for Senior KG to Grade 6.
+Each tab keeps its own header row, so the two do not have to match column for column — the
+junior tab has no `Student List (link)` and calls Header Text `Starting Text`, and both are read
+correctly. Tabs are told apart from other content by their headers, so a notes or working tab is
+ignored rather than read as trips.
+
+Two rules follow from the tabs being separate:
+
+- **The three guideline columns carry DOWN a tab.** Safety guidelines, Do/Dont's and Things to
+  carry filled on the first row of a tab apply to every row below that leaves them blank — which
+  is how the junior tab is filled: one poster set on the `SR.KG` row covers Senior KG to Grade 6.
+  A row with its own poster always keeps it.
+- **Nothing carries ACROSS a tab.** The junior school's packing deck is a different file from the
+  senior school's, so the last row of `SS` never reaches the first row of `JS `.
+
+A tab is read as trips only where the workbook itself is read — that is, with `publishedId` set
+(File → Share → Publish to web). The CSV fallback used by a browser too old to read the workbook
+reads the **first tab only**.
+
+---
+
 ## Grade column
-Accepts `7`, `Grade 7`, `grade-7`, `Class 7`, `VII`, plus `JK` / `Junior KG` and
-`SK` / `Senior KG`. Anything it cannot read is treated as no grade, and the row is dropped —
+Accepts `7`, `Grade 7`, `grade-7`, `Class 7`, `VII`, plus `JK` / `JR.KG` / `Junior KG` and
+`SK` / `SR.KG` / `Senior KG`. Anything it cannot read is treated as no grade, and the row is dropped —
 so a typo makes a row silently vanish. Only JK, SK and Grades 1–12 are supported.
 
 ---

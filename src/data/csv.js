@@ -50,11 +50,25 @@ export function normalizeKey(header) {
  */
 export const LINKS = '__links'
 
+/**
+ * Which WORKSHEET a row came off, as a 0-based tab index. Carried for the same
+ * reason as `LINKS`: the school's content sheet is two tabs — "SS" for the
+ * senior school and "JS " for the junior one — and the two are read into one
+ * flat list, after which nothing else could tell a Grade 1 row from a Grade 9
+ * one. Anything that must not leak across the two tabs (see `carryGuidelines`
+ * in `tripApp.js`) reads this.
+ *
+ * Passed through `normalizeRow` untouched, like `LINKS`: normalized the key
+ * would become "source" and could collide with a real column of that name.
+ */
+export const SOURCE = '__source'
+
 /** Rekeys an already-parsed object so it matches what csvToObjects produces. */
 export function normalizeRow(obj) {
   const o = {}
   for (const [k, v] of Object.entries(obj)) {
     if (k === LINKS) { o[LINKS] = v; continue }
+    if (k === SOURCE) { o[SOURCE] = v; continue }
     const key = normalizeKey(k)
     if (key) o[key] = typeof v === 'string' ? v.trim() : v
   }

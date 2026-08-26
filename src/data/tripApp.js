@@ -1,6 +1,6 @@
 // Explicit .js: this module is checked with plain Node, which does not resolve
 // extensionless paths the way Vite does.
-import { normalizeRow, pick, LINKS } from './csv.js'
+import { normalizeRow, normalizeKey, pick, LINKS, SOURCE } from './csv.js'
 import { linkFor } from './xlsxSheet.js'
 import { normalizeGradeId } from '../lib/grades.js'
 
@@ -70,10 +70,12 @@ export function groupByGrade(rows) {
     if (!currentGrade) continue
 
     // A row that carries nothing but the merged grade cell is padding.
-    // LINKS is an object, so it must be skipped here or every blank row counts
-    // as filled and the grouping silently takes in the sheet's empty rows.
+    // LINKS is an object and SOURCE is the row's tab index, so both must be
+    // skipped here or every blank row counts as filled and the grouping silently
+    // takes in the sheet's empty rows.
     const hasContent = Object.entries(row).some(
-      ([k, v]) => k !== 'grades' && k !== 'grade' && k !== LINKS && String(v || '').trim()
+      ([k, v]) =>
+        k !== 'grades' && k !== 'grade' && k !== LINKS && k !== SOURCE && String(v || '').trim()
     )
     if (!hasContent) continue
 
@@ -136,6 +138,61 @@ const TEXT_COLUMNS = [
 ]
 
 /**
+ * Carries the three guideline columns DOWN the tab, the way the school fills them
+ * in: one poster set typed on the first row of a section, blank on every row below.
+ *
+ * The junior-school tab is filled exactly like that — Safety, Do's and don'ts and
+ * Things to carry sit on the SR.KG row and no other row on the tab carries them
+ * (measured 2026-08-26) — so without this, Grades 1 to 6 open with none of the three
+ * sections while the sheet plainly holds a deck for them. It is the same instruction
+ * the senior tab already satisfies row by row: the school's "these posters were not
+ * reflected in all grades", and the button Grade 7 has "same every where".
+ *
+ * Carried PER TAB and never across one. The junior school has its own packing deck
+ * ("Things-to-carry (JS)", a different file from the senior one), so letting the
+ * senior tab's last row reach the junior tab would show a Grade 1 parent the wrong
+ * list. Rows arrive tagged with `SOURCE` by `xlsxSheet.js`; a source-less row (the
+ * CSV path, one tab) is one tab by definition.
+ *
+ * Two things it deliberately will not do:
+ *   - overwrite. A cell the school filled in always wins, so a grade with its own
+ *     poster keeps it.
+ *   - fill a padding row. A row carrying nothing but a merged grade cell would
+ *     become "content" and `groupByGrade` would take it in as an extra batch.
+ */
+export function carryGuidelines(rows) {
+  const held = new Map()
+
+  return (rows || []).map((raw) => {
+    const row = normalizeRow(raw)
+    const tab = row[SOURCE] ?? 0
+    const ownContent = Object.entries(row).some(
+      ([k, v]) =>
+        k !== 'grades' && k !== 'grade' && k !== LINKS && k !== SOURCE && String(v || '').trim()
+    )
+
+    let filled = null
+    for (const col of TEXT_COLUMNS) {
+      const key = `${tab}|${col.key}`
+      const cell = val(row, ...col.aliases)
+      if (cell) {
+        held.set(key, { text: cell, url: linkFor(row, ...col.aliases) })
+        continue
+      }
+      const above = ownContent && held.get(key)
+      if (!above) continue
+      // Copied, never mutated: the workbook's rows are shared with every other
+      // read of the same page load.
+      if (!filled) filled = { ...row, [LINKS]: { ...(row[LINKS] || {}) } }
+      const into = normalizeKey(col.aliases[0])
+      filled[into] = above.text
+      if (above.url) filled[LINKS][into] = above.url
+    }
+    return filled || row
+  })
+}
+
+/**
  * One document card per link cell.
  *
  * A cell holding a smart chip has no URL, and the school's sheet is entirely
@@ -178,13 +235,23 @@ function documentsFrom(
       if (seen.has(key)) continue
       seen.add(key)
 
-      // In a text column, only a leftover chip name is a file; prose is
-      // guidance to print, even on the rare cell that carries a link inside it.
-      if (fileNamesOnly && !isUrl(cell) && !looksLikeFileName(cell)) continue
-
       // A pasted URL is its own link; a smart chip carries its URL beside the
       // cell, recovered from the workbook export.
       const chipUrl = isUrl(cell) ? '' : linkFor(row, ...col.aliases)
+
+      /**
+       * In a text column, prose is guidance to print and only a FILE becomes a
+       * card. A resolvable link is what makes a cell a file — its name does not,
+       * and used not to be consulted at all: the test was the shape of the name,
+       * so the junior school's new packing deck, named "Things-to-carry (JS)",
+       * failed it on the space alone. That dropped the deck off the page and
+       * printed its file name as a packing instruction (2026-08-26).
+       *
+       * The name test stays for the cell with no link to check — a leftover chip
+       * name still becomes a pending card there, so a parent can see the file
+       * exists.
+       */
+      if (fileNamesOnly && !isUrl(cell) && !chipUrl && !looksLikeFileName(cell)) continue
 
       if (!isUrl(cell) && !chipUrl) {
         lostLinks.push(`${col.category}: "${cell}"`)
@@ -398,7 +465,7 @@ function tripOptionsFor(groups) {
  * the page whether there is more than one to offer.
  */
 export function assembleTripApp(gradeId, rows, { section, tripIndex = 0 } = {}) {
-  const groups = groupByGrade(rows)
+  const groups = groupByGrade(carryGuidelines(rows))
   const forGrade = groups.get(gradeId)
   if (!forGrade || forGrade.length === 0) return null
 
@@ -553,7 +620,10 @@ export function assembleTripApp(gradeId, rows, { section, tripIndex = 0 } = {}) 
       const seen = new Set()
       for (const row of rows) {
         const cell = val(row, ...aliases)
-        if (!cell || isUrl(cell)) continue
+        // A cell that resolves to a file is a document, not guidance — whatever the
+        // file is called. Same rule as `documentsFrom` above and the same reason:
+        // "Things-to-carry (JS)" was being printed as a line a parent should pack.
+        if (!cell || isUrl(cell) || linkFor(row, ...aliases)) continue
         for (const line of cell.split('\n')) {
           const t = line.replace(/^[-•*\s]+/, '').trim()
           // A chip's leftover file name ("safety-guidelines-poster") is not

@@ -1,7 +1,7 @@
 import { config } from '../config'
 import { csvToObjects } from './csv'
 import { parseSheetRef, csvExportUrl, parsePublishedRef, publishedCsvUrl, publishedXlsxUrl } from '../lib/sheetUrl'
-import { xlsxToObjects } from './xlsxSheet'
+import { xlsxAllToObjects } from './xlsxSheet'
 import { isAdminEmailLocally } from '../auth/roles.js'
 import { looksLikeTripApp } from './tripApp'
 import {
@@ -104,11 +104,29 @@ function workbookUrlFor(name) {
   return published ? publishedXlsxUrl({ id: published.id }) : null
 }
 
+/**
+ * The school's flat "Trip app" sheet is spread over MORE THAN ONE TAB: "SS" for
+ * Grade 7 upwards and "JS " for Senior KG to Grade 6. Both are the same shape, so
+ * they are read into one flat list and `groupByGrade` files each row under its own
+ * grade — which is what puts the junior half of the school on the site at all.
+ *
+ * Only tabs of the same flat shape are taken, decided by their headers exactly the
+ * way `fetchTripSets` decides between the two schemas. So the eight-tab schema is
+ * untouched: its first tab is not flat, nothing is appended, and a scratch or notes
+ * tab in either workbook is ignored rather than emptied into the trip data.
+ */
+function joinFlatWorksheets(sheets) {
+  const first = sheets[0] || []
+  if (!looksLikeTripApp(first)) return first
+  const more = sheets.slice(1).filter((rows) => rows.length && looksLikeTripApp(rows))
+  return more.length ? [...first, ...more.flat()] : first
+}
+
 async function loadSheet(name) {
   const workbook = workbookUrlFor(name)
   if (workbook) {
     try {
-      return await xlsxToObjects(workbook)
+      return joinFlatWorksheets(await xlsxAllToObjects(workbook))
     } catch (err) {
       // Never fatal: an old browser, a withdrawn publish or a shape this reader
       // does not understand must still leave the page working off the CSV — it
@@ -117,6 +135,14 @@ async function loadSheet(name) {
     }
   }
 
+  /**
+   * CSV reads ONE tab, so this path is the senior school only — a junior grade
+   * comes out as "Coming soon" here even though the sheet has its trip. That is
+   * the lesser of the two: the fallback only runs where the workbook could not be
+   * read at all (a browser with no `DecompressionStream`, or a withdrawn publish),
+   * and CSV drops every smart-chip link anyway, so the junior grades — whose whole
+   * content is three chipped decks — would open with nothing in them.
+   */
   const urls = await urlsFor(name)
   let lastError
   for (const url of urls) {

@@ -213,6 +213,20 @@ whole column; the easiest way is a dropdown (Data → Data validation).
 
 **Only JK and Grades 1–12 are supported.** Tell us now if you have other year groups.
 
+**Both tabs of the trip sheet are read** (`SS` and `JS `), so the junior school's trips appear
+on the site the same way the senior school's do. Two things to know when filling the junior tab:
+
+- **Senior and Junior KG** may be written `SR.KG` and `JR.KG`, or `SK` and `JK` — both are read.
+- **Safety guidelines, Do/Dont's and Things to carry fill down the tab.** The set typed on the
+  first row of a tab is used by every row below it that leaves those cells empty, which is how the
+  junior tab is filled today: one poster set on the `SR.KG` row covers Senior KG to Grade 6. Give a
+  grade its own poster in its own row whenever it should differ. Nothing is ever carried from one
+  tab to the other, so the junior packing deck stays off the senior pages and vice versa.
+
+**A grade with no row at all reads "Coming soon"** on its card and cannot be opened — it is not
+a broken page, it is the site saying the trip has not been published yet. Add the grade's row and
+it opens by itself; no change to the site is needed.
+
 **Don't rename or reorder the tabs.** Adding columns is fine — we ignore what we don't know.
 Renaming a tab breaks that whole section.
 

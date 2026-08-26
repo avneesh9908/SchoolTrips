@@ -743,8 +743,9 @@ asks for exactly the panel's top and lands it flush under the bars (`stage.top =
 **375×812** frames 309×174, panels scrolling internally with the last card reachable.
 
 Common to both: Grade 8 (no photograph, no decks, five tabs) fits at 1440×900 on the navy gradient;
-`/trip/g3` → centred "Coming soon" with **0 fetches**; `/trip/g5` as a Grade 7 parent → centred "Not
-your child's grade", **0 fetches**; `/children` still scrolls and keeps its footer.
+`/trip/g3` → centred "Coming soon" with **0 fetches** (measured before the junior tab was read —
+g3 is a real page since 2026-08-26, and `/trip/jk` is the coming-soon case now); `/trip/g5` as a
+Grade 7 parent → centred "Not your child's grade", **0 fetches**; `/children` still scrolls and keeps its footer.
 
 ### The one-page FLOW layout (`'flow'`)
 Every section stacked in `.sections.is-flow`, each in a `.flow-block` with a serif heading,
@@ -1053,25 +1054,45 @@ redeploy, no developer. The one nuance is that the workbook is fetched **once pe
 is what picks up a correction.
 
 What does **not** flow through automatically:
-1. **Anything on a second worksheet** — see the JS-tab finding below.
+1. **A whole new worksheet** is fine — every tab of the flat shape is read since 2026-08-26 (see
+   the JS-tab finding below) — but a tab of a *different* shape is ignored, by design.
 2. **A renamed column** whose new name is not in the alias list — that column silently empties.
    `normalizeKey` absorbs case and punctuation, and `DATE_ALIASES`/`OVERVIEW_ALIASES` cover the
    renames seen so far, but "Safety guidelines" → "Safety instructions" would drop.
 3. **A grade cell the app cannot read** — the row group is dropped with a console warning rather
    than being filed under the previous grade.
 
-### The "JS" tab is invisible to the app — Senior KG and Grades 1–6 are stranded there
-Found 2026-08-13 while answering the question above. The published workbook has **two**
-worksheets: `SS` (senior school) and `JS ` (junior school, note the trailing space). Every read
-path takes the **first** worksheet only — `xlsxToObjects` defaults to `sheetIndex: 0`, and the
-published CSV URL without a `gid` likewise serves the first tab. So the JS tab has never been
-read.
+### Both worksheets are read — `SS` and `JS ` (fixed 2026-08-26)
+Found 2026-08-13, fixed 2026-08-26. The published workbook has **two** worksheets: `SS` (senior
+school) and `JS ` (junior school, note the trailing space). Every read path used to take the
+**first** worksheet only — `xlsxToObjects` defaults to `sheetIndex: 0`, and the published CSV URL
+without a `gid` likewise serves the first tab — so the JS tab was never read and the junior half of
+the school had no trip on the site.
+
+`readSheets()` (`lib/xlsx.js`) now returns every worksheet from the one unzip, `xlsxAllToObjects()`
+turns each into row objects **against its own header row** and tags them with `SOURCE` (the tab
+index), and `joinFlatWorksheets()` in `sheetsAdapter.js` concatenates the tabs that look like the
+flat shape. `groupByGrade` then files each row under its own grade, so 13 grades come back where
+6 did. The eight-tab schema is untouched: its first tab is not flat, so nothing is appended.
+
+**The CSV fallback still reads one tab**, deliberately: it only runs where the workbook could not
+be read at all, and it drops every smart-chip link anyway — which is the junior grades' whole
+content.
 
 It is not empty. It carries the same 13 columns and real trips: `SR.KG` Kevdi, `Grade 1` Kilad,
 `Grade 2` Mahal, `Grade 3` Saputara, `Grade 4` Jambughoda, `Grade 5` SOU with hotel, `Grade 6`
-Purna River Resort — each with batch/section lines and the standard Header Text. Confirmed on
-production the same day: `/trip/g3` renders "Nothing published yet". **This is the answer to
-"why do the junior grades have no content", and it is not the school's fault.**
+Purna River Resort — each with batch/section lines and the standard Header Text. All seven render
+now (verified in the browser 2026-08-26 against the live workbook).
+
+Three things about the junior tab that the reader has to absorb, all measured 2026-08-26:
+- **Its header row differs.** No `Student List (link)`, `Dates` rather than `Dates/ Sections`,
+  `Starting Text` rather than `Header Text`, and `last years pic for adding in page` in place of the
+  two photo columns. Every one of those already had an alias, which is why per-tab headers were all
+  that was needed. The Student list tab simply does not appear for a junior grade.
+- **`SR.KG` was unreadable.** `normalizeGradeId` had no rule for it — not "senior", not "kinder",
+  no digit — so Senior KG's whole trip was dropped with a console warning. `SR.KG`/`JR.KG` (any
+  separator) now normalize to `sk`/`jk`.
+- **Its guideline posters sit on the first row only.** See the next section.
 
 Two things are needed to fix it, and they are separate:
 - Read **both** worksheets and merge their grade groups (or address the JS tab by its gid).
@@ -1921,9 +1942,21 @@ columns**, so each deck is half-width and genuinely small. That is the real caus
 are not easily readable on main screen"*, and fixing it means changing the school's own
 2026-08-17 two-column layout, so it has not been done unilaterally.
 
-## Junior and middle school say "Coming soon" — they are not openable
-`isComingSoon(id)` in `lib/grades.js` holds a hard set: **jk, sk, g1…g6**. Set 2026-08-14 ("Grade
-cards show coming soon till Grade 6"). Those cards render as a plain `div`, never a disabled
+## "Coming soon" is read from the SHEET, not from a list in the code (since 2026-08-26)
+`isComingSoon(id, titles)` in `lib/grades.js` answers `!titles[id]` — the grade has no trip on
+either worksheet — where `titles` is the map `useTripTitles()` has already fetched for the picker,
+so nothing extra is downloaded. `ChildPicker` passes it in all three places (child cards, staff
+cards, the "N of 15 open" count). Live result: **13 of 15 open**, JK and G12 soon.
+
+Before this it was a hard set — **jk, sk, g1…g6**, set 2026-08-14 ("Grade cards show coming soon
+till Grade 6") — which was right only while the JS tab went unread. The original warning against a
+data probe still stands and is answered by `PRESUMED_SOON` (`{jk}`): an absent or empty `titles`
+map — the sheet has not landed yet, or the fetch failed — falls back to it, so a grade whose
+content merely FAILED TO LOAD is never labelled unannounced. `TripPage` calls it with no titles at
+all, so the only grade it declines to fetch is `jk`; every other empty grade reaches the
+"Nothing published yet" state after a real read.
+
+The presentation is unchanged. Those cards render as a plain `div`, never a disabled
 `<button>` — there is nothing behind them, so they must not take focus or invite a click. `.pick-cta`
 reads "Coming soon", the line reads "Trip not announced yet", and `.pick-card.is-soon` desaturates
 the colour head.
@@ -1932,10 +1965,8 @@ the colour head.
 reached by URL shows a "Coming soon" empty state and **issues no fetch** — verified by wrapping
 `window.fetch` on `/trip/g3`: zero calls. Same rule as an unauthorised grade.
 
-**It is a hard list on purpose, not an "is the trip empty" check.** The reason these grades are
-empty is the unread `JS` worksheet (see above), and an emptiness test would equally silence a grade
-whose content merely failed to load. When the JS tab is finally read, shrink this set — do not
-replace it with a data probe.
+`STUDENT_LOGIN_FROM_GRADE` did **not** move with this. Six grades opening on the site changed
+nobody's login: Grade 6 and below is still a parent credential only.
 
 ## The picker cards carry the trip's NAME, not the words "Trip plan"
 Set 2026-08-14. `useTripTitles()` calls `fetchTripSets()` **once** for the whole picker and maps
@@ -2073,8 +2104,8 @@ picker, `id: 'mlc'`, `full: 'MLC'`.
 - **`gradeNumber('mlc')` is -1, so `allowsStudentLogin('mlc')` is false.** Fail-closed and
   deliberate; moot today because every roster row carries a numbered grade. Ask the school
   before loosening it.
-- Not in `COMING_SOON`, so the card is openable. `ALL_GRADE_IDS` picks it up from `GRADES`, so
-  staff see it with no further change.
+- The sheet carries an MLC row, so `isComingSoon` reads it as announced and the card is openable.
+  `ALL_GRADE_IDS` picks it up from `GRADES`, so staff see it with no further change.
 - Verified against the real sheet: `groupByGrade` now yields `g7, g8, g9, g10, g11, mlc`, and the
   mlc trip assembles as `title="Manali" dates="12-19 December 2026" batches=1`. It used to be
   discarded entirely.
@@ -2873,6 +2904,35 @@ Raised in `docs/DATA-HANDOVER.md`; none answered yet. Do not assume any of these
 - `legacy/trip-explorer.html` is frozen reference. Do not edit it.
 
 ## Changelog
+- 2026-08-26 — **The junior school is on the site: both worksheets of the trip sheet are read.**
+  The school, pointing at the workbook: "you see in see show grade 7 after all grade but before
+  grade 7 not show, management make new slide, please handle this". Four things were between the JS
+  tab and a parent, and all four are fixed:
+  - **Only the first worksheet was ever read.** `readSheets()` returns every tab from one unzip,
+    `xlsxAllToObjects()` keys each tab against **its own header row** and tags rows with `SOURCE`,
+    and `joinFlatWorksheets()` concatenates the flat-shaped ones. 13 grades group where 6 did.
+  - **`SR.KG` was not a grade the app could read**, so Senior KG's row was dropped silently.
+    `SR.KG`/`JR.KG` now normalize to `sk`/`jk`.
+  - **The junior posters are filled once, on the `SR.KG` row.** `carryGuidelines()` carries the
+    three guideline columns (text *and* chip URL) down a tab into rows that leave them blank, never
+    across a tab, and never into a padding row — a padding row gaining content would have become a
+    phantom batch. Grades 1–6 now frame the same three decks Senior KG does.
+  - **The school's new junior packing deck was being thrown away.** `Things-to-carry (JS)` — the
+    "new slide" in the message — failed `looksLikeFileName` on the space in its name, so it was not
+    a card, and `textLines` printed its file name as a packing instruction. The rule is now the
+    link, not the name: a text-column cell that resolves to a URL is a document, and the name test
+    is only for a cell with no link to check (where a leftover chip name still becomes a pending
+    card).
+  - **"Coming soon" is now read from the sheet** (`isComingSoon(id, titles)`), so publishing a
+    grade's row is all it takes for that grade to open. `PRESUMED_SOON = {jk}` keeps a failed fetch
+    from reading as "not announced".
+  - Verified in the browser against the live workbook: staff picker **13 of 15 open** (JK, G12
+    soon), `sk`/`g1`/`g6` open with Overview + Itinerary (Safety and Do's-and-don'ts framed) +
+    Things to carry (the JS deck, whose own title page reads "Grade 1-6"), Grade 7 unchanged at
+    seven tabs. Build clean.
+  - **Left for the school, not changed here:** the junior tab's Safety chip points at the *senior*
+    safety deck, whose first slide is titled for the Grade 7 trip — a Grade 1 parent reads a
+    Grade 7 heading. Only they can decide whether that is the deck they mean.
 - 2026-08-24 — **Every grade now frames its guideline decks, from the SHEET's own chip, and
   `config.slidePreviews` is empty.** The school (Falguni Jariwala): "other grades (8,9,10,11) does
   not show safety, do/donts and things to carry" and, on being told the grade-wise split had caused

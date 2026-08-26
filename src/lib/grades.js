@@ -33,21 +33,32 @@ export const GRADES = [
 const FALLBACK = { id: 'unknown', label: '?', full: 'Grade', color: '#767066', icon: 'map' }
 
 /**
- * Junior and middle school, up to Grade 6, have no trip a parent can open yet:
- * their rows live on the content sheet's second worksheet ("JS "), which every
- * read path skips because it only ever takes the first one. Until that is read,
- * a card for one of these grades leads to "Nothing published yet" — a dead end
- * that reads as a broken app rather than as work in progress.
+ * Which grades have no trip a parent can open — shown as "Coming soon" on a card
+ * that does not open, rather than as a card leading to "Nothing published yet",
+ * which reads as a broken app rather than as work in progress.
  *
- * So they are labelled "Coming soon" and are not openable. This is a deliberate
- * statement about the grade, not about the fetch: it must not be replaced by an
- * "is the trip object empty" check, which would also silence a grade whose
- * content simply failed to load.
+ * **Read from the sheet since 2026-08-26**, not from a list in this file. Junior
+ * and middle school used to be hard-coded here because their rows sat on the
+ * content sheet's second worksheet ("JS ") and every read path took only the
+ * first; now both tabs are read (`xlsxAllToObjects`), so the school publishing a
+ * grade's trip is all it takes for that grade to open — no code change, which is
+ * the whole point of the sheet being the source.
+ *
+ * `titles` is `useTripTitles`' grade → destination map, which the picker has
+ * already fetched, so nothing extra is downloaded to answer this.
+ *
+ * The original warning still stands and is what `PRESUMED_SOON` is for: this must
+ * never become a bare "is the trip empty" check, or a grade whose content merely
+ * FAILED TO LOAD would be labelled as unannounced. So an absent or empty map — the
+ * sheet has not landed yet, or the fetch failed — falls back to the grades the
+ * sheet has never carried, and Junior KG is the only one of those today (the
+ * junior worksheet starts at Senior KG).
  */
-const COMING_SOON = new Set(['jk', 'sk', 'g1', 'g2', 'g3', 'g4', 'g5', 'g6'])
+const PRESUMED_SOON = new Set(['jk'])
 
-export function isComingSoon(id) {
-  return COMING_SOON.has(id)
+export function isComingSoon(id, titles) {
+  if (titles && Object.keys(titles).length) return !titles[id]
+  return PRESUMED_SOON.has(id)
 }
 
 /**
@@ -58,10 +69,10 @@ export function isComingSoon(id) {
  * junior or middle-school child's trip is reachable only through a parent's
  * credential, and from Grade 7 up the student's own address opens it as well.
  *
- * Deliberately NOT `isComingSoon`, even though that set happens to hold the same
- * eight grades today. That one is about content not being published yet and will
- * shrink the moment the sheet's junior worksheet is read; this one is about who
- * may sign in, and it must not move with it.
+ * Deliberately NOT `isComingSoon`. That one is about whether the sheet has
+ * published a trip yet and now moves with the sheet itself; this one is about who
+ * may sign in, and it must not move with it — the junior worksheet being read
+ * (2026-08-26) opened six grades on the site and changed nobody's login.
  */
 export const STUDENT_LOGIN_FROM_GRADE = 7
 
@@ -101,6 +112,15 @@ export function normalizeGradeId(raw) {
   // Senior must be tested before the generic kindergarten check, or "Senior KG"
   // falls through to jk. Getting this wrong silently drops a whole year group.
   if (s === 'sk' || (s.includes('senior') && (s.includes('kg') || s.includes('kinder')))) return 'sk'
+  /**
+   * "SR.KG" and "JR.KG", which is how the junior-school worksheet writes the two
+   * kindergartens (measured 2026-08-26: its first row is "SR.KG"). Neither of the
+   * checks around this one reads them — "sr.kg" contains neither "senior" nor
+   * "kinder" and has no digit — so Senior KG's whole trip was dropped from the
+   * site with nothing but a console warning to say so.
+   */
+  if (/^sr[\s.\-_]*k/.test(s)) return 'sk'
+  if (/^jr[\s.\-_]*k/.test(s)) return 'jk'
   if (s === 'jk' || s.includes('junior') || s.includes('kinder')) return 'jk'
   /**
    * MLC, the named programme. Tested before the numeric parse because a cell

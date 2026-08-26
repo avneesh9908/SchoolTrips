@@ -48,7 +48,9 @@ export default function ChildPicker() {
       <div className="card-grid">
         {students.map((s) => {
           const g = gradeById(s.grade)
-          const soon = isComingSoon(g.id)
+          // Whether the grade is announced is read from the sheet's own trip names
+          // (2026-08-26), so a grade the school publishes opens with no code change.
+          const soon = isComingSoon(g.id, titles)
           return (
             <PickCard
               key={s.id}
@@ -70,7 +72,7 @@ export default function ChildPicker() {
 
 /** Staff view: every grade in the school. */
 function GradePicker({ name, navigate, titles }) {
-  const live = GRADES.filter((g) => !isComingSoon(g.id)).length
+  const live = GRADES.filter((g) => !isComingSoon(g.id, titles)).length
 
   return (
     <>
@@ -89,7 +91,7 @@ function GradePicker({ name, navigate, titles }) {
 
       <div className="card-grid">
         {GRADES.map((g) => {
-          const soon = isComingSoon(g.id)
+          const soon = isComingSoon(g.id, titles)
           return (
             <PickCard
               key={g.id}
