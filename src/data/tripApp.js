@@ -312,6 +312,11 @@ function readableName(s) {
 /** "Batch 1: 12-19 December 2026 …" -> "Batch 1". */
 function batchLabel(row, i, total) {
   const dates = val(row, ...DATE_ALIASES)
+  // A row whose cell holds EVERY batch (the junior school's shape) is not one
+  // batch's row, so it carries no batch label: its decks and lists belong to the
+  // whole grade, and tagging them "B1" would tell a Batch 3 parent the file is
+  // not theirs.
+  if (splitBatchSegments(dates)) return ''
   const m = dates.match(/batch\s*\d+/i)
   if (m) return m[0].replace(/\s+/g, ' ')
   return total > 1 ? `Batch ${i + 1}` : ''
@@ -358,6 +363,38 @@ function batchLabelsCollided(rows) {
 }
 
 /**
+ * Every "Batch N:" segment of ONE cell, or null when the cell holds at most one.
+ *
+ * The junior school writes all of a grade's batches into a single Dates/Sections
+ * cell (measured 2026-10-12, Jambughoda):
+ *
+ *   "Batch 1: TL, Fortitude, Resilience, Valour
+ *    Batch 2: Responsibility, Courage, Mettle
+ *    Batch 3: Tenacity, Freedom"
+ *
+ * The senior sheet gives each batch its own ROW, so this cell was read as one
+ * batch: the Overview showed a single card tagged "Batch 1" carrying the first
+ * batch's sections as its headline and the other two batches printed under it as
+ * detail, which is what a parent of a Tenacity child saw and could not place.
+ * Splitting on the labels the school itself typed turns the one cell back into
+ * one card per batch, and leaves a cell with a single label (or none) untouched.
+ */
+function splitBatchSegments(cell) {
+  const text = String(cell || '')
+  const marks = [...text.matchAll(/batch\s*(\d+)\s*[:\u2013-]/gi)]
+  if (marks.length < 2) return null
+  return marks.map((m, i) => ({
+    label: `Batch ${m[1]}`,
+    // Up to the next label, with the separator the school used between segments
+    // ("…Valour, Batch 2: …") trimmed off the end of this one.
+    text: text
+      .slice(m.index + m[0].length, i + 1 < marks.length ? marks[i + 1].index : text.length)
+      .replace(/[,;\s]+$/, '')
+      .trim(),
+  }))
+}
+
+/**
  * Section names out of a Dates cell. The school writes them two ways:
  *
  *   "Batch 1: 12-19 December 2026\n\nSection: Acuity, Cognizance, Idea & Perspicacity"
@@ -372,9 +409,15 @@ export function sectionsOf(row) {
   if (!cell) return []
 
   const explicit = cell.match(/sections?\s*:\s*([^\n]+)/i)
+  // A cell holding every batch lists every batch's sections, so all of them
+  // belong to this row — reading only the first match said a Batch 3 child was
+  // not listed against this trip at all.
+  const segments = splitBatchSegments(cell)
   const source = explicit
     ? explicit[1]
-    : (cell.match(/batch\s*\d+\s*:\s*([^\n]+)/i)?.[1] ?? '')
+    : segments
+      ? segments.map((seg) => seg.text.split('\n')[0]).join(',')
+      : (cell.match(/batch\s*\d+\s*:\s*([^\n]+)/i)?.[1] ?? '')
 
   return source
     .split(/[,&]|\band\b/i)
@@ -572,12 +615,20 @@ export function assembleTripApp(gradeId, rows, { section, tripIndex = 0 } = {}) 
     )
   }
 
+  const asCard = (label, text) => {
+    const lines = text.split('\n').map((l) => l.trim()).filter(Boolean)
+    return { label, headline: stripBatchPrefix(lines[0] || ''), detail: lines.slice(1).join('\n') }
+  }
+
   const batches = all
-    .map((row, i) => {
+    .flatMap((row, i) => {
       const cell = val(row, ...DATE_ALIASES)
-      if (!cell) return null
+      if (!cell) return []
+      // One cell, every batch: one card each, labelled as the school typed them.
+      const segments = splitBatchSegments(cell)
+      if (segments) return segments.map((seg) => asCard(seg.label, seg.text))
       const lines = cell.split('\n').map((l) => l.trim()).filter(Boolean)
-      return {
+      return [{
         label: allLabels[i],
         // The label sits in a pill immediately beside this line, so the cell's own
         // "Batch 2:" prefix is repetition at best — and a flat contradiction when the
@@ -585,9 +636,8 @@ export function assembleTripApp(gradeId, rows, { section, tripIndex = 0 } = {}) 
         // treatment `heroDates` already gives the Overview meta line.
         headline: stripBatchPrefix(lines[0] || ''),
         detail: lines.slice(1).join('\n'),
-      }
+      }]
     })
-    .filter(Boolean)
 
   // Travel details are prose per batch, not the structured legs the eight-tab
   // schema assumes, so each cell becomes one block with its batch as the title.

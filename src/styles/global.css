@@ -666,7 +666,10 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible {
   padding: 20px 22px; display: flex; flex-direction: column; align-items: flex-start; gap: 10px;
 }
 .home-batch-dates { font-size: 19px; font-weight: 700; color: var(--ink); letter-spacing: -0.01em; }
-.home-batch-detail { font-size: 14px; color: var(--muted); line-height: 1.55; }
+/* `detail` is the rest of the sheet's cell, and its line breaks carry meaning —
+   a "Section: …" line under the dates. Without pre-line they ran into one
+   paragraph. */
+.home-batch-detail { font-size: 14px; color: var(--muted); line-height: 1.55; white-space: pre-line; }
 
 .home-about { display: flex; flex-direction: column; gap: 12px; }
 .home-lead {

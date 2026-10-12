@@ -317,6 +317,45 @@ its headers — never a config flag — and `useTrip` routes to `assembleTripApp
 - The `Dates` cell holds the batch dates on line 1 and its sections below. Line 1 goes in the
   hero, the rest into a **Batches and sections** block — that block is how a parent knows which
   batch their child is in.
+### SS and JS are NOT the same format — measured 2026-10-12 off the published workbook
+The two worksheets of the one "Trip app" workbook differ in headers AND in row shape, which is
+why the junior half looked broken while the senior half was fine. Confirmed by the school
+("js and ss have not same format").
+
+| | **SS** (Grade 7+) | **JS ** (Sr KG–Grade 6) |
+|---|---|---|
+| Column C header | `Dates/ Sections` | `Dates` |
+| What C holds | dates **and** sections | section names only — **no dates anywhere on the tab** |
+| Batch shape | one ROW per batch (`Batch 1: 12-19 December 2026` ⏎⏎ `Section: …`) | one CELL per grade holding every batch (`Batch 1: … ⏎ Batch 2: … ⏎ Batch 3: …`) |
+| Column D header | `Header Text` | `Starting Text` (both are in `OVERVIEW_ALIASES`, so both read) |
+| Extra columns | `Student List (link)`, `Grade Photo`, `Hero Section Photo` | none of the three |
+| Header row | row **2** (row 1 blank) | row **1** |
+
+Both headers were already aliased, so the only shape that needed code was the batch cell —
+`splitBatchSegments`, below.
+
+**"Many options are not available" (Keyur Shah, 2026-10-10) is EMPTY CELLS, not a missing
+feature.** Measured on the live workbook the same day, every junior row is blank for Student
+Orientation, Itinerary (nucleus) (link), Travel details, Pic folder and last-years-pic; Grades
+2-6 and Sr KG are also blank for Safety guidelines, Do/Dont's and Things to carry (Grade 1 has
+those three; Grade 4 and Grade 1 have a Parent Orientation deck, the rest do not). The portal
+only shows a tab for content that exists, so those tabs appear the moment the school fills the
+cells — no code change. The junior tab also has **no dates at all**, which is why a junior
+Overview card shows a section list where a senior card shows a date range.
+
+- **The junior school puts EVERY batch in ONE `Dates/Sections` cell.** Measured 2026-10-12 on
+  g4 Jambughoda: `"Batch 1: TL, Fortitude, Resilience, Valour / Batch 2: Responsibility, Courage,
+  Mettle / Batch 3: Tenacity, Freedom"` — one row, three batches, no dates at all. Read with the
+  senior shape (one row per batch) that cell was one batch: the Overview showed a single card
+  tagged "Batch 1" whose headline was the first batch's sections and whose detail printed the
+  other two batches run together on one line. `splitBatchSegments(cell)` splits on the `Batch N:`
+  labels the school typed and returns null below two of them, so it is the junior shape that
+  changes and the senior rows stay byte-for-byte what they were. It drives three things:
+  one Overview card per segment, `sectionsOf` reading every segment (a Batch 3 child was
+  "not listed against any batch" before), and `batchLabel` returning `''` for such a row —
+  its decks are the whole grade's, so tagging them `B1` would tell a Batch 3 parent the file
+  is not theirs. `.home-batch-detail` also got `white-space: pre-line`; without it the cell's
+  own line breaks collapsed, which is what made the crammed card read as one sentence.
 - `Travel details` is prose per batch, not structured legs: it renders as one block per batch
   with `white-space: pre-wrap`, and the Train/Departure grid is hidden when those fields are
   empty rather than printing a row of em dashes.
@@ -2904,6 +2943,36 @@ Raised in `docs/DATA-HANDOVER.md`; none answered yet. Do not assume any of these
 - `legacy/trip-explorer.html` is frozen reference. Do not edit it.
 
 ## Changelog
+- 2026-10-12 — The school reported the Overview batches "not show proper" on g4 Jambughoda: one
+  card, tagged Batch 1, carrying all three batches' section lists. Cause was shape, not styling —
+  the junior-school sheet writes every batch into a single `Dates/Sections` cell while the senior
+  sheet gives each batch its own row. Added `splitBatchSegments` in `src/data/tripApp.js` (one
+  card per `Batch N:` segment, `sectionsOf` reading all of them, no batch tag on a row that holds
+  the whole grade) and `white-space: pre-line` on `.home-batch-detail`. Verified in the browser:
+  g4 now shows three cards, g7's two batches and their `Section:` lines are unchanged, and all
+  seven junior grades split right (Sr KG 2 batches, Grades 1-6 three each). The school confirmed
+  the cause — "js and ss have not same format" — and the second half of Keyur Shah's 2026-10-10
+  report, "many options are not available", was measured as empty cells on the JS tab, not a
+  missing feature: see the SS/JS table above for which columns are blank.
+- 2026-09-08 — A user hit Google's own **"500. That's an error."** on
+  `accounts.google.com/signin/oauth/v3/consent?authuser=0&part=…` in Chrome while the same account
+  signed in fine in another browser. Diagnosed as Google-side and per-browser, so not the client id,
+  the authorised origins, `GOOGLE_CLIENT_ID` or the roster — those would fail in every browser alike.
+  Cause is that profile's `accounts.google.com` cookie state: stale, or several Google accounts signed
+  in so `authuser=0` does not resolve to the consenting one (the reported profile had Drive, Gmail,
+  Calendar, Compass and Attendance all open on school accounts). We control nothing past handing GIS a
+  client id, so there is no code fix; the remedy is browser-side (incognito to confirm, sign out of all
+  Google accounts and use only the school one, then clear `google.com` cookies, allow third-party
+  cookies for `accounts.google.com`, disable privacy/ad-block extensions). Recorded as a row in
+  `docs/GOOGLE-SIGN-IN.md`'s "Things that commonly go wrong".
+- 2026-09-07 — Built a team-facing build-review page (Artifact
+  `https://claude.ai/code/artifact/db9a58c9-0d4c-47ec-89fa-a48ad6273118`): the build in commit-date
+  order Aug 7-26, eleven incidents (PII leak, six-day stale Railway deploy, typed-login open door,
+  `/%` crash, chip links in the xlsx, roster CORS/PII, Senior-KG silent drop, gzip regression,
+  "local works / live broken", multi-trip grades, guideline-text fallback), the five working rules,
+  current state, and the open questions for management. Nothing new about the app was learned; the
+  page is a rendering of this file plus `git log`. Source lives in the session scratchpad, not the
+  repo — republish by file path from that session, or by `url` from any other.
 - 2026-08-26 — **The junior school is on the site: both worksheets of the trip sheet are read.**
   The school, pointing at the workbook: "you see in see show grade 7 after all grade but before
   grade 7 not show, management make new slide, please handle this". Four things were between the JS
