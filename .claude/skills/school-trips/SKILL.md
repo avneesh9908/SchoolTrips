@@ -1049,6 +1049,21 @@ students at Chand Baori, Abhaneri, supplied 2026-08-14. It now sits at `public/t
 render the same image. Verified: the file is in `dist`, `/trip-photos/g7.jpg` answers 200 as
 `image/jpeg`, and the Overview banner renders it at 1220×563 with `has-photo` set.
 
+**Grade 4 (Jambughoda) has a photograph since 2026-10-14**, on the school's instruction — the
+first grade besides g7 with one. Source: the hero image of the hospemag.me article
+`/cms/2023/1/2/jambughoda-gujarats-hidden-gem…`, a drone panorama of a resort property set in the
+forest (squarespace-cdn, `DJI_0021+Panorama+-+Hero+Image+Jambughoda.jpg`). Downloaded, not
+hotlinked, and resized with Pillow the same way as g7: `public/trip-photos/g4.jpg` 1600×889 / 380KB
+(q80) and `public/trip-photos/g4-card.jpg` 1200×462 (the 2.6:1 card strip, centre crop) / 162KB,
+with both keys added to the committed `config.json`. The full-size original is 2500×1389 / 1.2MB —
+`?format=2500w` on the CDN URL is how to pull it again.
+
+Two caveats recorded rather than acted on, because the school chose the picture: it is a third
+party's press photograph, not the school's own, and **a `tripPhotos` entry carries no credit chip**
+(only the Wikipedia fallback does), so it renders as if the school supplied it. It also shows a
+hotel property, which a parent reads as where their child stays — right only if that is the
+accommodation.
+
 This **reverses** the 2026-08-14 position, which held the file under the gitignored
 `public/local-roster/` precisely so `stripLocalOnlyFiles()` would keep it out of every build. That
 paragraph called publishing it the school's decision and not a developer's — and the school made it.
@@ -2943,6 +2958,15 @@ Raised in `docs/DATA-HANDOVER.md`; none answered yet. Do not assume any of these
 - `legacy/trip-explorer.html` is frozen reference. Do not edit it.
 
 ## Changelog
+- 2026-10-14 — Two things from one exchange. (1) Google's **Error 400: `origin_mismatch`** on
+  `fountainheadschooltrips.netlify.app/login`: both hosts serve the same client id
+  `186304536151-rr9k52olv6as5l1umjn3saic02lun2md` (checked live against each `/config.json`), so it
+  was only the Google Cloud client's **Authorised JavaScript origins** list — `trips.fsksurat.in` is
+  on it, the `netlify.app` origin is not. The school's answer was to use production, so the
+  troubleshooting row drafted for `docs/GOOGLE-SIGN-IN.md` was reverted at their request and this
+  line is the whole record. Unlike the 2026-09-08 consent 500, `origin_mismatch` fails in every
+  browser and names the origin. (2) Gave Grade 4 a Jambughoda photograph — see the trip-photo
+  section above for the source, sizes and the two caveats.
 - 2026-10-12 — The school reported the Overview batches "not show proper" on g4 Jambughoda: one
   card, tagged Batch 1, carrying all three batches' section lists. Cause was shape, not styling —
   the junior-school sheet writes every batch into a single `Dates/Sections` cell while the senior
