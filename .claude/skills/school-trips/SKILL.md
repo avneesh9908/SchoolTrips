@@ -2966,7 +2966,11 @@ Raised in `docs/DATA-HANDOVER.md`; none answered yet. Do not assume any of these
   troubleshooting row drafted for `docs/GOOGLE-SIGN-IN.md` was reverted at their request and this
   line is the whole record. Unlike the 2026-09-08 consent 500, `origin_mismatch` fails in every
   browser and names the origin. (2) Gave Grade 4 a Jambughoda photograph — see the trip-photo
-  section above for the source, sizes and the two caveats.
+  section above for the source, sizes and the two caveats. Shipped as `b716278` on `main`;
+  the Railway workflow went green and production serves `/trip-photos/g4.jpg` (200, 389,880 B)
+  and `/trip-photos/g4-card.jpg` (200, 165,856 B) with both keys in the live `/config.json`.
+  Checked before the push with a seeded admin session in `sessionStorage` — the only way to
+  reach a trip page under plain `vite`, since `config.local.json` leaves `googleClientId` blank.
 - 2026-10-12 — The school reported the Overview batches "not show proper" on g4 Jambughoda: one
   card, tagged Batch 1, carrying all three batches' section lists. Cause was shape, not styling —
   the junior-school sheet writes every batch into a single `Dates/Sections` cell while the senior
