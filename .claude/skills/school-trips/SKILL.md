@@ -1064,6 +1064,46 @@ party's press photograph, not the school's own, and **a `tripPhotos` entry carri
 hotel property, which a parent reads as where their child stays — right only if that is the
 accommodation.
 
+**Senior KG, Grade 1, Grade 3 and Grade 6 gained photographs on 2026-10-17**, the school pasting
+four URLs with "some grade not have walpaper images". Six of the fourteen grades now carry a real
+picture (sk, g1, g3, g4, g6, g7); the rest still fall back to the credited Wikipedia lookup or the
+grade colour. Downloaded and resized with Pillow the same way as g4 — banner capped at 1600 wide,
+card a 2.6:1 centre crop capped at 1200 wide, q80, **never upscaled** — and both keys added to the
+committed `config.json`:
+
+| Grade | Destination | Source | Banner | Card |
+|---|---|---|---|---|
+| `sk` | Kevdi | `kevdiecotourism.in/wp-content/uploads/2024/07/Kevdi-eco-tourism.jpeg` | 1600×1200 / 507KB (q72) | 1200×462 / 185KB |
+| `g1` | Kilad | Google Images thumbnail cache (`encrypted-tbn0.gstatic.com`) | 569×379 / 46KB | 569×219 / 31KB |
+| `g3` | Saputara | Google Images thumbnail cache (`encrypted-tbn0.gstatic.com`) | 671×457 / 76KB | 671×258 / 50KB |
+| `g6` | Purna River Resort | `r1imghtlak.mmtcdn.com/b0380ea0683311eeab870a58a9feac02.jpeg` (MakeMyTrip hotel listing) | 1600×1200 / 334KB | 1200×462 / 136KB |
+
+Each was opened and looked at before shipping, not taken on trust: Kevdi is the forest camp with
+its lake and huts, Kilad a Dang-region waterfall, Saputara unmistakably Saputara lake. Verified in
+the browser at 1280px — all eight files answer 200 `image/jpeg`, the four picker cards render the
+photo with `has-photo` set, and the four Overview banners fill.
+
+Four things recorded rather than acted on, because the school chose the pictures:
+- **`sk` settles the "no image to be had for Kevdi" finding** from 2026-08-21 below. That finding
+  was about *Wikipedia and Commons*, and it still holds for them; the school simply had a source
+  the lookup could never reach. Mokhamal, Ambapani and Kilad-as-a-g11-trip are untouched by this.
+- **g1 and g3 are Google Images thumbnail caches**, which the 2026-08-21 note below calls out by
+  name as not an option — someone else's photograph, served from Google's cache, with no licence
+  and no attribution. The school supplied the URLs directly, so they ship; the objection is on the
+  record. `569×379` and `671×457` are the ceiling — `&s=0`/`1`/`2`/`3`/`40` all return the same
+  bytes — so both are below the banner's 1600px and will be soft on a retina display. **If the
+  school can find the original photographs, re-pull at full size and re-crop.**
+- **g6 is a hotel listing photo, not the school's**, the same caveat g4 carries: it shows a resort
+  building by a road, which a parent reads as where their child stays. Plausible for a trip named
+  "Purna River Resort", but unconfirmed that it is *that* resort (unconfirmed).
+- **A `tripPhotos` entry still carries no credit chip**, so all four read as the school's own
+  photographs. None of them is.
+
+Noticed while verifying and **not fixed**: **Grade 2's card shows the Taj Mahal.** `g2` goes to
+*Mahal* in the Dangs and has no `tripPhotos` entry, so the credited Wikipedia fallback matched the
+string "Mahal" — exactly the wrong-place failure the 2026-08-21 note warns about, now visible in
+production. The fix is a `g2` photograph from the school, or `"g2"` in `tripPhotos`. Raise it.
+
 This **reverses** the 2026-08-14 position, which held the file under the gitignored
 `public/local-roster/` precisely so `stripLocalOnlyFiles()` would keep it out of every build. That
 paragraph called publishing it the school's decision and not a developer's — and the school made it.
@@ -2958,6 +2998,16 @@ Raised in `docs/DATA-HANDOVER.md`; none answered yet. Do not assume any of these
 - `legacy/trip-explorer.html` is frozen reference. Do not edit it.
 
 ## Changelog
+- 2026-10-17 — **Four more grades got wallpaper images**, the school pasting four URLs with "some
+  grade not have walpaper images": Senior KG (Kevdi), Grade 1 (Kilad), Grade 3 (Saputara) and
+  Grade 6 (Purna River Resort). Same pipeline as g4 — download, Pillow resize to a 1600-wide banner
+  and a 2.6:1 1200-wide card, never upscaled, both keys in the committed `config.json`. Six of
+  fourteen grades now have a real picture. See the trip-photo section above for the sources, the
+  sizes and the four caveats — chiefly that **g1 and g3 are Google Images thumbnail caches capped
+  at 569 and 671 wide**, which the 2026-08-21 note rules out by name, and that `sk` settles the old
+  "no image to be had for Kevdi" finding for the school's own source without disturbing it for
+  Wikipedia. Also spotted and left alone: **Grade 2's card shows the Taj Mahal**, the Wikipedia
+  fallback matching the string "Mahal" — needs a `g2` photograph from the school.
 - 2026-10-14 — Two things from one exchange. (1) Google's **Error 400: `origin_mismatch`** on
   `fountainheadschooltrips.netlify.app/login`: both hosts serve the same client id
   `186304536151-rr9k52olv6as5l1umjn3saic02lun2md` (checked live against each `/config.json`), so it
