@@ -3452,6 +3452,11 @@ Raised in `docs/DATA-HANDOVER.md`; none answered yet. Do not assume any of these
 - `legacy/trip-explorer.html` is frozen reference. Do not edit it.
 
 ## Changelog
+- 2026-11-26 (ship) — **The redesign is on `main`**: `0e3552d` (animated layer as trimmed, venue
+  photo, welcome + Safety drawing removed), pushed once as avneesh9908 at the user's instruction.
+  The "nothing committed" notes in the animated-layer section are now history. **Not live on
+  trips.fsksurat.in**: deploy run 45761698543 failed `Invalid RAILWAY_TOKEN`, and the repo secret
+  still read `2026-08-21`. Production serves the build from before both 2026-11-26 commits.
 - 2026-11-26 (graphics) — **Two redesign graphics removed on the school's request**: the
   full-screen welcome curtain after sign-in (`Arrival.jsx`, deleted; it was untracked, so it is
   not in git history) and the Safety drawing (`SafetyScene` plus its `scenes.css` rules). Leftovers
