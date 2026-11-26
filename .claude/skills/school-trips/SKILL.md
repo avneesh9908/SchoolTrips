@@ -2182,12 +2182,19 @@ Kilad, Kevdi, all `22-23-24 October 2026`, one batch each — and gets the picke
 `curl -sL "https://docs.google.com/spreadsheets/d/e/<publishedId>/pub?output=csv"`; that is the
 fastest way to check a grouping claim against what parents actually see.
 
-### MLC is a GRADE, not a trip name (2026-08-21)
+### MLC gets its own card like a grade, not a trip name (2026-08-21)
 
 First reading of *"add one tab after grade in trip sheet available mlc"* was a Trip name column.
 **Wrong** — the school corrected it: *"no this is different grade name is mlc show after grade 12
 in screen shot i mentioned"*. MLC is its own entry in `GRADES`, its own card at the end of the
 picker, `id: 'mlc'`, `full: 'MLC'`.
+
+**What MLC actually is (the school, 2026-11-26):** *"different program … combination of some
+grade"*. It is **neither a grade nor an ordinary section**. It is a separate programme drawing
+students from several grades, who appear in the roster as section `Mavericks - N`. The app models
+it as an entry in `GRADES` only because that is what gives it its own card and its own sheet row.
+That is also why a Mavericks student gets the MLC trip **instead of** their grade's trip, not
+in addition to it. The routing is in the "MLC = Mavericks" section below.
 
 - **`full` is just "MLC" on purpose.** The school has not said what it stands for, and inventing
   an expansion puts words on a parent's screen nobody at the school wrote.
@@ -2204,14 +2211,46 @@ picker, `id: 'mlc'`, `full: 'MLC'`.
   mlc trip assembles as `title="Manali" dates="12-19 December 2026" batches=1`. It used to be
   discarded entirely.
 
-**⚠️ NO PARENT CAN OPEN THE MLC CARD YET, and this is not a bug in the card.** Access is
-`canAccessGrade(gradeId)`, and a session's grades come from the matched students' `Grade` column.
-The roster's 2,618 rows hold only `Junior KG`…`Grade 12` — **no row says MLC** — so `mlc` never
-enters any parent's `session.grades`. Only staff, whose scope is `ALL_GRADE_IDS`, see it. Making
-it reachable for parents is a decision the school has to make, and the options are: mark those
-students' roster rows as MLC; or let a Grade 11/12 parent see MLC as well as their own grade; or
-leave it staff-only. **Do not quietly pick one** — each hands a different set of families a
-different trip's information.
+### MLC = Mavericks, and how its students reach a trip (2026-11-26)
+
+**Settled by the school, replacing the "no parent can open the MLC card" warning that stood
+here since 2026-08-21.** *"mlc and Mavericks means same"*. The roster never says MLC in `Grade`;
+an MLC student keeps their own grade and carries the **section** `Mavericks - 9` (also spelled
+`Mavericks -7`). The trip sheet calls the same group `MLC`. The rule:
+
+| Roster | Trip | Why |
+|---|---|---|
+| Grade 5 or 6, section `Mavericks - N` | **Grade 5** (`g5`, Statue of Unity) | the JS tab lists `MLC` under Grade 5's Batch 1; Grade 6's batches do not name it |
+| Grade 7–12, section `Mavericks - N` | **MLC** (`mlc`, Manali) | the SS tab's MLC row, "All grades together (G7-12)" — its own independent trip |
+| any other section | own grade | unchanged |
+
+- **`tripGradeFor(student)` in `lib/grades.js` is the ONE place this lives**, beside
+  `isMavericks(section)` (`/^\s*(mavericks?|mlc|mic)\b/i`). The child card (link, photo,
+  destination, vehicle), `AuthContext`'s allowed grades / `activeGrade`, and the trip page's
+  "Not your child's grade" message all read it. **It REPLACES the child's grade, it does not add
+  to it**: a Mavericks‑9 family is refused `/trip/g9`, a Mavericks‑6 family `/trip/g6`.
+- **`student.grade` is untouched.** It is still the code pill on the card ("G6"), the top bar's
+  "Name · Grade 6", and what `allowsStudentLogin` reads — so a Mavericks‑9 student signs in with
+  their own address and a Mavericks‑6 one still needs the parent's. No server change:
+  `/api/lookup` already returns `section`, and the grade is derived in `AuthContext`, as ever.
+- **`AuthContext` re-derives a parent session's grades from `students` on every render** rather
+  than trusting the stored `grades`, so a tab signed in before the rule changed is not refused its
+  own trip on reload. Admin sessions still use the stored `ALL_GRADE_IDS`.
+- `normalizeSection` in `tripApp.js` maps any Mavericks section to `mlc`, so a Mavericks child
+  matches the sheet's `MLC` in Grade 5 Batch 1 and the "section not listed against any batch"
+  warning stays quiet.
+- Roster counts in the local copy (dated, unconfirmed against the live feed): Mavericks sections
+  exist only in Grades 5–12 — none below Grade 5, so the `n >= 1 → g5` branch is a fallback, not
+  a known case.
+- **Settled 2026-11-26: Manali only, even where the grade's sheet row names MLC.** Grade 11's
+  Kevdi trip lists `Invigorate, MLC & Pansophy`, and the school was asked whether Mavericks‑11
+  students should see Kevdi as well. Answer: *"Manali only"*. So **do not add a Mavericks
+  student's own grade back** because a section cell mentions MLC, or because Grades 7/8 say "All
+  sections". The replace-not-add rule above is the school's choice, not an oversight.
+- Verified 2026-11-26 on the dev server (8080) with an injected session of three made-up
+  children: Mavericks‑6 → card "Statue of Unity", `/trip/g5`, no section warning, `/trip/g6`
+  refused "for Grade 5"; Mavericks‑9 → card "Manali", `/trip/mlc`, top bar "Grade 9"; a plain
+  Grade 9 section → Lonavala, `/trip/g9`. `vite build` clean.
 
 ### MLC shows cards, not inline decks — and that is config, not code (2026-08-21)
 
@@ -2998,6 +3037,13 @@ Raised in `docs/DATA-HANDOVER.md`; none answered yet. Do not assume any of these
 - `legacy/trip-explorer.html` is frozen reference. Do not edit it.
 
 ## Changelog
+- 2026-11-26 — **MLC = Mavericks; Mavericks students now reach their trip.** Grade 5–6
+  `Mavericks - N` → Grade 5 (Statue of Unity, Batch 1 "MLC"); Grade 7–12 → the MLC Manali trip.
+  `tripGradeFor` / `isMavericks` in `lib/grades.js`, read by `AuthContext`, `ChildPicker`,
+  `TripPage`; `normalizeSection` maps Mavericks to `mlc`. Replaces the 2026-08-21 "no parent can
+  open MLC" warning. Grade 11 Kevdi also lists MLC; the school chose "Manali only", so the
+  rule stays replace-not-add, because MLC is a separate cross-grade programme, not a grade
+  or a section. Committed to `main` on its own, without the redesign.
 - 2026-10-17 — **Four more grades got wallpaper images**, the school pasting four URLs with "some
   grade not have walpaper images": Senior KG (Kevdi), Grade 1 (Kilad), Grade 3 (Saputara) and
   Grade 6 (Purna River Resort). Same pipeline as g4 — download, Pillow resize to a 1600-wide banner

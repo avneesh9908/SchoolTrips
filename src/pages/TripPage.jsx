@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import { TRIP_LAYOUT } from '../lib/layout'
 import { useAuth } from '../auth/AuthContext'
 import { useTrip } from '../data/useTrip'
-import { gradeById, isComingSoon } from '../lib/grades'
+import { gradeById, isComingSoon, tripGradeFor } from '../lib/grades'
 import { tripPhotoFor, tripCardPhotoFor, imageUrl } from '../lib/tripPhoto'
 import { useDestinationPhoto } from '../data/useDestinationPhoto'
 import { config } from '../config'
@@ -85,7 +85,7 @@ export default function TripPage() {
       <EmptyState
         title="Not your child's grade"
         message={`You can only view trip details for ${
-          activeStudent ? gradeById(activeStudent.grade).full : 'your own child'
+          activeStudent ? gradeById(tripGradeFor(activeStudent)).full : 'your own child'
         }. If this looks wrong, please contact the school office.`}
       />
     )

@@ -16,7 +16,8 @@ export const GRADES = [
   /**
    * MLC is a named programme, not a numbered year, and the school wants its own
    * card at the end of the picker — after Grade 12 (2026-08-21: "grade name is
-   * mlc show after grade 12").
+   * mlc show after grade 12"). No roster row says MLC: its students are the
+   * Grade 7-12 ones whose section is "Mavericks - N" — see `tripGradeFor`.
    *
    * It was on the content sheet all along, written into the Grades column as
    * `MlC`, which `normalizeGradeId` could not read — so `groupByGrade` discarded
@@ -98,6 +99,42 @@ export function gradeNumber(id) {
  */
 export function allowsStudentLogin(id) {
   return gradeNumber(id) >= STUDENT_LOGIN_FROM_GRADE
+}
+
+/**
+ * Mavericks is the roster's name for MLC — the same programme (the school,
+ * 2026-11-26). Students opt into it from any grade, and the roster files them in
+ * their own grade with the section "Mavericks - 9" (also "Mavericks -7"), while
+ * the trip sheet calls the same group "MLC".
+ */
+export function isMavericks(section) {
+  return /^\s*(mavericks?|mlc|mic)\b/i.test(String(section || ''))
+}
+
+/**
+ * MLC students up to Grade 6 travel with Grade 5 (the sheet lists MLC under
+ * Grade 5's Batch 1); from Grade 7 they go on the separate MLC trip, which takes
+ * Grades 7-12 together.
+ */
+const MLC_JUNIOR_TRIP = 'g5'
+const MLC_OWN_TRIP_FROM_GRADE = 7
+
+/**
+ * The grade whose trip this student goes on — their own, except for MLC
+ * (Mavericks) students, who travel with another group. The child card, the
+ * session's allowed grades and the trip page all read this, so a Mavericks
+ * child's trip is decided in one place.
+ *
+ * Their own `grade` is left alone: it is still what they are called on screen
+ * and what the Grade 7 student-login rule reads.
+ */
+export function tripGradeFor(student) {
+  const grade = student?.grade || ''
+  if (!isMavericks(student?.section)) return grade
+  const n = gradeNumber(grade)
+  if (n >= MLC_OWN_TRIP_FROM_GRADE) return 'mlc'
+  if (n >= 1) return MLC_JUNIOR_TRIP
+  return grade
 }
 
 /**

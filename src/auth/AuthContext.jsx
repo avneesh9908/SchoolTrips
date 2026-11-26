@@ -2,6 +2,14 @@ import { createContext, useContext, useState, useCallback, useMemo, useEffect } 
 import { getAdapter } from '../data'
 import { normalizeEmail, matchStudent } from '../lib/identity'
 import { ALL_GRADE_IDS, isAdminEmailLocally, nameFromEmail } from './roles.js'
+import { tripGradeFor } from '../lib/grades'
+
+/**
+ * The grades a family may open: each child's trip, which for an MLC (Mavericks)
+ * child is not their own grade's. Their own grade is deliberately not added — a
+ * Mavericks child is not on that trip.
+ */
+const tripGradesOf = (students) => [...new Set((students || []).map(tripGradeFor).filter(Boolean))]
 
 const AuthContext = createContext(null)
 const STORAGE_KEY = 'schoolTrips.session'
@@ -62,7 +70,7 @@ export function AuthProvider({ children }) {
       identifier,
       parentName: displayName || valid[0].parentName,
       students: valid,
-      grades: [...new Set(valid.map((s) => s.grade))],
+      grades: tripGradesOf(valid),
       activeStudentId: valid.length === 1 ? valid[0].id : null,
     })
   }, [])
@@ -140,6 +148,10 @@ export function AuthProvider({ children }) {
 
   const value = useMemo(() => {
     const activeStudent = session?.students.find((s) => s.id === session.activeStudentId) || null
+    // Re-derived rather than read from storage, so a session saved before a
+    // routing rule changed (a Mavericks child who now travels with Grade 5) is
+    // not refused its own trip on the next reload.
+    const grades = !session ? [] : session.role === 'admin' ? session.grades : tripGradesOf(session.students)
     return {
       session,
       busy,
@@ -151,10 +163,10 @@ export function AuthProvider({ children }) {
       isStudent: session?.signedInAs === 'student',
       students: session?.students || [],
       activeStudent,
-      /** The single grade this session may read. Null until a child is chosen. */
-      activeGrade: activeStudent?.grade || null,
+      /** The grade whose trip the chosen child is on. Null until a child is chosen. */
+      activeGrade: activeStudent ? tripGradeFor(activeStudent) || null : null,
       /** Guards data reads — a grade outside this list is never fetched. */
-      canAccessGrade: (gradeId) => !!session?.grades.includes(gradeId),
+      canAccessGrade: (gradeId) => grades.includes(gradeId),
     }
   }, [session, busy, loginWithGoogle, logout, selectStudent])
 

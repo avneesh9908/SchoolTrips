@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
-import { GRADES, gradeById, isComingSoon } from '../lib/grades'
+import { GRADES, gradeById, isComingSoon, tripGradeFor } from '../lib/grades'
 import { tripCardPhotoFor } from '../lib/tripPhoto'
 import { useTripTitles } from '../data/useTripTitles'
 import { Icon } from '../components/Icon'
@@ -17,7 +17,7 @@ export default function ChildPicker() {
 
   const open = (student) => {
     selectStudent(student.id)
-    navigate(`/trip/${student.grade}`)
+    navigate(`/trip/${tripGradeFor(student)}`)
   }
 
   // Shown even for a single child: the card is the parent's confirmation that
@@ -47,7 +47,11 @@ export default function ChildPicker() {
 
       <div className="card-grid">
         {students.map((s) => {
-          const g = gradeById(s.grade)
+          // The trip's grade drives the picture, the destination and the link; the
+          // pill keeps the child's own grade. They differ only for an MLC
+          // (Mavericks) child — a Grade 6 one travels with Grade 5, a Grade 9 one
+          // on the MLC trip.
+          const g = gradeById(tripGradeFor(s))
           // Whether the grade is announced is read from the sheet's own trip names
           // (2026-08-26), so a grade the school publishes opens with no code change.
           const soon = isComingSoon(g.id, titles)
@@ -56,7 +60,7 @@ export default function ChildPicker() {
               key={s.id}
               grade={g}
               title={s.name}
-              code={g.label}
+              code={gradeById(s.grade).label}
               status={s.section ? `Section ${s.section}` : ''}
               line={tripLine(g, titles, soon)}
               cta="View trip details →"

@@ -90,6 +90,11 @@ sees another group's packing list.
 `MLC`, `MlC` and `MIC` are all read as MLC. Any *other* value that is not a grade drops the
 whole row off the site with no visible error.
 
+**Who sees which MLC trip is decided by the student list, not this sheet.** MLC and Mavericks
+are the same programme: a student whose section is `Mavericks - 9` is an MLC student.
+Grades 7–12 Mavericks students open the **MLC** card (and not their own grade's trip); Grade 5
+and 6 Mavericks students open **Grade 5's** trip, where `MLC` is listed in Batch 1.
+
 ---
 
 ## More than one tab (`SS` and `JS `)

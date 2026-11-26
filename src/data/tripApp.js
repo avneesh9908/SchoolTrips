@@ -2,7 +2,7 @@
 // extensionless paths the way Vite does.
 import { normalizeRow, normalizeKey, pick, LINKS, SOURCE } from './csv.js'
 import { linkFor } from './xlsxSheet.js'
-import { normalizeGradeId } from '../lib/grades.js'
+import { normalizeGradeId, isMavericks } from '../lib/grades.js'
 
 /**
  * Reads the school's "Trip app" sheet: ONE tab, one row-group per grade, one
@@ -427,8 +427,13 @@ export function sectionsOf(row) {
 
 const sameSection = (a, b) => normalizeSection(a) === normalizeSection(b)
 
-/** "Mavericks -7" and "mavericks-7" are the same section. */
+/**
+ * "Mavericks -7" and "mavericks-7" are the same section. So are "Mavericks - 5"
+ * and the sheet's "MLC": the roster and the trip sheet name one programme two
+ * ways, and Grade 5's Batch 1 lists it as "MLC".
+ */
 function normalizeSection(s) {
+  if (isMavericks(s)) return 'mlc'
   return String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '')
 }
 
