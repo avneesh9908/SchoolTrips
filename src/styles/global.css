@@ -1,4 +1,12 @@
 @import './tokens.css';
+/* The animated layer, added by the redesign. All five files only ADD to the kit
+   above, so removing these five lines returns the site to the static design
+   exactly. Order matters: scenes.css restates one rule motion.css sets. */
+@import './motion-base.css';
+@import './motion.css';
+@import './tabs-motion.css';
+@import './entry-motion.css';
+@import './scenes.css';
 
 * { box-sizing: border-box; }
 
@@ -2394,4 +2402,31 @@ ul.plain li::before { content: '•'; flex: none; font-weight: 800; color: var(-
   .acc-head { padding: 16px 18px; }
   .acc-body { padding: 0 18px 18px 18px; }
   .photo-masonry { columns: 1; }
+}
+
+/* The reporting venue photograph on Travel details (2026-11-26): one per grade. */
+.venue-grid { display: grid; grid-template-columns: minmax(0, 720px); justify-content: center; gap: 18px; margin: 0 0 22px; }
+.venue-card { display: block; position: relative; border-radius: 14px; overflow: hidden; background: var(--surface-2, #eef1f8); border: 1px solid var(--line, rgba(27, 37, 96, .12)); text-decoration: none; }
+.venue-card img { display: block; width: 100%; aspect-ratio: 16 / 10; object-fit: cover; }
+.venue-cap { position: absolute; left: 10px; bottom: 10px; padding: 4px 10px; border-radius: 999px; background: rgba(27, 37, 96, .82); color: #fff; font-size: 12px; font-weight: 600; }
+.venue-missing { display: flex; align-items: center; justify-content: center; aspect-ratio: 16 / 10; color: var(--navy, #1B2560); font-weight: 600; }
+/* Venue photo beside the travel card: two equal columns, the card centred
+   against the photo's height; one column under 860px. */
+.travel-split.has-venue { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px; align-items: center; max-width: 1200px; margin: 0 auto; }
+.travel-split.has-venue .venue-grid { display: block; margin: 0; }
+.travel-split.has-venue .travel-grid { grid-template-columns: 1fr; }
+@media (max-width: 860px) { .travel-split.has-venue { grid-template-columns: 1fr; } }
+/* Larger pair (2026-11-26, "increase height and width"): fills the page up to
+   1320px, a taller photo, and the card stretched to the photo's full height
+   with its text centred and a size up. */
+.travel-split.has-venue { width: 100%; max-width: 1320px; align-items: stretch; gap: 28px; }
+.travel-split.has-venue .venue-card img { aspect-ratio: 4 / 3; }
+.travel-split.has-venue .venue-cap { font-size: 13px; padding: 6px 12px; left: 14px; bottom: 14px; }
+.travel-split.has-venue .travel-grid { height: 100%; }
+.travel-split.has-venue .travel-card { max-width: none; height: 100%; display: flex; flex-direction: column; justify-content: center; padding: 32px 36px; }
+.travel-split.has-venue .travel-top .label { font-size: 19px; }
+.travel-split.has-venue .travel-notes { font-size: 17px; line-height: 1.9; }
+@media (max-width: 860px) {
+  .travel-split.has-venue .travel-card { padding: 22px 18px; }
+  .travel-split.has-venue .travel-notes { font-size: 15px; line-height: 1.7; }
 }

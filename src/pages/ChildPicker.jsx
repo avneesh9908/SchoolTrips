@@ -7,6 +7,7 @@ import { useTripTitles } from '../data/useTripTitles'
 import { Icon } from '../components/Icon'
 import { useDestinationPhoto } from '../data/useDestinationPhoto'
 import { initials } from '../components/TopBar'
+import { vehicleFor } from '../lib/journey'
 
 export default function ChildPicker() {
   const { students, selectStudent, session, isAdmin } = useAuth()
@@ -65,6 +66,7 @@ export default function ChildPicker() {
               line={tripLine(g, titles, soon)}
               cta="View trip details →"
               comingSoon={soon}
+              vehicle={vehicleFor(g.id, titles?.[g.id] || '')}
               onClick={() => open(s)}
             />
           )
@@ -105,6 +107,7 @@ function GradePicker({ name, navigate, titles }) {
               line={tripLine(g, titles, soon)}
               cta="View trip details →"
               comingSoon={soon}
+              vehicle={vehicleFor(g.id, titles?.[g.id] || '')}
               onClick={() => navigate(`/trip/${g.id}`)}
             />
           )
@@ -150,11 +153,19 @@ function DashHead({ here, title, lede, name, role }) {
 }
 
 /**
+ * The badge's picture and word. Kept as plain characters rather than added to
+ * `Icon.jsx`: that component is the app's real icon set, and these four are
+ * decoration on a hover state.
+ */
+const RIDE_GLYPH = { train: '🚆', bus: '🚌', plane: '✈️', boat: '⛵' }
+const RIDE_WORD = { train: 'Ride along', bus: 'Hop on', plane: 'Take off', boat: 'Set sail' }
+
+/**
  * A grade whose trip is not published yet renders as a plain `div`, never a
  * disabled button: there is nothing behind it, so it must not take focus or
  * invite a click that does nothing.
  */
-function PickCard({ grade, title, code, status, line, cta, comingSoon = false, onClick }) {
+function PickCard({ grade, title, code, status, line, cta, comingSoon = false, vehicle, onClick }) {
   const Tag = comingSoon ? 'div' : 'button'
   // A grade with no trip gets no photograph either — the picture is of the trip,
   // and there is nothing to picture until one is announced.
@@ -209,6 +220,15 @@ function PickCard({ grade, title, code, status, line, cta, comingSoon = false, o
             still said here, because a photograph on a card is read as the trip's
             photograph just as readily as one on the banner. */}
         {showStandIn && <span className="pick-credit">area photo · Wikipedia</span>}
+        {/* The ride waiting on the card, revealed on hover. `aria-hidden` because it
+            is a promise of an animation, not information: the sheet's Travel cell is
+            the only thing entitled to tell a parent how their child travels. */}
+        {!comingSoon && vehicle && (
+          <span className="pick-ride" aria-hidden="true">
+            <span className="glyph">{RIDE_GLYPH[vehicle]}</span>
+            {RIDE_WORD[vehicle]}
+          </span>
+        )}
       </span>
       <span className="pick-body">
         {/* The trip's name moved onto the picture above, so it is not repeated

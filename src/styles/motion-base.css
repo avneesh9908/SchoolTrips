@@ -1,0 +1,36 @@
+/* ===========================================================================
+   The shared pieces of the animated layer: the handful of keyframes that more
+   than one of the other four stylesheets uses, and the one element they share.
+
+   It is what is left of `journey.css` after the full-screen ride between the
+   grade card and the trip page was removed (2026-10-17, the school: "I want the
+   animation on the pages, not between them"). The overlay, its four vehicles
+   and its scrolling landscape are gone; these six keyframes stayed because the
+   title sequence, the welcome and the two drawn scenes were all built on them.
+
+   Loaded first of the five, so everything after it can name these.
+   =========================================================================== */
+
+/** A curtain appearing. Used by the title sequence and the welcome. */
+@keyframes ride-in { from { opacity: 0; } to { opacity: 1; } }
+
+/** Anything crossing a sky, right to left: clouds and birds, everywhere. */
+@keyframes drift {
+  from { transform: translateX(110vw); }
+  to   { transform: translateX(-30vw); }
+}
+
+/** A wing beating. Paired with `drift` on every bird in the app. */
+@keyframes flap { from { transform: rotate(-16deg); } to { transform: rotate(18deg); } }
+
+/** Smoke leaving a funnel — the welcome's train and the title sequence's. */
+@keyframes puff {
+  from { transform: translate(0, 0) scale(0.4); opacity: 0.95; }
+  to   { transform: translate(-70px, -70px) scale(2.1); opacity: 0; }
+}
+
+/** A line of text arriving. The most-used keyframe in the layer. */
+@keyframes word-up { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
+
+/** A sun breathing. */
+@keyframes sun-pulse { 50% { transform: scale(1.07); } }

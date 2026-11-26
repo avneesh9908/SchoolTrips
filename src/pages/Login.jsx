@@ -15,6 +15,51 @@ const NOT_CONFIGURED =
   'Sign-in is not set up for this site yet, so nobody can sign in. Please contact the school office.'
 
 /**
+ * The journey, running behind the whole sign-in page on a loop.
+ *
+ * The photograph is the DESTINATION: the train crosses the page towards it and
+ * passes the marker at the right-hand end of the track, then comes round again.
+ * A plane crosses higher up on a longer cycle, so the two are rarely in step.
+ *
+ * It loops rather than playing once because this is a page a parent sits on
+ * while Google decides whether it knows them — an animation that finishes
+ * leaves a still picture behind for the rest of that wait.
+ *
+ * Decoration only, so the whole thing is `aria-hidden`, and it costs no request:
+ * every piece here is an element and a gradient over the one photograph that
+ * was already being loaded.
+ */
+function LoginScene() {
+  return (
+    <div className="login-scene">
+      <div className="ls-clouds">
+        {[0, 1, 2, 3].map((i) => <span key={i} className={`ls-cloud lc${i}`} />)}
+      </div>
+      <div className="ls-birds">
+        {[0, 1, 2].map((i) => <span key={i} className={`ls-bird lb${i}`} />)}
+      </div>
+
+      {/* Higher up, and on its own slower cycle. */}
+      <div className="ls-plane"><span className="trail" /><span className="body"><span className="wing" /><span className="fin" /></span></div>
+
+      <div className="ls-rail" />
+
+      {/* The end of the line, sitting over the destination in the photograph. */}
+      <div className="ls-marker"><span className="post" /><span className="sign" /></div>
+
+      <div className="ls-train">
+        <span className="l"><span className="smoke s0" /><span className="smoke s1" /></span>
+        {[0, 1, 2].map((i) => (
+          <span className="coach" key={i}>
+            <span className="w" /><span className="w" />
+          </span>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+/**
  * Google Sign-In is the only way in.
  *
  * The typed "email address or mobile number" box was removed on 2026-08-21. It
@@ -48,9 +93,17 @@ export default function Login() {
   )
 
   return (
-    <div className="login">
-      <div className="login-art">
+    <div className={busy ? 'login is-busy' : 'login'}>
+      {/* The journey runs behind the WHOLE page — both columns — so the train
+          and the sign-in card are on one screen rather than one after the
+          other. The school, 2026-10-17: "I want a login page on same animation
+          … not add extra pages". */}
+      <div className="login-bg" aria-hidden="true">
         <img className="art-photo" src={ART} alt="" />
+        <LoginScene />
+      </div>
+
+      <div className="login-art">
         <div className="login-art-body">
           <div className="brand">
             <span className="mark">ST</span>

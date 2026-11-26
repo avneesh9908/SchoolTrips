@@ -1,0 +1,258 @@
+/* ===========================================================================
+   Motion, part two: the ARRIVAL welcome after sign-in, and the animation added
+   to the pages a parent actually reads — the grade cards, the itinerary
+   carriages, the departure board and the photo reel.
+
+   Companion to motion-base.css, which holds the keyframes shared across this
+   layer. The same rule holds: this file only ADDS to the navy/amber kit, and
+   everything in it is switched off by the reduced-motion block at its foot.
+   =========================================================================== */
+
+/* ------------------------------------------------- the grade cards breathe */
+
+/* The cards arrive in sequence rather than all at once — six identical delays
+   would be a flash; staggered, it reads as a hand dealing them out. */
+/* `backwards`, never `both`: a filled-forwards transform outranks the kit's own
+   `:hover { transform: translateY(-4px) }` and would quietly kill the card lift. */
+.card-grid > * { animation: card-in .55s cubic-bezier(.2,.9,.3,1) backwards; }
+.card-grid > *:nth-child(1) { animation-delay: .04s; }
+.card-grid > *:nth-child(2) { animation-delay: .1s; }
+.card-grid > *:nth-child(3) { animation-delay: .16s; }
+.card-grid > *:nth-child(4) { animation-delay: .22s; }
+.card-grid > *:nth-child(5) { animation-delay: .28s; }
+.card-grid > *:nth-child(6) { animation-delay: .34s; }
+.card-grid > *:nth-child(n+7) { animation-delay: .4s; }
+@keyframes card-in { from { opacity: 0; transform: translateY(26px) scale(.97); } to { opacity: 1; transform: none; } }
+
+/* A vehicle waiting on each card, which slides in on hover: the promise of the
+   ride the click is about to play. It is `aria-hidden` in the markup — it says
+   nothing a parent needs, and announcing "train" would be a claim about travel
+   this layer is not entitled to make. */
+.pick-ride {
+  position: absolute; left: 14px; bottom: 14px; z-index: 2;
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 12px 6px 9px; border-radius: var(--r-pill);
+  background: rgba(255,255,255,.92); box-shadow: 0 8px 20px -12px rgba(19,28,62,.5);
+  font-size: 11px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--navy);
+  transform: translateX(-130%); opacity: 0;
+  transition: transform .38s cubic-bezier(.2,.9,.3,1), opacity .25s ease;
+}
+.pick-card:hover .pick-ride,
+.pick-card:focus-visible .pick-ride { transform: none; opacity: 1; }
+.pick-card .pick-ride .glyph { font-size: 15px; line-height: 1; animation: nudge 1.1s ease-in-out infinite alternate; }
+@keyframes nudge { from { transform: translateX(-2px); } to { transform: translateX(3px); } }
+
+/* ----------------------------------------------- the itinerary as carriages
+
+   The school's itinerary cards are a row of linked documents, one per batch.
+   Set as coupled carriages they read as what they describe — and the coupling
+   is a pseudo-element, so no markup was added to carry it. */
+
+.itin-cards { position: relative; }
+.itin-cards .itin-card,
+.itin-cards .itin-live {
+  position: relative;
+  animation: carriage-in .6s cubic-bezier(.2,.9,.3,1) backwards;
+}
+.itin-cards > *:nth-child(2) { animation-delay: .12s; }
+.itin-cards > *:nth-child(3) { animation-delay: .24s; }
+.itin-cards > *:nth-child(n+4) { animation-delay: .34s; }
+@keyframes carriage-in { from { opacity: 0; transform: translateX(-40px); } to { opacity: 1; transform: none; } }
+
+/* The coupler between one carriage and the next. Only between — never after the
+   last one, which would be a hook into nothing — and only where the cards are
+   actually side by side: stacked on a phone it is a stray bar off the left edge. */
+@media (min-width: 900px) {
+  .itin-cards > * + *::before {
+    content: ''; position: absolute; left: -16px; top: 50%; width: 16px; height: 4px;
+    margin-top: -2px; border-radius: 2px; background: var(--line-2);
+  }
+}
+
+/* Wheels under each card, and they turn on hover: the carriage pulls away a
+   little when a parent reaches for it. */
+.itin-cards > *::after {
+  content: ''; position: absolute; left: 18px; right: 18px; bottom: -9px; height: 14px;
+  background: radial-gradient(circle at 14px 7px, #2f3542 0 6px, transparent 6px),
+              radial-gradient(circle at calc(100% - 14px) 7px, #2f3542 0 6px, transparent 6px);
+  opacity: .25; transition: opacity .25s ease;
+}
+.itin-cards > *:hover::after { opacity: .55; }
+
+/* ------------------------------------------------------ the departure board
+
+   Travel is the tab a parent opens to answer one question — when do we leave.
+   The card is set as a platform board: the leg label is the platform sign, the
+   facts are the rows, and the line between them is a track with a light running
+   along it. */
+
+.travel-card { position: relative; overflow: hidden; }
+.travel-card::before {
+  content: ''; position: absolute; left: 0; right: 0; top: 0; height: 3px;
+  background: linear-gradient(90deg, transparent, var(--ride-color, var(--accent)), transparent);
+  transform: translateX(-100%);
+  animation: track-light 3.4s linear infinite;
+}
+@keyframes track-light { to { transform: translateX(100%); } }
+
+.travel-card .travel-route .track { position: relative; }
+/* The train on the route line moves between the two ends, which is the one
+   piece of this page that literally draws the journey the row describes. */
+.travel-card .travel-route .track span {
+  animation: shunt 3.2s ease-in-out infinite alternate;
+  display: inline-flex;
+}
+@keyframes shunt { from { transform: translateX(-16px); } to { transform: translateX(16px); } }
+
+.travel-grid > * { animation: card-in .55s cubic-bezier(.2,.9,.3,1) backwards; }
+.travel-grid > *:nth-child(2) { animation-delay: .12s; }
+.travel-grid > *:nth-child(n+3) { animation-delay: .2s; }
+
+/* The departure time, when `TravelNotes` finds one, gets the flip-board tick a
+   station sign makes as it changes. Once, on arrival — a board that never
+   settles is a board nobody can read. */
+.travel-key { position: relative; display: inline-block; animation: flipin .5s ease backwards; }
+@keyframes flipin {
+  from { transform: perspective(300px) rotateX(-90deg); opacity: 0; }
+  to   { transform: none; opacity: 1; }
+}
+
+/* The reminders timeline draws itself downward instead of simply being there. */
+.reminder-line { transform-origin: top center; animation: draw .7s ease both; }
+@keyframes draw { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+.reminder-row { animation: card-in .5s cubic-bezier(.2,.9,.3,1) backwards; }
+.reminder-row:nth-child(2) { animation-delay: .08s; }
+.reminder-row:nth-child(3) { animation-delay: .16s; }
+.reminder-row:nth-child(4) { animation-delay: .24s; }
+.reminder-row:nth-child(n+5) { animation-delay: .3s; }
+
+/* --------------------------------------------------------- the photo strip
+
+   The collage already tilts to the pointer (TripPage's `tiltHandlers`). What
+   is added here is the camera around it: a sound toggle, a shutter flash, and
+   a film strip that scrolls the same pictures past on its own. */
+
+.photo-strip {
+  position: relative; overflow: hidden; margin: 0 0 20px;
+  border-radius: var(--r-tile);
+  background: linear-gradient(180deg, #161b33, #0d1125);
+  padding: 14px 0;
+  box-shadow: var(--shadow-card);
+}
+/* The sprocket holes, top and bottom — what makes it film rather than a row. */
+.photo-strip::before, .photo-strip::after {
+  content: ''; position: absolute; left: 0; right: 0; height: 10px;
+  background: repeating-linear-gradient(90deg, rgba(255,255,255,.75) 0 9px, transparent 9px 26px);
+  opacity: .5;
+}
+.photo-strip::before { top: 2px; }
+.photo-strip::after { bottom: 2px; }
+
+.photo-strip-track {
+  display: flex; gap: 12px; width: max-content;
+  animation: reel 34s linear infinite;
+}
+.photo-strip:hover .photo-strip-track { animation-play-state: paused; }
+@keyframes reel { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+
+.photo-strip-frame {
+  width: 150px; height: 100px; flex: none; border-radius: 8px; overflow: hidden;
+  background: #222943; position: relative;
+}
+.photo-strip-frame img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.photo-strip-frame:hover img { transform: scale(1.06); }
+.photo-strip-frame img { transition: transform .4s ease; }
+
+/* On a pill, not straight onto the film: over a photograph the bare words were
+   unreadable at every size tested. */
+.photo-strip-hint {
+  position: absolute; right: 10px; bottom: 16px; z-index: 2;
+  padding: 4px 10px; border-radius: var(--r-pill);
+  background: rgba(11, 15, 33, .72);
+  font-size: 10px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase;
+  color: rgba(255,255,255,.92);
+}
+
+/* The shutter: a white frame that closes and opens once, over the whole screen,
+   on the click that also plays the sound. Pointer-events off throughout, so it
+   never swallows the click it is reacting to. */
+.shutter-flash { position: fixed; inset: 0; z-index: 220; pointer-events: none; }
+
+/* The white burst. It is a CHILD of the overlay, not the overlay itself: an
+   opacity animation on the container would fade the blades below with it, which
+   is exactly what the first version did — the blades never appeared at all. */
+.shutter-flash::before {
+  content: ''; position: absolute; inset: 0; background: #fff; opacity: 0;
+  animation: shutter-snap .42s ease-out both;
+}
+@keyframes shutter-snap {
+  0%   { opacity: 0; }
+  12%  { opacity: .92; }
+  40%  { opacity: 0; }
+  100% { opacity: 0; }
+}
+
+/* Both blades in ONE element — two background layers pinned to the top and
+   bottom edges, growing to meet in the middle and opening again. One element
+   because a pseudo-element cannot have a pseudo-element of its own. */
+.shutter-flash::after {
+  content: ''; position: absolute; inset: 0;
+  background:
+    linear-gradient(#0b0f21, #0b0f21) top / 100% 0 no-repeat,
+    linear-gradient(#0b0f21, #0b0f21) bottom / 100% 0 no-repeat;
+  animation: blade .42s cubic-bezier(.3,0,.3,1) both;
+}
+@keyframes blade {
+  0%   { background-size: 100% 0, 100% 0; }
+  35%  { background-size: 100% 50%, 100% 50%; }
+  100% { background-size: 100% 0, 100% 0; }
+}
+
+/* The sound switch. One control for the whole site, sitting with the photos
+   because that is where a sound is most expected — and it is the ONLY thing
+   that can make this site audible, so it is a real labelled button. */
+.sound-toggle {
+  display: inline-flex; align-items: center; gap: 8px;
+  border: 1px solid var(--line); background: var(--card); color: var(--body);
+  border-radius: var(--r-pill); padding: 8px 15px; cursor: pointer;
+  font: inherit; font-size: 13px; font-weight: 700;
+  transition: background .2s ease, color .2s ease, border-color .2s ease;
+}
+.sound-toggle:hover { border-color: var(--accent); color: var(--accent); }
+.sound-toggle.is-on { background: var(--link-bg); border-color: var(--accent); color: var(--accent); }
+.sound-toggle .wave { display: inline-flex; gap: 2px; align-items: flex-end; height: 13px; }
+.sound-toggle .wave i { width: 3px; border-radius: 2px; background: currentColor; height: 4px; }
+.sound-toggle.is-on .wave i { animation: eq .9s ease-in-out infinite alternate; }
+.sound-toggle.is-on .wave i:nth-child(2) { animation-delay: .15s; }
+.sound-toggle.is-on .wave i:nth-child(3) { animation-delay: .3s; }
+@keyframes eq { from { height: 4px; } to { height: 13px; } }
+
+.photo-tools { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+.photo-tools .hint { font-size: 13px; color: var(--muted); }
+
+/* ------------------------------------------------- the panel itself arrives */
+
+/* Each tab panel settles in rather than cutting. `key` on the panel already
+   remounts it per tab, so this plays on every switch for free. */
+.stage .stage-inner { animation: panel-in .45s cubic-bezier(.2,.9,.3,1) both; }
+@keyframes panel-in { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+
+/* ---------------------------------------------------------- reduced motion
+
+   The whole of both files, stopped. Not "shortened": a reader who has asked
+   for no motion gets none, and every element above is designed to be correct
+   standing still — which is why this can be one block rather than an override
+   per rule. */
+@media (prefers-reduced-motion: reduce) {
+  .card-grid > *, .itin-cards > *, .travel-grid > *, .travel-card::before,
+  .travel-card .travel-route .track span, .travel-key,
+  .reminder-row, .reminder-line, .photo-strip-track, .shutter-flash,
+  .sound-toggle .wave i, .stage .stage-inner, .pick-ride, .pick-card .pick-ride .glyph {
+    animation: none !important;
+    transition: none !important;
+    transform: none !important;
+    opacity: 1 !important;
+  }
+  .shutter-flash { display: none; }
+  .pick-ride { opacity: 0; }
+}

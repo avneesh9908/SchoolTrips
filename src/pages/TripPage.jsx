@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef, Fragment } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { TRIP_LAYOUT } from '../lib/layout'
 import { useAuth } from '../auth/AuthContext'
@@ -15,6 +15,9 @@ import { DocCard } from '../components/DocCard'
 import { GoogleSlidesPreview, SlidesOpenLink } from '../components/GoogleSlidesPreview'
 import { Icon } from '../components/Icon'
 import { Loading, ErrorState, EmptyState } from '../components/States'
+import { SoundToggle, useShutter } from '../components/Camera'
+import { PackingScene } from '../components/Scenes'
+import { reducedMotion } from '../lib/journey'
 
 export default function TripPage() {
   const { gradeId } = useParams()
@@ -460,7 +463,9 @@ function buildSections(trip, photo, grade) {
     })
   }
 
-  if (trip.travel.length) {
+  const venue = venueFor(trip)
+  // A venue picture alone opens the tab: the junior worksheet has no travel prose.
+  if (trip.travel.length || venue) {
     out.push({
       id: 'travel',
       // "Travel details", matching the heading the section renders and the name the
@@ -468,7 +473,7 @@ function buildSections(trip, photo, grade) {
       // another over the cards.
       label: 'Travel details',
       titled: true,
-      node: <TravelSection key="travel" legs={trip.travel} />,
+      node: <TravelSection key="travel" legs={trip.travel} venue={venue} />,
     })
   }
 
@@ -1218,6 +1223,11 @@ function RuleStack({ lines }) {
 function CarrySection({ docs, lines, slides }) {
   return (
     <Section id="carry" className="is-stretch">
+      {/* The drawn scene beside the school's own deck, never instead of it: it
+          sits in a column of its own on a wide window and above the deck on a
+          phone, and it says nothing about what to pack — see `Scenes.jsx`. */}
+      <div className="with-scene">
+      <PackingScene />
       <div className={slides ? 'chip-col is-carry carry-card has-slides' : 'chip-col is-carry carry-card'}>
         <div className="chip-head">
           <span className="chip-icon"><Icon name="carry" stroke="currentColor" /></span>
@@ -1249,6 +1259,7 @@ function CarrySection({ docs, lines, slides }) {
             ))}
           </ul>
         )}
+      </div>
       </div>
       {!slides && <PendingNote docs={docs} />}
     </Section>
@@ -1536,16 +1547,23 @@ function dropBatchHeading(lines) {
 function TravelNotes({ text, className }) {
   const lines = dropBatchHeading(String(text || '').split('\n')).filter((l) => l.trim())
 
+  /**
+   * One BLOCK per line, with the gap before a return leg carried by a CSS margin
+   * instead of a doubled newline inside the text.
+   *
+   * It renders exactly what it rendered before — the same words and the same gap
+   * in the same place, which is the school's own reading of this card
+   * (2026-08-20) and must not move. What it buys is a box per fact, so the
+   * journey rail down the left of the card has something to hang its dots on. A
+   * paragraph of newlines gave the CSS nothing to attach to.
+   */
   return (
     <p className={className}>
       {lines.map((line, i) => {
         const { label, rest } = splitTravelLine(line.trim())
-        // A blank line before the RETURN leg, none between a leg's own facts. `pre-wrap`
-        // renders the doubled newline, so no extra element is needed to space them.
-        const gap = i > 0 && TRAVEL_LEG_START.test(label.trim()) ? '\n\n' : '\n'
+        const leg = i > 0 && TRAVEL_LEG_START.test(label.trim())
         return (
-          <Fragment key={i}>
-            {i > 0 && gap}
+          <span className={leg ? 'travel-line is-leg' : 'travel-line'} key={i}>
             {label ? (
               <>
                 <strong className="travel-key">{label}</strong>
@@ -1555,16 +1573,51 @@ function TravelNotes({ text, className }) {
             ) : (
               line
             )}
-          </Fragment>
+          </span>
         )
       })}
     </p>
   )
 }
 
-function TravelSection({ legs }) {
+/**
+ * The sheet's Reporting Venue column first; `config.venuePhotos[gradeId]` only
+ * while the sheet has none for this trip, so the school can move it into the
+ * sheet whenever it likes and the config entry simply stops being read.
+ */
+function venueFor(trip) {
+  return trip.venue || config().venuePhotos?.[trip.grade] || ''
+}
+
+/**
+ * The reporting venue as the school's own photograph — one per grade. A picture
+ * that cannot load (a Drive file not shared "Anyone with the link") falls back to
+ * a plain link, never a broken image.
+ */
+function VenuePhoto({ url }) {
+  const [broken, setBroken] = useState(false)
+  if (!url) return null
+  return (
+    <div className="venue-grid">
+      <a className="venue-card" href={url} target="_blank" rel="noopener noreferrer">
+        {broken ? (
+          <span className="venue-missing">Open the venue photo ↗</span>
+        ) : (
+          <img src={imageUrl(url, 1200)} alt="Reporting venue" loading="lazy" onError={() => setBroken(true)} />
+        )}
+        <span className="venue-cap">Reporting venue</span>
+      </a>
+    </div>
+  )
+}
+
+function TravelSection({ legs, venue = '' }) {
   return (
     <Section id="travel" eyebrow="Getting there and back" title="Travel details">
+      {/* Photo and travel card side by side on a wide window (the school's layout,
+          2026-11-26), stacked on a phone. */}
+      <div className={venue ? 'travel-split has-venue' : 'travel-split'}>
+      <VenuePhoto url={venue} />
       <div className="travel-grid">
         {legs.map((leg, i) => {
           // The school writes travel as prose in one cell. Showing the empty
@@ -1603,6 +1656,7 @@ function TravelSection({ legs }) {
             </div>
           )
         })}
+      </div>
       </div>
     </Section>
   )
@@ -1720,6 +1774,8 @@ function PhotosSection({ albums, media, title, photo }) {
   // Sets `js-reveal` on the element itself once it has a live observer — see the hook for why
   // that cannot be decided here at render time.
   useScrollReveal(collage, tiles.length)
+  // One shutter for the whole tab, so two quick clicks cannot stack two flashes.
+  const { flash, snap } = useShutter()
 
   return (
     <Section
@@ -1728,9 +1784,24 @@ function PhotosSection({ albums, media, title, photo }) {
       title="Trip photos"
       aside={title}
     >
+      {flash}
+
+      {tiles.length > 0 && (
+        <>
+          {/* The reel runs the SAME pictures as the collage below it, never a
+              different or longer set — it is the album in motion, not a second
+              gallery a parent has to check separately. */}
+          <PhotoStrip tiles={tiles} />
+          <div className="photo-tools">
+            <SoundToggle />
+            <span className="hint">Tap a photo to open it — the camera clicks when sound is on.</span>
+          </div>
+        </>
+      )}
+
       {tiles.length > 0 && (
         <div className="photo-collage" ref={collage}>
-          {tiles.map((m, i) => <PhotoTile key={i} item={m} />)}
+          {tiles.map((m, i) => <PhotoTile key={i} item={m} onSnap={snap} />)}
         </div>
       )}
 
@@ -1861,7 +1932,10 @@ function useScrollReveal(ref, count) {
  * not link-shared 403s. Falling back to a typed tile keeps the grid looking
  * deliberate instead of leaving a white gap, and the link still works.
  */
-function PhotoTile({ item }) {
+/* `onSnap` rides ALONG with the link, never instead of it: the anchor still opens
+   the photo in its own tab, so the camera is decoration on a control that already
+   worked. */
+function PhotoTile({ item, onSnap }) {
   const [broken, setBroken] = useState(false)
   const isVideo = item.type === 'video'
   const reduced = prefersReducedMotion()
@@ -1873,6 +1947,7 @@ function PhotoTile({ item }) {
       target="_blank"
       rel="noopener noreferrer"
       title={item.caption || ''}
+      onClick={onSnap}
       {...tiltHandlers(reduced)}
     >
       {isVideo || broken ? (
@@ -1896,6 +1971,36 @@ function PhotoTile({ item }) {
       )}
       {item.caption && <span className="cap">{item.caption}</span>}
     </a>
+  )
+}
+
+/**
+ * The film strip above the collage: the album's own pictures scrolling past on a
+ * loop, which is the first thing a child looks for on this tab.
+ *
+ * The track holds the tiles TWICE and travels exactly -50%, so the second copy is
+ * under the cursor at the moment the first finishes — that is what makes the loop
+ * seamless rather than snapping back. The duplicates are `aria-hidden` and are not
+ * links: one picture is one item in the album however many times it is painted.
+ *
+ * Not rendered at all under reduced motion — a strip that cannot scroll is just the
+ * collage again, smaller.
+ */
+function PhotoStrip({ tiles }) {
+  if (reducedMotion() || tiles.length < 3) return null
+  const frames = [...tiles, ...tiles]
+
+  return (
+    <div className="photo-strip" aria-hidden="true">
+      <div className="photo-strip-track">
+        {frames.map((m, i) => (
+          <span className="photo-strip-frame" key={i}>
+            <img src={imageUrl(m.url, 400)} alt="" loading="lazy" />
+          </span>
+        ))}
+      </div>
+      <span className="photo-strip-hint">Hover to pause</span>
+    </div>
   )
 }
 

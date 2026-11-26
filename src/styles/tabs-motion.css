@@ -1,0 +1,282 @@
+/* ===========================================================================
+   Motion, part three: the three tabs a parent actually reads — Overview,
+   Itinerary and Travel.
+
+   Same contract as motion-base.css and motion.css. It only ADDS: no layout, no
+   colour and no content changes, every rule is decoration on markup that
+   already works, and the reduced-motion block at the foot switches all of it
+   off. Nothing here is allowed to say anything about a trip that the sheet has
+   not already said.
+   =========================================================================== */
+
+/* =============================================================== OVERVIEW == */
+
+/* The photograph breathes. A very slow, very small Ken Burns — 4% over half a
+   minute — so the band is alive without anyone catching it moving, which is the
+   point: a parent reading the dates underneath must not be distracted by it. */
+.home-photo-band { position: relative; }
+.home-photo { animation: kenburns 32s ease-in-out infinite alternate; }
+@keyframes kenburns {
+  from { transform: scale(1) translate3d(0, 0, 0); }
+  to   { transform: scale(1.04) translate3d(-1.2%, -0.8%, 0); }
+}
+
+/* A slow shine crossing the band, the way light crosses a window. `skewX` is
+   what makes it read as a reflection rather than a wipe. */
+.home-photo-band::after {
+  content: ''; position: absolute; top: -20%; bottom: -20%; width: 22%;
+  background: linear-gradient(90deg, rgba(255,255,255,0), rgba(255,255,255,.17), rgba(255,255,255,0));
+  transform: skewX(-18deg);
+  animation: shine 9s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes shine {
+  0%, 62% { left: -30%; opacity: 0; }
+  70%     { opacity: 1; }
+  100%    { left: 115%; opacity: 0; }
+}
+
+/* The destination's amber rule is the KIT'S, not ours — adding a second one
+   here drew two. It is only animated: drawn from the centre out, which is where
+   the kit puts it. */
+.home-below .section-head { animation: rise-soft .6s cubic-bezier(.2,.9,.3,1) .18s backwards; }
+
+/* ---- the batch cards as boarding passes --------------------------------- */
+
+/* A ticket has a stub, and the stub is what tells a parent at a glance that the
+   two cards are two different journeys rather than one block of text. The notch
+   and the perforation are pseudo-elements on the card the kit already draws —
+   no markup was added and the card is unchanged with this file removed. */
+.home-batch-card { position: relative; overflow: hidden; }
+.home-batch-card::before {
+  content: ''; position: absolute; left: -9px; top: 50%; width: 18px; height: 18px;
+  margin-top: -9px; border-radius: 50%; background: var(--bg);
+  box-shadow: inset -1px 0 0 var(--line);
+}
+.home-batch-card::after {
+  content: ''; position: absolute; right: -9px; top: 50%; width: 18px; height: 18px;
+  margin-top: -9px; border-radius: 50%; background: var(--bg);
+  box-shadow: inset 1px 0 0 var(--line);
+}
+.home-batches > * { animation: pass-in .6s cubic-bezier(.2,.9,.3,1) backwards; }
+.home-batches > *:nth-child(2) { animation-delay: .12s; }
+.home-batches > *:nth-child(n+3) { animation-delay: .2s; }
+@keyframes pass-in {
+  from { opacity: 0; transform: translateY(20px) rotate(-1.2deg); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* The batch label lands like a rubber stamp: overshoot, settle, slightly askew
+   on the way in and straight when it stops. */
+.home-batch-card .batch-tag { animation: stamp .55s cubic-bezier(.2,1.6,.4,1) .35s backwards; }
+@keyframes stamp {
+  from { opacity: 0; transform: scale(1.7) rotate(-7deg); }
+  to   { opacity: 1; transform: none; }
+}
+
+.home-about .home-lead { animation: rise-soft .6s cubic-bezier(.2,.9,.3,1) .3s backwards; }
+.home-about .home-body-text { animation: rise-soft .6s cubic-bezier(.2,.9,.3,1) .42s backwards; }
+@keyframes rise-soft { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+
+/* ============================================================== ITINERARY == */
+
+/* The day-by-day table read as a spreadsheet. Set as a timeline it reads as a
+   journey: each day gets a dot on a rail, and the rail is a border on the cell
+   that is already there. */
+.itin-table tbody tr { animation: row-in .5s cubic-bezier(.2,.9,.3,1) backwards; }
+.itin-table tbody tr:nth-child(1) { animation-delay: .04s; }
+.itin-table tbody tr:nth-child(2) { animation-delay: .1s; }
+.itin-table tbody tr:nth-child(3) { animation-delay: .16s; }
+.itin-table tbody tr:nth-child(4) { animation-delay: .22s; }
+.itin-table tbody tr:nth-child(5) { animation-delay: .28s; }
+.itin-table tbody tr:nth-child(n+6) { animation-delay: .34s; }
+@keyframes row-in { from { opacity: 0; transform: translateX(-18px); } to { opacity: 1; transform: none; } }
+
+.itin-table td.day { position: relative; padding-left: 26px; }
+/* The rail, running the full height of the cell so consecutive days join up. */
+.itin-table td.day::before {
+  content: ''; position: absolute; left: 5px; top: 0; bottom: -1px; width: 2px;
+  background: var(--line-2);
+}
+.itin-table tbody tr:first-child td.day::before { top: 14px; }
+.itin-table tbody tr:last-child td.day::before { bottom: auto; height: 14px; }
+.itin-table td.day::after {
+  content: ''; position: absolute; left: 1px; top: 14px; width: 10px; height: 10px;
+  border-radius: 50%; background: var(--card);
+  box-shadow: 0 0 0 2.5px var(--accent);
+  transition: box-shadow .25s ease, transform .25s ease;
+}
+/* The day under the cursor lights up and the rest of the rail stays quiet — the
+   one place on this tab where hovering tells a parent something. */
+.itin-table tbody tr:hover td.day::after {
+  transform: scale(1.25);
+  box-shadow: 0 0 0 3px var(--amber), 0 0 0 7px rgba(224, 135, 7, .18);
+}
+.itin-table tbody tr { transition: background .25s ease; }
+.itin-table tbody tr:hover { background: var(--wash); }
+
+/* ---- the three guideline columns ---------------------------------------- */
+
+.chip-row > * { animation: col-in .6s cubic-bezier(.2,.9,.3,1) backwards; }
+.chip-row > *:nth-child(2) { animation-delay: .12s; }
+.chip-row > *:nth-child(3) { animation-delay: .24s; }
+@keyframes col-in { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: none; } }
+
+/* A light crossing the column head, once every few seconds and offset per
+   column so the three never flash together. */
+.chip-head { position: relative; overflow: hidden; }
+.chip-head::after {
+  content: ''; position: absolute; top: 0; bottom: 0; width: 40%;
+  background: linear-gradient(90deg, rgba(255,255,255,0), rgba(255,255,255,.65), rgba(255,255,255,0));
+  transform: skewX(-20deg);
+  animation: shine 7s ease-in-out infinite;
+  pointer-events: none;
+}
+.chip-row > *:nth-child(2) .chip-head::after { animation-delay: 1.4s; }
+.chip-row > *:nth-child(3) .chip-head::after { animation-delay: 2.8s; }
+
+/* The icon sits up when the column is pointed at. It is the column's own symbol
+   from `GRADES`/`buildSections`, so this adds no meaning — only life. */
+.chip-icon { transition: transform .3s cubic-bezier(.2,1.5,.4,1), border-color .3s ease, color .3s ease; }
+.chip-col:hover .chip-icon { transform: translateY(-3px) rotate(-7deg); border-color: var(--accent); }
+
+/* The numbered rules count themselves in. */
+.chip-lines li { animation: rise-soft .45s cubic-bezier(.2,.9,.3,1) backwards; }
+.chip-lines li:nth-child(1) { animation-delay: .06s; }
+.chip-lines li:nth-child(2) { animation-delay: .12s; }
+.chip-lines li:nth-child(3) { animation-delay: .18s; }
+.chip-lines li:nth-child(4) { animation-delay: .24s; }
+.chip-lines li:nth-child(5) { animation-delay: .3s; }
+.chip-lines li:nth-child(n+6) { animation-delay: .36s; }
+.chip-mark { transition: transform .25s cubic-bezier(.2,1.5,.4,1); }
+.chip-lines li:hover .chip-mark { transform: scale(1.18); }
+
+/* ================================================================= TRAVEL == */
+
+/* The route line is the one thing on this page that can draw the journey it
+   describes, so it does: a dashed track that runs, and the vehicle travelling
+   it end to end instead of sitting in the middle of it. */
+.travel-route .track {
+  background: repeating-linear-gradient(90deg, var(--accent) 0 7px, transparent 7px 14px);
+  opacity: .85;
+  overflow: visible;
+}
+.travel-route .track::before {
+  content: ''; position: absolute; inset: 0;
+  background: repeating-linear-gradient(90deg, var(--accent) 0 7px, transparent 7px 14px);
+  animation: slide-14 .9s linear infinite;
+}
+/* One dash period, so the sleepers never jump. */
+@keyframes slide-14 { to { transform: translateX(-14px); } }
+
+/* Departs on the left, arrives on the right — the icon travels the same way a
+   parent reads the card. `left` rather than a transform because the icon's own
+   transform is what centres it on the line. */
+.travel-route .track span {
+  animation: ride-track 4.2s cubic-bezier(.45,0,.55,1) infinite;
+  z-index: 1;
+}
+@keyframes ride-track {
+  0%, 6%    { left: 0%; }
+  50%, 56%  { left: 100%; }
+  100%      { left: 0%; }
+}
+/* Facing the way it is going: flipped on the return half of the loop. */
+.travel-route .track svg { animation: face 4.2s steps(1, end) infinite; }
+@keyframes face {
+  0%, 50%   { transform: scaleX(1); }
+  56%, 100% { transform: scaleX(-1); }
+}
+
+/* The train number is the card's badge; a slow pulse keeps the eye on it
+   without it blinking. */
+.travel-top .train { animation: badge-pulse 3.6s ease-in-out infinite; }
+@keyframes badge-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(43, 58, 143, 0); }
+  45%      { box-shadow: 0 0 0 5px rgba(43, 58, 143, .1); }
+}
+
+/* Each fact in the prose block arrives in turn, so a parent's eye lands on
+   Departure before Arrival instead of on a finished paragraph. */
+.travel-notes .travel-key:nth-of-type(1) { animation-delay: .1s; }
+.travel-notes .travel-key:nth-of-type(2) { animation-delay: .22s; }
+.travel-notes .travel-key:nth-of-type(3) { animation-delay: .34s; }
+.travel-notes .travel-key:nth-of-type(4) { animation-delay: .46s; }
+.travel-notes .travel-key:nth-of-type(n+5) { animation-delay: .55s; }
+
+
+/* ---- the prose card's own journey rail ----------------------------------
+
+   The structured `.travel-route` line only renders where the sheet fills the
+   train/departure/platform COLUMNS, and the school writes travel as prose in one
+   cell instead — so on the real data that line never appears and the tab had no
+   journey on it at all. This rail is the prose card's equivalent: a track down
+   the left with a dot against every labelled fact, and a light running down it.
+
+   It hangs off `.travel-line`, one block per line of the cell. */
+.travel-notes { position: relative; padding-left: 26px; }
+.travel-notes::before {
+  content: ''; position: absolute; left: 4px; top: 9px; bottom: 9px; width: 2px;
+  background: repeating-linear-gradient(180deg, var(--line-2) 0 6px, transparent 6px 12px);
+}
+/* The light that runs the rail, once every few seconds — the only thing on the
+   card that moves, so it reads as travel rather than as a loading bar. */
+.travel-notes::after {
+  content: ''; position: absolute; left: 3px; width: 4px; height: 34px; border-radius: 4px;
+  background: linear-gradient(180deg, rgba(43,58,143,0), var(--accent), rgba(43,58,143,0));
+  animation: rail-light 4.6s ease-in-out infinite;
+}
+@keyframes rail-light {
+  0%        { top: 0; opacity: 0; }
+  12%       { opacity: .9; }
+  78%       { opacity: .9; }
+  90%, 100% { top: calc(100% - 34px); opacity: 0; }
+}
+
+.travel-line { display: block; }
+/* The blank line the school asked for before a return leg — a margin now, not a
+   doubled newline, and the same size on the page. */
+.travel-line.is-leg { margin-top: 1.05em; }
+
+/* A dot against each fact, filled where the line carries one of the labels the
+   card is scanned for and hollow where it does not. */
+.travel-line { position: relative; }
+.travel-line::before {
+  content: ''; position: absolute; left: -26px; top: .55em; width: 9px; height: 9px;
+  margin-left: 0.5px; border-radius: 50%;
+  background: var(--card); box-shadow: 0 0 0 2px var(--line-2);
+}
+.travel-line:has(.travel-key)::before {
+  background: var(--accent); box-shadow: 0 0 0 2px var(--card), 0 0 0 4px rgba(43,58,143,.16);
+}
+/* The first fact of a leg is the departure or the return: a larger ring, so the
+   two halves of the journey are findable without reading. */
+.travel-line.is-leg:has(.travel-key)::before {
+  background: var(--amber); box-shadow: 0 0 0 2px var(--card), 0 0 0 5px rgba(224,135,7,.2);
+}
+
+/* ---------------------------------------------------------- reduced motion */
+
+/* As in motion.css: stopped, not shortened. Everything above is designed to be
+   correct standing still, so one block is enough — and the two decorative
+   pseudo-elements that exist ONLY to move are hidden rather than frozen
+   mid-sweep across a photograph. */
+@media (prefers-reduced-motion: reduce) {
+  .home-photo, .home-photo-band::after,
+  .home-below .section-head, .home-batches > *,
+  .home-batch-card .batch-tag, .home-about .home-lead, .home-about .home-body-text,
+  .itin-table tbody tr, .itin-table td.day::after, .chip-row > *,
+  .chip-head::after, .chip-icon, .chip-lines li, .chip-mark,
+  .travel-route .track::before, .travel-route .track span, .travel-route .track svg,
+  .travel-top .train, .travel-notes::after {
+    animation: none !important;
+    transition: none !important;
+    transform: none !important;
+    opacity: 1 !important;
+  }
+  .home-photo-band::after, .chip-head::after,
+  .travel-route .track::before, .travel-notes::after { display: none; }
+  /* Standing still the icon belongs in the middle of the line, which is where
+     the kit puts it; `ride-track` is what moved it to the left edge. */
+  .travel-route .track span { left: 50%; transform: translate(-50%, -50%) !important; }
+}

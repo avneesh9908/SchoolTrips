@@ -38,6 +38,13 @@
     "g7": "/trip-photos/g7.jpg"
   },
 
+  "_venuePhotos": "The reporting-venue picture on the Travel details tab, keyed by grade id: ONE path or Drive share link per grade. Used only while the sheet's Reporting Venue column is empty for that trip; once the school fills that column, the sheet wins.",
+  "venuePhotos": {
+    "g7": "/venue-photos/surat-station.png",
+    "g9": "/venue-photos/surat-station.png",
+    "mlc": "/venue-photos/surat-station.png"
+  },
+
   "_tripCardPhotos": "The photograph on the grade card in the picker, keyed by grade id. Optional: a grade with no entry here uses its tripPhotos image, and with neither it keeps the grade's colour and icon. It exists separately because the card is a wide 2.6:1 strip while the trip page's banner fills the window, so the same file rarely crops well in both. Served publicly and not behind the login, exactly like tripPhotos, and takes a Drive share link the same way — fetched at 1200px wide here against the banner's 1600px, because the card is only a 132px strip.",
   "tripCardPhotos": {
     "sk": "/trip-photos/sk-card.jpg",

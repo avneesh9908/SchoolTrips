@@ -137,6 +137,7 @@ separated).
 | "That sign-in was not issued for this site" | `googleClientId` and `GOOGLE_CLIENT_ID` are different values. |
 | "Sign-in is not available right now" | `GOOGLE_CLIENT_ID` is not set on the **server**. The browser half alone is not enough. |
 | A parent is refused although they are on the roster | Their `FatherEmail` in the roster is not the address they signed in with, or it is not a Google account. See below. |
+| Google's own **"500. That's an error."** on `accounts.google.com/signin/oauth/v3/consent` | Google's consent page failing, not this site — and it is per-browser, so the client id and roster are fine. That profile's `accounts.google.com` cookie state is stale, or several Google accounts are signed in and `authuser=0` does not resolve to the consenting one. Confirm in incognito, then sign out of **all** Google accounts, sign in with only the school account, and retry. If it persists, clear cookies for `google.com`/`accounts.google.com`, allow third-party cookies for `accounts.google.com`, and disable privacy/ad-block extensions. Nothing to change here. |
 | Changes did not take on Netlify | Functions read environment variables at deploy time. Redeploy. |
 
 ---

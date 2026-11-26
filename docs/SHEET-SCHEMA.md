@@ -90,6 +90,11 @@ sees another group's packing list.
 `MLC`, `MlC` and `MIC` are all read as MLC. Any *other* value that is not a grade drops the
 whole row off the site with no visible error.
 
+**Reporting venue photo — `Reporting Venue` (optional).** Every grade reports to one venue,
+so this is one photo per grade: put its Drive link (shared *Anyone with the link → Viewer*) or
+a smart chip on the grade's first row. It shows at the top of the **Travel details** tab; an
+empty cell shows nothing.
+
 **Who sees which MLC trip is decided by the student list, not this sheet.** MLC and Mavericks
 are the same programme: a student whose section is `Mavericks - 9` is an MLC student.
 Grades 7–12 Mavericks students open the **MLC** card (and not their own grade's trip); Grade 5

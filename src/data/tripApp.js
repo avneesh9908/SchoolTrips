@@ -116,6 +116,24 @@ const BATCH_LINK_COLUMNS = [
 ]
 
 /**
+ * The reporting venue: where children are dropped off, as a PICTURE on Travel
+ * details (2026-11-26). Every grade reports to ONE venue, so this is one photo
+ * per trip — the first link found down the trip's rows, a smart chip or a pasted
+ * URL.
+ */
+const VENUE_ALIASES = ['reportingvenue', 'reportingvenueimage', 'reportingvenuephoto', 'venue', 'venueimage']
+
+function venueFrom(rows) {
+  for (const row of rows) {
+    const cell = val(row, ...VENUE_ALIASES)
+    if (!cell) continue
+    const url = linkFor(row, ...VENUE_ALIASES) || cell.match(/https?:\/\/\S+/i)?.[0]
+    if (url) return url
+  }
+  return ''
+}
+
+/**
  * Common to the whole grade. The school fills these once, on the merged first
  * row of the group, so they must be read across every row — reading only the
  * student's own batch row loses them for everyone in Batch 2.
@@ -658,6 +676,8 @@ export function assembleTripApp(gradeId, rows, { section, tripIndex = 0 } = {}) 
     }))
     .filter((t) => t.notes)
 
+  const venue = venueFrom(all)
+
   const lostLinks = []
   const documents = [
     ...documentsFrom(all, BATCH_LINK_COLUMNS, lostLinks, { labelOf }),
@@ -768,6 +788,8 @@ export function assembleTripApp(gradeId, rows, { section, tripIndex = 0 } = {}) 
     carry: textLines(['thingstocarry', 'packinglist']),
     reminders: [],
     travel,
+    /** The reporting venue's photo URL, or '' — one per trip. */
+    venue,
     media,
   }
 }

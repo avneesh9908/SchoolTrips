@@ -42,12 +42,16 @@ src/
   main.jsx            BrowserRouter > AuthProvider > App
   App.jsx             routes + footer
   auth/               AuthContext, RequireAuth / RequireStudent
-  components/         Icon, Section, DocCard, TopBar, States
+  components/         Icon, Section, DocCard, TopBar, States,
+                      Camera, Scenes (the packing drawing)
   data/               index (adapter pick), sheetsAdapter, apiAdapter, csv,
                       normalize, useTrip, useTripTitles, guidelineFallback
-  lib/                grades, phone, docPreview, tripPhoto
+  lib/                grades, phone, docPreview, tripPhoto, journey (vehicle
+                      choice + the reduced-motion gate), sfx (synthesised sound)
   pages/              Login, ChildPicker, TripPage
-  styles/             tokens.css, global.css
+  styles/             tokens.css, global.css, motion-base.css + motion.css +
+                      tabs-motion.css + entry-motion.css + scenes.css (the
+                      animated layer — additive, removable in five @import lines)
 ```
 
 ## Routes
@@ -262,6 +266,38 @@ the JS bundle — any parent can open the raw sheet and read every family's row.
 filter is then **UI convenience, not a security boundary**. Real per-grade control needs the
 `api` adapter backed by a service that holds a service-account key. Restate this whenever
 someone proposes going live on the sheets adapter.
+
+**Live production IS on the sheets adapter** (`public/config.json`: `dataSource: "sheets"`,
+`publishedId` set to the published-to-web snapshot) — so the caveat above is not hypothetical
+on trips.fsksurat.in. Asked 2026-10-15 ("can a student edit `/trip/g11/t/0` to `/trip/g4/t/0`
+and see another grade?"), the answer has three layers and only the first is a real gate:
+1. **Typing another grade in the address bar does nothing.** `TripPage` gates on
+   `canAccessGrade(gradeId)` and renders "Not your child's grade" with `enabled: false`, so no
+   request is made. For an ordinary parent or student this is airtight.
+2. **DevTools defeats it in seconds.** The grade list lives in `sessionStorage`
+   (`schoolTrips.session` → `grades`) and `canAccessGrade` is a plain array check in the
+   browser; editing that key and reloading opens any grade. There is no server check on
+   content — `/api/lookup` guards sign-in only, never a trip read.
+3. **Even the session is unnecessary.** Every trip read is a direct browser fetch of the
+   published spreadsheet whose URL ships in the bundle, so the whole school's content is
+   readable with no login at all. Trip photos under `public/` are likewise public.
+   So nothing beyond the grade's own trip copy should be considered private, and anything
+   genuinely confidential must not go in that workbook.
+Closing layers 2 and 3 means the `api` adapter: a server that takes the Google token, derives
+the grade server-side and returns only that grade's rows.
+**Decision 2026-10-15: left as is for now** — the risk is understood and accepted, not
+overlooked. Do not re-open it unasked; do restate it if anything confidential is proposed for
+the workbook.
+
+**Asked 2026-10-15: "can the URL be encoded so a student cannot identify the grade?"** Yes,
+technically — but it buys nothing and the answer is no. `GRADES` in `src/lib/grades.js` ships
+in the bundle, so any static slug (`/trip/x7f3k9`) is one DevTools look away from being mapped
+back to `g4`; the `sessionStorage` bypass and the public published sheet (layers 2 and 3) are
+untouched either way. The one layer it would genuinely add is a **per-session opaque token** —
+issued by the server at sign-in as an HMAC of grade + verified email — which stops a working
+link being *shared* between students. That still needs the server to be in the content path,
+i.e. the `api` adapter, at which point the token is the small part of the job. So: obfuscating
+the grade id alone is not worth doing; recommend the `api` adapter or nothing.
 
 ## Data layer
 `src/data/index.js` picks an adapter from `VITE_DATA_SOURCE`, defaulting to `mock`.
@@ -1771,6 +1807,232 @@ Section pieces, all fed from the existing trip object:
 `DocCard` now matches the design: 44px tinted icon square, 18px title, coloured action line. The
 Drive thumbnail is still shown when it loads, so the preview capability was not dropped.
 
+## The animated layer — branch `redesign-trip-app` (2026-10-17, NOT on main)
+
+The school asked for a site a child enjoys using: an animation when a grade is picked, a
+welcome after sign-in, the itinerary as carriages, and photographs that move with a camera
+click. Built on its own branch at the user's instruction — **"never commit, never push"
+until the whole thing has been verified and shown.** `main` is what parents are using today
+and must not move.
+
+**It is a LAYER, not a rewrite.** Two stylesheets and three components were added; the navy/
+amber kit, the data layer, the grade gate, the tab machinery and every existing component are
+untouched. Removing the two `@import` lines at the top of `global.css` returns the site to the
+static design exactly. Nothing a parent needs is ever inside an animation.
+
+- **`lib/journey.js`** — named for the overlay it used to drive, kept for what outlived it.
+  `vehicleFor(gradeId, text)` picks train / bus / plane / boat from
+  words the SHEET already contains ("flight", "train", "by road"), falling back to bus for EY–G5
+  and train above. **It is decoration and is never presented as a fact**: no screen says how a
+  child travels on the strength of it, and the badge on the pick card is `aria-hidden`. The
+  Travel tab, which reads the cell, stays the only place that answers that question.
+- **The full-screen RIDE between the grade card and the trip page is GONE** (removed
+  2026-10-17 on the school's instruction: *"I want the animation on the pages, not between
+  them"*). `components/Journey.jsx` and `styles/journey.css` were deleted, `JourneyProvider`
+  came out of `App`, and both pickers navigate straight to the trip again, exactly as they did
+  before the branch. **Do not put it back without being asked** — it was built, shown and
+  turned down, and that is the clearest instruction on this branch.
+  What survived it: `vehicleFor` (the hover badge on the pick card still names a vehicle),
+  `reducedMotion`, and the six shared keyframes, which moved to **`styles/motion-base.css`**
+  along with the welcome screen's birds — the one element whose rules the deleted file still
+  owned. `sfx.whistle()` went with the overlay; `shutter` and `chime` remain.
+- **~~`components/Arrival.jsx`~~ — DELETED 2026-11-26 at the school's request.** It was the
+  once-per-sign-in full-screen welcome (valley, train, balloon) over the picker. The school saw it
+  as "train and bus full-screen graphics when switching to All grades" and asked for it gone.
+  Removed with it: `markArrival` in `Login`, the `.arrival` block in `motion.css`, its birds in
+  `motion-base.css`, `ARRIVAL_MS` in `journey.js` and `sfx.chime()`. Do not bring back a
+  full-screen layer between pages. **`SafetyScene` (the marching children above the Safety deck)
+  was removed the same day**, for the same reason. `PackingScene` on Things to carry stays,
+  because the school did not ask for it to go.
+- **`components/Camera.jsx`** — the shutter flash and the sound switch.
+- **`lib/sfx.js`** — shutter and chime synthesised with Web Audio. **No audio file
+  joins the repo**: nothing to host, nothing to download on a parent's data, no licence
+  question over a sound effect on a school's site. **Muted until a parent turns it on**
+  (`localStorage`), because a phone opened in a corridor must not make a noise.
+
+### The three tabs, animated (2026-10-17, same branch)
+`styles/tabs-motion.css` is the third file. Same contract: decoration only, no layout, no
+colour, no content, and one reduced-motion block at the foot.
+
+- **Overview** — a 32-second, 4% Ken Burns on the school's photograph (small and slow on
+  purpose: a parent reading the dates underneath must not catch it moving), a light sweeping
+  the band every nine seconds, and the **batch cards as boarding passes** — a notch punched
+  into each side and the batch label landing like a rubber stamp. The notches are
+  pseudo-elements on the card the kit already draws; no markup was added.
+  **The amber rule under the destination is the KIT'S.** Adding one here drew two, which is
+  what the first attempt shipped; the head is only animated now.
+- **Itinerary** — the day-by-day table set as a **timeline**: a rail down the Day column with
+  a ringed dot per row, the dot under the cursor lighting amber, and the rows arriving in
+  sequence. The three guideline columns stagger in, their heads catch a light on a staggered
+  delay so the three never flash together, and each icon sits up when its column is pointed at.
+- **Travel** — see below. The structured route line got a dashed track that runs and a vehicle
+  that travels it end to end, facing the way it is going.
+
+#### The Travel tab's journey rail, and why `TravelNotes` changed
+`.travel-route` — the Departs/track/Platform row — **only renders where the sheet fills the
+train/departure/platform COLUMNS, and the school writes travel as prose in one cell instead**.
+So on the real data that line never appears and the tab had no journey on it at all. The rail
+is the prose card's equivalent: a dashed track down the left of `.travel-notes`, a dot against
+every labelled fact (navy for a fact, **amber for the first fact of a leg**, hollow for an
+unlabelled line), and a light that runs the length of it every few seconds.
+
+That needed a box per fact, and `TravelNotes` rendered one paragraph of newlines. It now emits
+**one `<span class="travel-line">` per line**, with `is-leg` on a return leg. *The rendered
+result is unchanged* — the same words and the same blank line before the return leg, which is
+the school's own reading of this card (2026-08-20) and must not move — but the gap is a CSS
+margin (`.travel-line.is-leg { margin-top: 1.05em }`) instead of a doubled `
+` in the text.
+`Fragment` is no longer imported by `TripPage`.
+
+#### Two sections of this animation have NO data to animate today
+Worth knowing before hunting for a bug that is not there:
+- **`.itin-table` has no rows on any grade.** The school keeps day-by-day plans in linked
+  documents, so the timeline above never appears on today's sheet. It is kept because
+  `docs/SHEET-SCHEMA.md` still defines those columns and a grade that fills them gets it free.
+- **`.chip-lines` is empty too** — the guideline columns are live Slides embeds and the text
+  fallback is switched off. Both were verified by injecting the same markup into the live tab
+  so the real CSS styled it.
+
+### The way in — login and top bar (2026-10-17, same branch)
+`styles/entry-motion.css` is the fourth file, plus one decorative component, `LoginScene`
+in `Login.jsx`.
+
+- **The whole login page is ONE journey** (reworked 2026-10-17 from the school's note). The
+  stock photograph — still the documented generic one, not the school's — is no longer the left
+  column's background: it is `.login-bg`, a **fixed** full-page backdrop, and it reads as the
+  **destination**. A train crosses the page towards it on an eleven-second loop, passes a
+  signpost marker near the right-hand edge, and comes round again; a plane crosses higher up on
+  a twenty-three-second cycle, so the two are rarely in step. The sign-in card floats on that
+  same scene with a deeper shadow and a rim instead of sitting on a pale panel beside it.
+- **It loops, and that is deliberate.** This is a page a parent sits on while Google decides
+  whether it knows them; an animation that finishes leaves a still picture for the rest of that
+  wait.
+- **Fixed, not absolute.** Stacked on a phone the page is well over a thousand pixels tall, and
+  a scene stretched over all of it puts the track below the fold. Fixed, the journey is always
+  behind whatever is on screen — and `.login-form` gets 120px of bottom padding under 900px so
+  the track shows below the card instead of running behind it unseen.
+- **Two classes, not one, to override the kit here.** `.login-art { background: … }` and
+  `.login-form { background: … }` are single-class rules in global.css, whose own rules come
+  after its `@import`s — so `.login-art { background: none }` lost the tie and the navy gradient
+  painted straight over the fixed scene, showing no photograph at all. `.login .login-art` wins.
+  (Same lesson as `.card-grid > .pick-card`; it is the standing trap in this layer.)
+- **Still Google-only.** The school's note mentioned "Google and ID password". The typed
+  identifier box was removed on 2026-08-21 because knowing an address was the whole credential,
+  and a password field has never existed here — adding either back would undo that fix, so the
+  card carries Google's button and nothing else. Worth raising with them directly.
+- **The card assembles in reading order** — brand, heading, the two instruction panels, the
+  control, then the small print — and the sign-in control carries a slow breathing ring. The
+  ring is **shadow-only and `pointer-events: none`**: Google's button is its own iframe and
+  must never be covered or moved.
+- **A departing bar while the roster is checked.** `Login` puts `is-busy` on `.login` from the
+  `busy` flag that already drives the "Checking the school records…" hint, and the card grows a
+  moving track along its foot. It is a STATE, not a progress bar — it claims no idea how far
+  along it is.
+- **The top bar is the one place that gets almost nothing.** It is sticky chrome on every
+  screen for the whole visit, so **nothing there loops**: it plays once on arrival and after
+  that only answers a pointer (the monogram tilts, the ghost buttons take the same 2px lift
+  as the cards).
+
+**Its entrance is a 10px settle, never a `translateY(-100%)` drop.** The first version dropped
+the whole bar in — and the bar wraps to three rows on a phone (217px measured at 286px wide),
+so it left a blank strip across the top of the page for the length of the animation.
+
+**Not ours, seen while testing:** `.card-grid` is `minmax(340px, 1fr)`, so below about 340px
+the pick cards overflow the window. The preview pane here is 286px; a real phone is 360px or
+more, so it is not reachable in practice — but it is the kit's grid, not the animation.
+
+### "Animate the page, not the gap between pages" (2026-10-17, the school's note)
+Sent with five screenshots. Read literally: *"you add some animation middle of one page to
+second page. I want to make a same page animated."* Three things came out of it, all in
+`styles/scenes.css` plus two components.
+
+- **A title sequence before sign-in** (`JourneyIntro`) — built, then **deleted the same day**
+  when the school saw it: *"I want a login page on same animation … not add extra pages."* It
+  was still an extra screen before the one they wanted animated. See the login section below
+  for what replaced it. **Do not rebuild it.**
+- **The grade cards actually float** — each on its own 5.5s offset, and pointing at one stops
+  it so the card being aimed at holds still.
+- **Two drawn scenes beside the guideline decks** (`Scenes.jsx`): a child throwing a bottle, a
+  torch, a cap, a shoe, a plug and an apple into a backpack beside **Things to carry**, and a
+  teacher leading three children along a path, with a green tick badge, at the head of
+  **Safety**. Both are `aria-hidden` and **illustrate without instructing** — not one item or
+  rule is read from the sheet, and the deck beside them is the content. Elements and gradients
+  only: no image is fetched and nothing joins the deploy.
+
+#### The CSS fact that makes the float possible
+**`translate` and `transform` are separate properties.** The float animates `translate`; the
+entrance and the kit's hover lift use `transform`. A looping `transform` animation would have
+outranked `.pick-card:hover { transform: translateY(-4px) }` and killed the lift — the trap
+recorded below. On two different properties the three compose.
+
+#### After the ride was removed
+Re-measured with the overlay gone: a grade click goes `/children` → `/trip/g7` with no overlay
+in between, the welcome still plays (its birds now styled from `motion-base.css`), the title
+sequence still plays with its plane and train, the pick cards still float and still carry their
+badge, and a fresh tab shows only the standing Google error. Build: CSS **93.7 kB** (18.5 kB
+gzipped) and JS 253.6 kB, both DOWN from 105.0 / 258.7 — the overlay really is out.
+
+#### A pre-existing bug this turned up — the picker's hover lift was already dead
+`.pick-card` carries the kit's own `animation: rise-in … both`, and `rise-in` ends on
+`transform: none`. A forwards-filled animation beats a `:hover` rule, so **the 4px card lift on
+the picker has never worked**, long before this branch. `scenes.css` restates that animation as
+`backwards` and gives it back.
+
+It also showed that **`.card-grid > *` in motion.css never applied at all**: it is one class, the
+kit's `.pick-card` is one class, and global.css's own rules come AFTER its `@import`s, so the kit
+won every tie. Anything in this layer that overrides a kit rule needs two classes —
+`.card-grid > .pick-card`. Worth checking the rest of the layer against this.
+
+### Four things this cost a round trip to learn
+- **A `useState` initialiser that consumes a flag is not StrictMode-safe.** `Arrival`'s first
+  render took the `sessionStorage` flag and the StrictMode second render found it gone, so the
+  welcome never appeared at all. Answered once per page load and cached in a module-level
+  variable now.
+- **`animation-fill-mode: both` on an entrance silently kills `:hover`.** A filled-forwards
+  `transform` outranks the kit's own `.pick-card:hover { transform: translateY(-4px) }`. Every
+  entrance in `motion.css` is `backwards`, which plays the same animation and then hands the
+  element back to its own rules.
+- **A scrolling strip must travel a whole number of its own repeating units.** The first
+  parallax translated `-33.34%` of a 300%-wide row of five, which is not a span boundary, and
+  the loop jumped. Hills and trees now shift `-20%`; the pixel-measured ground textures
+  (sleepers, road dashes, water) have their own `slide-40/88/34` keyframes travelling exactly
+  one period.
+- **An opacity animation on a container fades its own pseudo-elements.** The shutter blades
+  were children of the fading white flash and never appeared. The overlay is now inert and the
+  flash and the blades are two independent pseudo-elements; both blades live in ONE element as
+  two background layers, because a pseudo-element cannot have one of its own.
+
+### Verified 2026-10-17 (local, staff session, ~290px pane, `npm run dev` on 8080)
+Picker 15 cards / 12 ride badges (a coming-soon grade gets none); the arrival welcome plays
+once and lifts; Travel, Itinerary
+(two coupled carriages) and Photos all render; the shutter closes and opens; the film strip and
+both sound-switch states draw correctly. `npm run build` passes — 77 modules, CSS 79.9 kB
+(16.2 kB gzipped), **no new dependency**. (The ride overlay this paragraph originally also
+covered was removed later the same day — see above.)
+
+**Not verified:** the `prefers-reduced-motion` path — the preview browser cannot emulate the
+setting. The code gate (`reducedMotion()` in `lib/journey.js`, the media block at the foot of
+`motion.css`) is written and reviewed but has not been seen running.
+
+**Grade 7 has no `media` rows**, so the film strip, the sound switch and the shutter do not
+appear on its Photos tab at all — by design, the app invents no photographs. They were checked
+by injecting the same markup into that tab so the real CSS styled it.
+
+Second pass, same day: Overview (Ken Burns, one amber rule, notched batch cards on g4 and g7),
+Itinerary (timeline and numbered rules, injected), Travel (g7 prose rail — 8 lines, 2 leg
+starts, dots and running light correct) all render, and a **fresh tab reports no console
+output at all**, which is the only clean read of that buffer. `npm run build` passes; CSS
+87.2 kB (17.4 kB gzipped), still no new dependency.
+
+Third pass: the login scene, the card's staggered entrance, the busy bar and the top bar all
+verified live; `npm run build` passes, CSS 93.1 kB (18.4 kB gzipped), still no new dependency;
+a fresh tab shows only the two standing Google sign-in errors (no OAuth client id locally).
+
+**Screenshots of the preview pane lag the page by a second or more.** Three "bugs" in this
+pass — invisible table rows, a blank Overview, missing travel labels — were all a screenshot
+caught mid-entrance while `getComputedStyle` already read `opacity: 1`. Query the element
+before believing the picture.
+
 ## Design system — the "School Trips Portal" navy/amber kit (2026-08-13, current)
 The white/coral kit below was itself replaced the same day by the design the user supplied at
 `claude.ai/design/p/e7a8d8f0-3527-4ab7-91a4-1b9de8cb47aa` ("School Trips Portal", file
@@ -2797,6 +3059,26 @@ which needs no App.
   `railway up` half way leaves the service on a half-uploaded build.
 - **If the GitHub App is ever installed, delete this file.** Two things deploying one service
   race, and the loser silently wins.
+- **Only the `avneesh9908` GitHub account can push** (2026-11-26). This machine's `gh` has two
+  logins, and the ACTIVE one is `a2craftstudio`, which gets `403 Permission … denied` on
+  `avneesh9908/SchoolTrips`. The user chose a one-off push as avneesh9908 over `gh auth switch`
+  (switching would change the account other repos push with): `git -c credential.helper= -c
+  'credential.helper=!f() { test "$1" = get || exit 0; echo username=avneesh9908; echo
+  "password=$(gh auth token --user avneesh9908)"; }; f' push origin main`. Ask again each time.
+  That choice was for one push.
+- **`Invalid RAILWAY_TOKEN` in the Deploy step = the secret expired or was revoked**, not a
+  code problem (first seen 2026-11-26; the last good deploy was 2026-10-17). The step before it
+  only checks that the secret is non-empty, so it passes. Fix: Railway → the project → Settings
+  → Tokens → new **project** token for `production`, paste it into GitHub → Settings → Secrets
+  and variables → Actions → `RAILWAY_TOKEN`, then re-run the failed run. The user does this.
+  Never handle the token. No Railway CLI is installed on this machine, and a local `railway up`
+  from the redesign checkout would ship the uncommitted redesign anyway.
+  **Check the secret's date before re-running:** `GH_TOKEN="$(gh auth token --user avneesh9908)"
+  gh secret list --repo avneesh9908/SchoolTrips` shows name and updated-at, never the value.
+  On 2026-11-26 the user reported the token updated, the re-run failed the same way, and the
+  list still read `RAILWAY_TOKEN 2026-08-21T08:51:24Z`. The new token never reached this
+  repo's **Actions** secret, so a re-run could not have worked. Not under Codespaces or
+  Dependabot, and the repo has no Environments.
 
 ## Railway — the second host, and why it needed a server
 The repo auto-deploys to **two** public URLs from the same `main`:
@@ -2888,8 +3170,141 @@ Removing it restored Railpack, Railway's current default. Verified on the live d
 the resolved packages at all**.
 
 ## The real roster feed — needs a backend, cannot be used from the browser
-The school publishes its roster at `.../CSVDATA/StudentData.csv` (an HTTP IP that 302s to an
-HTTPS host). Checked 2026-08-11; only row 1 was fetched, never the records.
+The school publishes its roster at `http://3.109.112.169/FSVault_26/StudentData.csv`, which
+302s to `https://nucleus.fountainheadschools.org/FSVault_26/StudentData.csv` — the school's own
+domain, which is what makes the bare IP legitimate rather than suspicious.
+
+**The path MOVED: `/CSVDATA/` → `/FSVault_26/` (confirmed 2026-10-16 by HEAD, no body read).**
+`/CSVDATA/StudentData.csv` now answers **404**; `/FSVault_26/StudentData.csv` answers **200**.
+A `ROSTER_CSV_URL` still on the old path makes `loadRoster()` throw `Roster feed returned HTTP
+404`, which surfaces as the 502 banner **"Could not reach the school roster right now."** —
+the same screenshot parents sent on 2026-10-16. **Prefer the `https://nucleus…` URL over the
+HTTP IP**: the roster carries home addresses, DOB, blood groups and Aadhaar names, and the
+HTTPS form skips the plaintext hop entirely.
+
+`FSVault_26` also holds **`StaffData.csv`** (200). It is **not** a roster this app reads — staff
+access comes from the `ADMIN_EMAILS` server variable, never from a CSV — so pointing
+`ROSTER_CSV_URL` at `StaffData.csv` would break every parent login. `StudentData.csv` is the file.
+
+### 2026-10-16 — the roster WAS published, briefly. What it exposed
+Despite the warning above, `Publish to the web` was completed on spreadsheet
+`1Z4BmtJN117xgWF9Nh4Bwvltn2ugApk14HecNW5Tt6Gc`, producing a `/spreadsheets/d/e/2PACX-1vRflb0oN…/pubhtml`
+link. It was believed to be the staff workbook; **it was the student roster.** Verified by fetching
+`?output=csv` — headers and row count only, body discarded immediately, no records read or stored:
+
+- **HTTP 200, ~1.02 MB, 2,629 student rows, no sign-in of any kind.**
+- Columns: `StudentID`, `FSKID`, `Name`, `Grade`, `section`, `StudentEmailID`, `ParentsEmailID`,
+  `EmergencyContactNo`, `MothersMobileNo`, `FathersMobileNo`, `FatherName`, `MotherName`, `Gender`,
+  **`BirthDate`, `BloodGroup`, `StreetNo`, `Address1-3`, `City`, `State`, `StudentNameAsPerAadharCard`**.
+
+The underlying document stayed private — `/edit` still 302s to `accounts.google.com` signed out — so
+the exposure was the publish link alone. Publishing is a SEPARATE control from sharing: a Restricted
+document can still be fully public this way, which is exactly the trap here.
+
+**A published link is not undone by deleting it from a message.** Stop it at
+File → Share → Publish to web → Published content & settings → **Stop publishing**, then confirm the
+`/pub?output=csv` URL stops serving data. **Done the same day, and verified:** both `/pub?output=csv`
+and `/pubhtml` now answer **401 with a ~9 KB error page**, against 200 and 1.02 MB while published —
+so the closed state here reads 401, not the 404 first expected; what matters is that no CSV body
+comes back. Google may serve a cached copy for a period after that, and anyone
+who fetched it during the window keeps what they took. This is children's home-address and
+date-of-birth data, so treat the window as a reportable disclosure under the school's own policy
+rather than a configuration slip.
+
+### `Error 403: org_internal` — the OAuth client is Internal-only
+Seen 2026-10-16 testing with `avikaushik000@gmail.com`: Google's own screen, not the app's —
+*"Access blocked: School Trips can only be used within its organisation"*, `Error 403: org_internal`.
+
+The OAuth client's **User type is Internal**, so Google admits only accounts inside the school's
+Workspace (`fsksurat.in`) and refuses everything else **before any token is issued**. The app never
+runs, `/api/lookup` is never called, and the roster is irrelevant. A personal Gmail therefore cannot
+test this app under any circumstances — use a school address.
+
+**This matters well beyond testing.** It is a far better fit for *"certain parents cannot log in"*
+than the roster 502 is, because it fails **per account**: a parent on an `@fsksurat.in` address gets
+in, a parent whose contact address is a personal Gmail or Yahoo is blocked by Google with this
+screen — and the school never sees it, since it is not the app's error. **Ask the school whether
+every address in `ParentsEmailID` is a Workspace account.** The roster has 2,629 rows and
+`ParentsEmailID` is complete, but complete is not the same as in-domain. (unconfirmed: the domain mix
+in that column — I have never read the records.)
+
+Two ways out, if any parent is out-of-domain:
+- Issue those parents `@fsksurat.in` accounts. Keeps the client Internal, which is the tighter setting.
+- Switch the consent screen to **External** and publish it. The app requests only `openid email
+  profile` — non-sensitive scopes — so this needs **no Google verification review** and no 100-user
+  testing cap once published. Leaving it in *Testing* instead is the trap: that caps at 100 named
+  users.
+
+Not to be confused with the 2026-10-14 **`origin_mismatch`**, which is about the *origin* the app is
+served from and fails for everyone on that host. `org_internal` names the *account* and fails only
+for out-of-domain ones.
+
+### An ADMIN_EMAILS address CANNOT test the roster
+Worth knowing before anyone "adds a test email": `resolveSignIn()` checks `ADMIN_EMAILS` **before**
+`loadRoster()` is called, and returns `{role:'admin', students:[]}` straight away. So an admin address
+signs in successfully **even when `ROSTER_CSV_URL` is wrong, unreachable or unset** — it proves
+Google verification works and nothing at all about the feed. A green admin sign-in after a
+`ROSTER_CSV_URL` change is a false pass.
+
+Tell the two apart by what the app shows: the admin path lands with **every grade** and **no child
+card**; a real parent lands on their own child. Only the parent path exercises the roster.
+
+Equally, **adding an address to the Google Sheet does not add it to the feed.** The sheet is an
+`IMPORTDATA` mirror *of* `nucleus…/StudentData.csv`; the data flows one way. A row typed into the
+sheet never reaches what `ROSTER_CSV_URL` fetches. A test address has to be added in the school's
+own system (Nucleus), or the test has to use an address already on the roll.
+
+Never make this URL `ROSTER_CSV_URL`. The feed at `https://nucleus.fountainheadschools.org/FSVault_26/StudentData.csv`
+is the supported source and needs no publishing.
+
+### How production ACTUALLY got its roster — and why it broke (2026-10-16/17)
+The school explained the real chain, which no part of this repo records:
+
+```
+nucleus /CSVDATA/StudentData.csv  --IMPORTDATA-->  Google Sheet  --Publish to web-->  pub?output=csv
+                                                                                            |
+                                                                              ROSTER_CSV_URL points HERE
+```
+
+So the published sheet was **not** a new idea being trialled — it is how parents and students have
+been signing in all along. That explains why publishing felt routine to the school, and it means
+`ROSTER_CSV_URL` on Railway most likely holds a `docs.google.com/.../pub?output=csv` URL, not a
+nucleus one. **Check the variable before assuming.**
+
+The outage chain, start to finish: the school moved the feed `/CSVDATA/` → `/FSVault_26/` → the old
+path began answering **404** → `IMPORTDATA` had nothing to pull → the sheet went empty → the
+published CSV went empty or error → logins failed. The 502 banner in the parents' screenshot is the
+far end of that chain.
+
+**The sheet is an unnecessary middleman and should be removed from the login path entirely.** It
+exists only because of a misconception: CORS is a *browser* restriction, and `/api/lookup` is a
+*server*, so `fetch()` there can read `https://nucleus…/FSVault_26/StudentData.csv` directly. The
+sheet hop adds a public copy of 2,629 children's records, a second thing to break, and the exposure
+of 2026-10-16. Point `ROSTER_CSV_URL` straight at nucleus and the sheet never touches login again.
+
+If the school still wants the sheet for its own viewing, repoint its `IMPORTDATA` to `/FSVault_26/`
+and leave it **unpublished** — it is then just a staff convenience, not infrastructure.
+
+### NEVER "Publish to the web" the roster workbook
+On 2026-10-16 the staff/student workbook was open on **File → Share → Publish to web → Entire
+document**, one click from a public CSV. **Do not.** That control has no audience setting: the
+link is readable by anyone who has it, with no Google sign-in and no roster check, and Google
+serves it from `docs.google.com`, so it can be indexed and passed on. The rows visible in that
+screenshot alone carried names, mobile numbers, blood groups and home addresses.
+
+It is also **unnecessary** — `https://nucleus.fountainheadschools.org/FSVault_26/StudentData.csv`
+already answers 200, and that is what `ROSTER_CSV_URL` wants. Publishing would create a *second*
+public copy of the same PII, at a URL that then has to be found and revoked later.
+
+And it would **undo the design**: the whole reason `/api/lookup` exists is that the roster must be
+read server-side and reduced to `{id, name, grade, section}` before anything reaches a browser. A
+published CSV is readable wholesale by any parent with devtools.
+
+The distinction to hold on to: the **trips workbook** is published to web on purpose
+(`publishedId` in `config.json`) because it carries **no personal data**. The roster workbook
+carries blood groups and addresses. Same menu item, completely different consequence.
+
+Checked 2026-08-11 at the old path; only row 1 was fetched, never the records.
 
 - **No `Access-Control-Allow-Origin` header.** Confirmed in the browser, not just by curl: a
   direct `fetch()` fails with `TypeError — Failed to fetch`. Not something code can work
@@ -3037,6 +3452,33 @@ Raised in `docs/DATA-HANDOVER.md`; none answered yet. Do not assume any of these
 - `legacy/trip-explorer.html` is frozen reference. Do not edit it.
 
 ## Changelog
+- 2026-11-26 (graphics) — **Two redesign graphics removed on the school's request**: the
+  full-screen welcome curtain after sign-in (`Arrival.jsx`, deleted; it was untracked, so it is
+  not in git history) and the Safety drawing (`SafetyScene` plus its `scenes.css` rules). Leftovers
+  cleared: `markArrival`, the `.arrival` CSS, `ARRIVAL_MS`, `chime`. The packing drawing stays.
+  Verified on dev: picker shows no curtain even with the `trips.arrive` flag set, no
+  `.scene-safety` on Itinerary, `.scene-pack` still on Things to carry, no console errors.
+- 2026-11-26 (venue) — **Reporting-venue photo on Travel details — ONE per grade.** The school:
+  *"every grade have only one venue and one photo"* (a first two-photo version was cut back the
+  same day; do not reintroduce a second column). Sheet column `Reporting Venue` → `trip.venue`
+  (first link down the trip's rows, chip or pasted URL) via `venueFrom` in `tripApp.js`.
+  Fallback `config.venuePhotos[gradeId]` = one path/link string, read only while the sheet cell
+  is empty; `TripPage.venueFor`. A venue alone opens the Travel tab. **Photo and travel card side
+  by side** (the school's request, from a screenshot): `.travel-split.has-venue` is two equal
+  columns, one column under 860px. **Enlarged on request ("increase height and width")**: the pair
+  fills the page up to 1320px (it had been capped at ~1040 by the section), photo 4:3, the card
+  stretched to the photo's full height with its text centred, notes 17px / label 19px (15px on a
+  phone). Measured at 1440: photo and card 646×485 each (were 508 wide, 318/216 tall); at 375:
+  stacked, 339 wide, no horizontal overflow. Captioned "Reporting venue";
+  a photo that fails to load becomes a link. Set via config: g7, g9 and mlc →
+  `public/venue-photos/surat-station.png` (Surat station, the user's photo). Verified on dev:
+  g7/g9/mlc one photo each, g8 none, no console errors. Uncommitted, on `redesign-trip-app`.
+- 2026-11-26 (later) — **MLC fix shipped as `ee4ae84` on `main`, alone.** Ported into a
+  temporary `main` worktree so none of the uncommitted redesign went with it; `redesign-trip-app`
+  then moved onto `ee4ae84` with `git reset --mixed`, so its working tree diff is the redesign
+  only again. The push needed the `avneesh9908` login (see Deploys). **The Railway deploy
+  FAILED: `Invalid RAILWAY_TOKEN`** (run 45758587998), so trips.fsksurat.in still serves the
+  old build. The fix is the user's: a new Railway project token in the repo secret, then re-run.
 - 2026-11-26 — **MLC = Mavericks; Mavericks students now reach their trip.** Grade 5–6
   `Mavericks - N` → Grade 5 (Statue of Unity, Batch 1 "MLC"); Grade 7–12 → the MLC Manali trip.
   `tripGradeFor` / `isMavericks` in `lib/grades.js`, read by `AuthContext`, `ChildPicker`,
@@ -3044,6 +3486,49 @@ Raised in `docs/DATA-HANDOVER.md`; none answered yet. Do not assume any of these
   open MLC" warning. Grade 11 Kevdi also lists MLC; the school chose "Manali only", so the
   rule stays replace-not-add, because MLC is a separate cross-grade programme, not a grade
   or a section. Committed to `main` on its own, without the redesign.
+- 2026-10-17 (sixth pass) — **The login page IS the journey now.** The title sequence from the
+  fourth pass was deleted — it was still an extra screen — and the sign-in page rebuilt as one
+  animated scene: the destination photograph as a fixed full-page backdrop, a train looping
+  across towards it past a signpost, a plane on a longer cycle, and the sign-in card floating on
+  the same picture. Kept Google-only; the school's "ID password" would undo the 2026-08-21
+  security fix and needs asking about rather than building. Still nothing committed, nothing
+  pushed.
+- 2026-10-17 (fifth pass) — **The ride overlay removed**, answering the open question from the
+  pass below: the school confirmed they want the animation on the pages, not between them.
+  `components/Journey.jsx` and `styles/journey.css` deleted, `JourneyProvider` out of `App`,
+  both pickers navigating straight through again; the six shared keyframes and the welcome's
+  birds moved to `styles/motion-base.css`, and `sfx.whistle()` went with it. Everything on the
+  pages — the title sequence, the welcome, the floating cards, the two drawn scenes, the tab
+  motion — is untouched. Still nothing committed, nothing pushed.
+- 2026-10-17 (fourth pass) — **The school's note: animate the PAGE, not the gap between
+  pages**, with five screenshots. Added a plane-and-train title sequence before the login card
+  (once per browser session), made the grade cards float on independent offsets, and put two
+  drawn scenes beside the guideline decks — a child packing a backpack next to Things to carry,
+  a class walking in line next to Safety. Both illustrate and instruct nothing; the decks remain
+  the content. Turned up that the picker's own hover lift has been dead since before this branch
+  (`rise-in` is `both`) and fixed it. The open question it raised — whether the grade → trip ride
+  overlay stays — was answered the same day: it does not. Still nothing committed, nothing pushed.
+- 2026-10-17 (later still) — **The way in, animated**: `styles/entry-motion.css` plus a
+  `LoginScene` block in `Login.jsx`. The art panel gets clouds, a flock and a train running its
+  foot every fourteen seconds over the existing photograph; the card assembles in reading order
+  and grows a departing bar while the roster is being checked; the top bar gets a single 10px
+  settle and pointer responses only, because it is on screen for the whole visit. Still nothing
+  committed, nothing pushed.
+- 2026-10-17 (later) — **The three reading tabs animated too**, on the same branch:
+  `styles/tabs-motion.css`. Overview gets a slow Ken Burns and boarding-pass batch cards,
+  Itinerary gets a day-by-day timeline and staggered guideline columns, and Travel gets a
+  journey rail down the prose card — which is the one that mattered, because the structured
+  route line the first pass animated **never renders on the school's real data**. That rail
+  needed `TravelNotes` to emit a block per line instead of a paragraph of newlines; the output
+  is identical, gap included. Still nothing committed, nothing pushed.
+- 2026-10-17 — **A branch, `redesign-trip-app`, carrying an animated layer for the children**:
+  a full-screen train/bus/plane/boat ride between the grade card and the trip plan, a Ghibli-ish
+  welcome after sign-in, coupled-carriage itinerary cards, a departure board with a light running
+  down the track, and a film strip with a synthesised camera shutter. Additive only — two
+  stylesheets, three components, no new dependency, and `main` is untouched because the live site
+  is what parents are using. **Nothing committed and nothing pushed**, on the user's instruction,
+  until the whole redesign is verified and they say so. See "The animated layer" above for what
+  was built, the four CSS/React traps it cost, and what is still unverified.
 - 2026-10-17 — **Four more grades got wallpaper images**, the school pasting four URLs with "some
   grade not have walpaper images": Senior KG (Kevdi), Grade 1 (Kilad), Grade 3 (Saputara) and
   Grade 6 (Purna River Resort). Same pipeline as g4 — download, Pillow resize to a 1600-wide banner
@@ -3054,6 +3539,27 @@ Raised in `docs/DATA-HANDOVER.md`; none answered yet. Do not assume any of these
   "no image to be had for Kevdi" finding for the school's own source without disturbing it for
   Wikipedia. Also spotted and left alone: **Grade 2's card shows the Taj Mahal**, the Wikipedia
   fallback matching the string "Mahal" — needs a `g2` photograph from the school.
+- 2026-10-16 — Parent-login complaint forwarded with the screenshot banner
+  **"Could not reach the school roster right now."** Checked production live: `trips.fsksurat.in/healthz`
+  answers `{"ok":true}` with `Server: railway-hikari`, and `POST /api/lookup` with a junk credential
+  answers **401 "Sign in with Google to continue."** — so Node is up and token verification is reached;
+  the 502 roster branch is not firing now. Note for triage: that 502 banner is **host-wide, never
+  per-parent** — a parent whose address is simply not on the roster gets the 403 "No student is
+  registered against this Google account" wording instead, so "certain parents cannot log in" and this
+  screenshot describe two different faults. The 502 path is only reachable with a *valid* token
+  (`loadRoster()` runs after verification), so it cannot be exercised from outside without a real sign-in.
+  Same message also carried `=IMPORTDATA("http://3.109.112.169/CSVDATA/StudentData.csv")` — a bare-IP,
+  **plaintext-HTTP** feed of student data. NOT fetched and NOT set as `ROSTER_CSV_URL`: unverified
+  provenance, and the roster carries addresses, DOB, blood groups and Aadhaar names, which must never
+  travel unencrypted. **Resolved the same day:** the IP 302s to `https://nucleus.fountainheadschools.org`,
+  the school's own domain, so it is the school's feed and not a foreign host — the earlier
+  "unverified provenance" reading was wrong. The real finding is that the **path moved**
+  `/CSVDATA/` → `/FSVault_26/`, which is the most likely cause of the 502 the parents saw. See
+  "The real roster feed" above for the evidence and the correct new value. The forwarded message
+  quoted `StaffData.csv`; the app needs `StudentData.csv`.
+- 2026-10-15 — Answered the URL-hopping question: recorded that production runs the sheets
+  adapter, that the grade gate is client-side only (`sessionStorage` + published sheet), and
+  what closing it would take. See "The standing security caveat".
 - 2026-10-14 — Two things from one exchange. (1) Google's **Error 400: `origin_mismatch`** on
   `fountainheadschooltrips.netlify.app/login`: both hosts serve the same client id
   `186304536151-rr9k52olv6as5l1umjn3saic02lun2md` (checked live against each `/config.json`), so it
