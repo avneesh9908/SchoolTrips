@@ -28,7 +28,7 @@ npm run build
 | Piece | Source | Status |
 |---|---|---|
 | **Roster / login** | the school's `StudentData.csv` feed, via `/api/lookup` | works once `ROSTER_CSV_URL` is set on the server |
-| **Staff access** | `ADMIN_EMAILS` on the server | works once set |
+| **Staff access** | `ADMIN_EMAILS`, plus the school's `StaffData.csv` feed, on the server | works once set |
 | **Trip content** | a Google Sheet built from `sample-data/Trip Data.xlsx` | **no source yet** — every grade reads "Nothing published yet" |
 
 The trip spreadsheet does not exist yet. Until the school creates and shares it, the app will
@@ -44,8 +44,14 @@ Set these where the site is hosted (Netlify → Site settings → Environment va
 |---|---|
 | `ROSTER_CSV_URL` | the roster feed the lookup function reads |
 | `ADMIN_EMAILS` | comma-separated staff addresses that may see every grade |
+| `STAFF_CSV_URL` | the school's `StaffData.csv` feed. Anyone in its `SchoolEmailID` column with an allowed domain sees every grade |
+| `STAFF_EMAIL_DOMAINS` | optional, defaults to `fsksurat.in,fountainheadschools.org` |
 
-Neither is committed. The roster feed is unauthenticated, so its URL does not belong in a
+The feed adds to `ADMIN_EMAILS` and doesn't replace it: listed addresses keep access either way.
+The domain alone is never enough, because students hold `@fsksurat.in` addresses too. If the
+staff feed is down, parents and `ADMIN_EMAILS` still sign in normally.
+
+None of the URLs are committed. The roster feed is unauthenticated, so its URL does not belong in a
 public repo, and publishing the staff list would reveal exactly which addresses unlock all
 grades.
 

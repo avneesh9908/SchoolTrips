@@ -47,6 +47,59 @@ const ADMIN_EMAILS = new Set(
     .filter(Boolean)
 )
 
+/**
+ * Staff from the school's own staff feed (`StaffData.csv`), on top of ADMIN_EMAILS.
+ *
+ * An address opens every grade when it is listed in the feed's `SchoolEmailID`
+ * column AND its domain is one of STAFF_EMAIL_DOMAINS. Both conditions matter:
+ * students also hold @fsksurat.in addresses, so the domain alone must never be
+ * enough; and the domain check keeps a stray personal address in the feed from
+ * unlocking everything.
+ *
+ * ADMIN_EMAILS still works on its own, so the addresses already set on Railway
+ * keep their access whether or not they appear in the feed.
+ *
+ * Only the email column is kept in memory. The feed carries staff birth dates,
+ * addresses and phone numbers, and none of that is needed here.
+ */
+const STAFF_URL = process.env.STAFF_CSV_URL
+const STAFF_DOMAINS = new Set(
+  (process.env.STAFF_EMAIL_DOMAINS || 'fsksurat.in,fountainheadschools.org')
+    .split(',')
+    .map((d) => d.trim().toLowerCase().replace(/^@/, ''))
+    .filter(Boolean)
+)
+
+let staffCache = { at: 0, emails: null }
+
+async function loadStaffEmails() {
+  if (!STAFF_URL) return new Set()
+  if (staffCache.emails && Date.now() - staffCache.at < CACHE_MS) return staffCache.emails
+
+  try {
+    const res = await fetch(STAFF_URL, { signal: AbortSignal.timeout(8000) })
+    if (!res.ok) throw new Error(`Staff feed returned HTTP ${res.status}.`)
+    const emails = new Set(
+      csvToObjects(await res.text())
+        .map((r) => String(r.schoolemailid || '').trim().toLowerCase())
+        .filter((e) => STAFF_DOMAINS.has(e.split('@')[1]))
+    )
+    staffCache = { at: Date.now(), emails }
+    return emails
+  } catch (err) {
+    // A broken staff feed must not lock parents out: log it, keep the last good
+    // list if there is one, and fall through to the roster.
+    console.error('[lookup] staff feed unavailable:', err.message)
+    return staffCache.emails || new Set()
+  }
+}
+
+async function isStaff(email) {
+  if (ADMIN_EMAILS.has(email)) return true
+  if (!STAFF_DOMAINS.has(email.split('@')[1])) return false
+  return (await loadStaffEmails()).has(email)
+}
+
 /** "vardan.kabra" -> "Vardan Kabra", just for the greeting. */
 function nameFromEmail(email) {
   return email
@@ -93,7 +146,7 @@ export async function resolveSignIn(credential) {
   const { email, name } = identity
 
   // Staff are checked before the roster is even loaded — they have no child row.
-  if (ADMIN_EMAILS.has(email)) {
+  if (await isStaff(email)) {
     return {
       status: 200,
       body: { role: 'admin', parentName: name || nameFromEmail(email), students: [] },

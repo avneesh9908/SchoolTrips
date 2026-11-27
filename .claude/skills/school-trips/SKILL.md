@@ -3066,6 +3066,8 @@ which needs no App.
   'credential.helper=!f() { test "$1" = get || exit 0; echo username=avneesh9908; echo
   "password=$(gh auth token --user avneesh9908)"; }; f' push origin main`. Ask again each time.
   That choice was for one push.
+- **Two repos share the name `SchoolTrips`.** Only `avneesh9908/SchoolTrips` deploys; a secret
+  saved in `avneesh-000/SchoolTrips` does nothing. Check the owner in the page header.
 - **`Invalid RAILWAY_TOKEN` in the Deploy step = the secret expired or was revoked**, not a
   code problem (first seen 2026-11-26; the last good deploy was 2026-10-17). The step before it
   only checks that the secret is non-empty, so it passes. Fix: Railway → the project → Settings
@@ -3182,9 +3184,34 @@ the same screenshot parents sent on 2026-10-16. **Prefer the `https://nucleus…
 HTTP IP**: the roster carries home addresses, DOB, blood groups and Aadhaar names, and the
 HTTPS form skips the plaintext hop entirely.
 
-`FSVault_26` also holds **`StaffData.csv`** (200). It is **not** a roster this app reads — staff
-access comes from the `ADMIN_EMAILS` server variable, never from a CSV — so pointing
-`ROSTER_CSV_URL` at `StaffData.csv` would break every parent login. `StudentData.csv` is the file.
+`FSVault_26` also holds **`StaffData.csv`** (200). It is **not** the parent roster, so pointing
+`ROSTER_CSV_URL` at it would break every parent login. `StudentData.csv` is the roster.
+
+**Since 2026-11-27 the staff feed DOES grant staff access**, through its own variable
+`STAFF_CSV_URL`, never `ROSTER_CSV_URL`. In `netlify/functions/lookup.js`, `isStaff()` returns
+true when:
+- the address is in `ADMIN_EMAILS` (kept: the Railway list still works on its own), or
+- the address is in the feed's `SchoolEmailID` column **and** its domain is in
+  `STAFF_EMAIL_DOMAINS` (default `fsksurat.in,fountainheadschools.org`).
+
+Domain alone is never enough, because students hold `@fsksurat.in` addresses. Only the email
+column is kept in memory. The feed is cached for 5 minutes and has an 8 s timeout. If it fails,
+the last good list is kept, or the check falls through to the roster, so parents never get locked
+out. A staff member who is also a parent lands as admin (every grade, no child card). Set
+`STAFF_CSV_URL` on Railway to the `https://nucleus…/FSVault_26/StaffData.csv` form. Like
+`ROSTER_CSV_URL`, it's kept out of the repo.
+
+**StaffData.csv shape (inspected 2026-11-27, aggregates only, no records kept in this skill):**
+~255 KB, 448 rows, no duplicate `EmployeeID`, served **with no authentication** over the same
+IP→nucleus 302. 28 columns: `SchoolEmailID, Name, EmployeeID, GroupName, ReportingTo,
+ReportingToEmail, DateOfBirth, SEX, Title, DateOfJoin, DepartmentName, TeamName, Mobile,
+EmergencyContactNo, BloodGroup, Address, City, State, Country, ShiftTiming, ShiftPolicyName,
+PolicyBundleName, CompanyName, FoodCategory, PickUpStop, DropOffStop, TransportType, ImagePath`
+(plus a trailing empty column). Groups: Junior School / Senior School / Administration. Email
+domains are mostly `fsksurat.in` and `fountainheadschools.org`, plus a few others. `City`
+casing isn't consistent (`Surat`/`SURAT`/`surat`/`Surat.`). `ImagePath` points to nucleus.
+Like the student feed, it's full PII open to anyone who has the URL. Raise that with the
+school; don't build on it.
 
 ### 2026-10-16 — the roster WAS published, briefly. What it exposed
 Despite the warning above, `Publish to the web` was completed on spreadsheet
@@ -3452,6 +3479,29 @@ Raised in `docs/DATA-HANDOVER.md`; none answered yet. Do not assume any of these
 - `legacy/trip-explorer.html` is frozen reference. Do not edit it.
 
 ## Changelog
+- 2026-11-27 — Staff in `StaffData.csv` with `@fsksurat.in` or `@fountainheadschools.org`
+  now get every grade, via new server vars `STAFF_CSV_URL` and `STAFF_EMAIL_DOMAINS`, on top of
+  `ADMIN_EMAILS`, which is kept. 11 stubbed sign-in checks pass. This replaces the earlier
+  "staff access never comes from a CSV" note. Committed and pushed to main the same day.
+  It does nothing until `STAFF_CSV_URL` is set on Railway. Confirmed with a stub roster: a Grade 8 student's `@fsksurat.in` address that
+  isn't in the staff feed gets back only their own child row (`role:'parent'`,
+  `signedInAs:'student'`, grade g8). A Grade 5 student's own address still gets 403. Students
+  never get every grade unless their address is also in `StaffData.csv`.
+- 2026-11-27 — Asked to "load" `=IMPORTDATA("http://3.109.112.169/FSVault_26/StaffData.csv")`.
+  Not fetched: staff PII, the app has no use for it (staff access is `ADMIN_EMAILS`), and a
+  download needs a stated purpose first. Asked what "load" was meant to achieve. If the goal is
+  the parent roster, the file is `StudentData.csv` over `https://nucleus…`, never `StaffData.csv`.
+  The user then asked to inspect it. Fetched over HTTPS into the session scratchpad and summarised
+  in aggregate only. The shape is recorded under "The real roster feed".
+- 2026-11-26 (live) — **Production deployed and verified.** The token had been "updated" in
+  **`avneesh-000/SchoolTrips`**, a same-named repo under another owner that deploys nothing; the
+  real one is **`avneesh9908/SchoolTrips`** (secrets page:
+  `github.com/avneesh9908/SchoolTrips/settings/secrets/actions`). Once saved there (secret date
+  went 2026-08-21 → 2026-11-26), `gh workflow run railway.yml --ref main` (run 45767891267,
+  57s) built `0ba9339`. Live check: new bundle, `mavericks` in the JS, `travel-split` in the CSS,
+  no `.arrival`, `venuePhotos` in config.json, `/venue-photos/surat-station.png` 200 image/png,
+  `/healthz` ok, `/api/lookup` 401. **Railway's own "Redeploy" button only restarts the last
+  upload** — with no GitHub app on Railway it never fetches new commits, so it is not a deploy.
 - 2026-11-26 (ship) — **The redesign is on `main`**: `0e3552d` (animated layer as trimmed, venue
   photo, welcome + Safety drawing removed), pushed once as avneesh9908 at the user's instruction.
   The "nothing committed" notes in the animated-layer section are now history. **Not live on
