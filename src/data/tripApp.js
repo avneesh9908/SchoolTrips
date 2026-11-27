@@ -38,7 +38,48 @@ const val = (row, ...aliases) => String(pick(row, ...aliases) || '').trim()
  * silently emptied the hero and the overview. Every read of these two columns
  * goes through these lists; never inline a single header name.
  */
-const DATE_ALIASES = ['datessections', 'dates', 'datesection', 'date', 'tripdates', 'sections']
+const DATE_ALIASES = ['datessections', 'dates', 'datesection', 'date', 'tripdates']
+/**
+ * The junior tab split its old one-cell "Dates" into TWO columns (2026-11-27):
+ * `Dates` now holds the real dates per batch and a new `Sections` column holds
+ * the section names, both written as "Batch 1: … ⏎ Batch 2: …". Sections used to
+ * be read off the Dates cell, so without this column the junior grades lost
+ * every section name (and section matching) the moment real dates arrived.
+ */
+const SECTION_ALIASES = ['sections', 'section', 'batchsections']
+
+/**
+ * A row's Dates cell, with its separate Sections cell folded back in so every
+ * reader sees the senior shape it already understands:
+ *
+ *   Dates:    "Batch 1: 6-7 January 2027 ⏎ Batch 2: 11-12 January 2027"
+ *   Sections: "Batch 1: Trust, Concord, Peace ⏎ Batch 2: Hope, Truth, Harmony"
+ *   ->        "Batch 1: 6-7 January 2027 ⏎ Section: Trust, Concord, Peace ⏎
+ *              Batch 2: 11-12 January 2027 ⏎ Section: Hope, Truth, Harmony"
+ *
+ * Segments are paired by the batch NUMBER the school typed, not by position, so
+ * a missing batch in one column cannot shift the other's sections onto it. A
+ * row with no Sections column (the senior SS tab) is returned untouched.
+ */
+function datesCell(row) {
+  const dates = val(row, ...DATE_ALIASES)
+  const sections = val(row, ...SECTION_ALIASES)
+  if (!sections) return dates
+  const secSegs = splitBatchSegments(sections, 1)
+  if (!secSegs) return dates ? `${dates}\nSection: ${sections}` : `Section: ${sections}`
+  const dateSegs = splitBatchSegments(dates, 1) || []
+  const flat = (s) => String(s || '').replace(/\s*\n\s*/g, ' ').trim()
+  const dateOf = new Map(dateSegs.map((seg) => [seg.label, flat(seg.text)]))
+  const secOf = new Map(secSegs.map((seg) => [seg.label, flat(seg.text)]))
+  const labels = [...new Set([...dateSegs, ...secSegs].map((seg) => seg.label))]
+  return labels
+    .map((label) => {
+      const sec = secOf.get(label)
+      return `${label}: ${dateOf.get(label) || ''}${sec ? `\nSection: ${sec}` : ''}`
+    })
+    .join('\n')
+}
+
 const OVERVIEW_ALIASES = ['headertext', 'startingtext', 'header', 'starttext', 'intro', 'introduction', 'overview']
 /**
  * Optional column for naming a trip, when one grade runs more than one and the
@@ -329,7 +370,7 @@ function readableName(s) {
 
 /** "Batch 1: 12-19 December 2026 …" -> "Batch 1". */
 function batchLabel(row, i, total) {
-  const dates = val(row, ...DATE_ALIASES)
+  const dates = datesCell(row)
   // A row whose cell holds EVERY batch (the junior school's shape) is not one
   // batch's row, so it carries no batch label: its decks and lists belong to the
   // whole grade, and tagging them "B1" would tell a Batch 3 parent the file is
@@ -397,10 +438,10 @@ function batchLabelsCollided(rows) {
  * Splitting on the labels the school itself typed turns the one cell back into
  * one card per batch, and leaves a cell with a single label (or none) untouched.
  */
-function splitBatchSegments(cell) {
+function splitBatchSegments(cell, min = 2) {
   const text = String(cell || '')
   const marks = [...text.matchAll(/batch\s*(\d+)\s*[:\u2013-]/gi)]
-  if (marks.length < 2) return null
+  if (marks.length < Math.max(1, min)) return null
   return marks.map((m, i) => ({
     label: `Batch ${m[1]}`,
     // Up to the next label, with the separator the school used between segments
@@ -423,10 +464,13 @@ function splitBatchSegments(cell) {
  * section.
  */
 export function sectionsOf(row) {
-  const cell = val(row, ...DATE_ALIASES)
+  const cell = datesCell(row)
   if (!cell) return []
 
-  const explicit = cell.match(/sections?\s*:\s*([^\n]+)/i)
+  // Every "Section:" line, not just the first — a junior cell, once its Sections
+  // column is folded in, carries one per batch.
+  const explicitAll = [...cell.matchAll(/sections?\s*:\s*([^\n]+)/gi)].map((m) => m[1])
+  const explicit = explicitAll.length ? [null, explicitAll.join(',')] : null
   // A cell holding every batch lists every batch's sections, so all of them
   // belong to this row — reading only the first match said a Batch 3 child was
   // not listed against this trip at all.
@@ -506,7 +550,14 @@ function tripOptionsFor(groups) {
     const dest = group.map(destinationOf).find(Boolean) || ''
     const name = group.map(tripNameOf).find(Boolean) || ''
     const dates = group
-      .map((r) => stripBatchPrefix((val(r, ...DATE_ALIASES).split('\n')[0] || '').trim()))
+      .flatMap((r) => {
+        // A junior row holds every batch's dates in one cell; list each of them.
+        const cell = val(r, ...DATE_ALIASES)
+        const segs = splitBatchSegments(cell)
+        return segs
+          ? segs.map((seg) => seg.text.split('\n')[0].trim())
+          : [stripBatchPrefix((cell.split('\n')[0] || '').trim())]
+      })
       .filter(Boolean)
     return {
       index,
@@ -645,7 +696,7 @@ export function assembleTripApp(gradeId, rows, { section, tripIndex = 0 } = {}) 
 
   const batches = all
     .flatMap((row, i) => {
-      const cell = val(row, ...DATE_ALIASES)
+      const cell = datesCell(row)
       if (!cell) return []
       // One cell, every batch: one card each, labelled as the school typed them.
       const segments = splitBatchSegments(cell)

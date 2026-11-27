@@ -370,6 +370,17 @@ why the junior half looked broken while the senior half was fine. Confirmed by t
 Both headers were already aliased, so the only shape that needed code was the batch cell —
 `splitBatchSegments`, below.
 
+**UPDATE 2026-11-27 — JS now has separate `Dates` and `Sections` columns.** `Dates` holds real
+dates per batch (`Batch 1: 6-7 January 2027 ⏎⏎ Batch 2: …`) and a new `Sections` column holds
+`Batch 1: Trust, Concord, Peace ⏎ Batch 2: …`. `sections` was REMOVED from `DATE_ALIASES` and
+lives in `SECTION_ALIASES`; `datesCell(row)` folds the two back into the senior shape
+(`Batch N: <dates> ⏎ Section: <names>` per batch, paired by batch NUMBER, not position) and every
+reader (`batchLabel`, `sectionsOf`, the batch cards) goes through it. `sectionsOf` now reads
+every `Section:` line, not only the first. Verified on the live published sheet: Sr KG (2
+batches) and Grades 1-6 (3 batches) each give one card per batch with date headline + section
+detail, same as the senior cards; section matching works (incl. MLC → Mavericks). The table
+above ("no dates anywhere on the tab") is historical for JS.
+
 **"Many options are not available" (Keyur Shah, 2026-10-10) is EMPTY CELLS, not a missing
 feature.** Measured on the live workbook the same day, every junior row is blank for Student
 Orientation, Itinerary (nucleus) (link), Travel details, Pic folder and last-years-pic; Grades
@@ -3479,11 +3490,27 @@ Raised in `docs/DATA-HANDOVER.md`; none answered yet. Do not assume any of these
 - `legacy/trip-explorer.html` is frozen reference. Do not edit it.
 
 ## Changelog
+- 2026-11-27 — JS tab split `Dates` into `Dates` (real dates) + new `Sections` column; added
+  `SECTION_ALIASES` + `datesCell()` in `src/data/tripApp.js` so junior cards show date + sections
+  like the senior ones. Verified on live sheet; not committed.
+- 2026-11-27 — Two Mavericks students (Grade 9 and Grade 11, both `Mavericks - N`) reported
+  unable to log in. In the nucleus `StudentData.csv` (fetched over HTTPS, 1.1 MB, 2,629 rows)
+  each has exactly one row with an `s.<first>.<last>@fsksurat.in` student address and a
+  `p.<first>.<last>@fsksurat.in` parent address. Run through `toStudent` + `matchStudent`,
+  both addresses match (`parent`/`student`) and `tripGradeFor` gives `mlc`. So the code accepts
+  them, and the fault is outside the matcher. Main suspect: Railway's `ROSTER_CSV_URL` isn't the
+  nucleus `/FSVault_26/StudentData.csv` (e.g. a stale sheet mirror), or they're signing in with
+  a non-school Google account. Asked for the exact error and the `ROSTER_CSV_URL` value.
+  Note the address pattern: school accounts are `s.` for students and `p.` for parents.
 - 2026-11-27 — Staff in `StaffData.csv` with `@fsksurat.in` or `@fountainheadschools.org`
   now get every grade, via new server vars `STAFF_CSV_URL` and `STAFF_EMAIL_DOMAINS`, on top of
   `ADMIN_EMAILS`, which is kept. 11 stubbed sign-in checks pass. This replaces the earlier
-  "staff access never comes from a CSV" note. Committed and pushed to main the same day.
-  It does nothing until `STAFF_CSV_URL` is set on Railway. Confirmed with a stub roster: a Grade 8 student's `@fsksurat.in` address that
+  "staff access never comes from a CSV" note. Committed and pushed to main the same day
+  (`5e9465d`, deploy run 45945293046 green). The user reported `STAFF_CSV_URL` set on Railway the
+  same day. After that, `/healthz` was ok and `/api/lookup` was 401 for a junk token. The staff
+  feed is read only after a valid Google token, so only a real staff sign-in proves it works.
+  **Confirmed live 2026-11-27:** the user signed in as staff from the feed and saw every grade.
+  There's no Railway CLI on this machine. Confirmed with a stub roster: a Grade 8 student's `@fsksurat.in` address that
   isn't in the staff feed gets back only their own child row (`role:'parent'`,
   `signedInAs:'student'`, grade g8). A Grade 5 student's own address still gets 403. Students
   never get every grade unless their address is also in `StaffData.csv`.
