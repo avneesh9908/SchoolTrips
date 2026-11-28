@@ -32,6 +32,7 @@
   "tripPhotos": {
     "sk": "/trip-photos/sk.jpg",
     "g1": "/trip-photos/g1.jpg",
+    "g2": "/trip-photos/g2.jpg",
     "g3": "/trip-photos/g3.jpg",
     "g4": "/trip-photos/g4.jpg",
     "g6": "/trip-photos/g6.jpg",
@@ -49,6 +50,7 @@
   "tripCardPhotos": {
     "sk": "/trip-photos/sk-card.jpg",
     "g1": "/trip-photos/g1-card.jpg",
+    "g2": "/trip-photos/g2-card.jpg",
     "g3": "/trip-photos/g3-card.jpg",
     "g4": "/trip-photos/g4-card.jpg",
     "g6": "/trip-photos/g6-card.jpg",
