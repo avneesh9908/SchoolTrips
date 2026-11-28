@@ -112,9 +112,11 @@ export function isMavericks(section) {
 }
 
 /**
- * MLC students up to Grade 6 travel with Grade 5 (the sheet lists MLC under
- * Grade 5's Batch 1); from Grade 7 they go on the separate MLC trip, which takes
- * Grades 7-12 together.
+ * The school's two rules (restated 2026-11-28):
+ *   1. Junior school, Junior KG to Grade 6: every MLC student goes with Grade 5
+ *      and sees Grade 5's trip (the sheet lists MLC under Grade 5's Batch 1).
+ *   2. Senior school, Grade 7 onwards: MLC is its own trip (Manali), and those
+ *      students see only the MLC card.
  */
 const MLC_JUNIOR_TRIP = 'g5'
 const MLC_OWN_TRIP_FROM_GRADE = 7
@@ -133,7 +135,9 @@ export function tripGradeFor(student) {
   if (!isMavericks(student?.section)) return grade
   const n = gradeNumber(grade)
   if (n >= MLC_OWN_TRIP_FROM_GRADE) return 'mlc'
-  if (n >= 1) return MLC_JUNIOR_TRIP
+  // 0 is Junior KG / Senior KG — junior school too, so they go with Grade 5.
+  // Only an unreadable grade (-1) keeps its own value, which opens nothing.
+  if (n >= 0) return MLC_JUNIOR_TRIP
   return grade
 }
 

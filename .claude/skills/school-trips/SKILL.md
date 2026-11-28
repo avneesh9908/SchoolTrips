@@ -1146,10 +1146,16 @@ Four things recorded rather than acted on, because the school chose the pictures
 - **A `tripPhotos` entry still carries no credit chip**, so all four read as the school's own
   photographs. None of them is.
 
-Noticed while verifying and **not fixed**: **Grade 2's card shows the Taj Mahal.** `g2` goes to
-*Mahal* in the Dangs and has no `tripPhotos` entry, so the credited Wikipedia fallback matched the
-string "Mahal" — exactly the wrong-place failure the 2026-08-21 note warns about, now visible in
-production. The fix is a `g2` photograph from the school, or `"g2"` in `tripPhotos`. Raise it.
+**FIXED 2026-11-28: Grade 2 showed the Taj Mahal.** `g2` goes to *Mahal* (eco-campsite, Purna
+Wildlife Sanctuary, the Dangs, Gujarat) and had no `tripPhotos` entry, so the Wikipedia fallback
+matched the string "Mahal" (`titleScore` accepts a mere mention). The user caught it ("mahal is
+in gujarat"). Now `g2` has `public/trip-photos/g2.jpg` (1600×1200, q80) and `g2-card.jpg`
+(1200×462 centre crop) in `tripPhotos`/`tripCardPhotos`. Source: Wikimedia Commons
+`File:Purna River view from Campsite.jpg` by **Yndesai, CC BY-SA 4.0**, GPS 20.91 N 73.70 E
+(the Purna at the Mahal campsite, unconfirmed that it is that exact campsite). Like every
+`tripPhotos` entry it renders **without a credit**, which CC BY-SA requires — open item. The
+fallback's loose matching is unchanged; any other grade whose destination word appears inside a
+famous name can hit the same trap.
 
 This **reverses** the 2026-08-14 position, which held the file under the gitignored
 `public/local-roster/` precisely so `stripLocalOnlyFiles()` would keep it out of every build. That
@@ -2493,7 +2499,7 @@ an MLC student keeps their own grade and carries the **section** `Mavericks - 9`
 
 | Roster | Trip | Why |
 |---|---|---|
-| Grade 5 or 6, section `Mavericks - N` | **Grade 5** (`g5`, Statue of Unity) | the JS tab lists `MLC` under Grade 5's Batch 1; Grade 6's batches do not name it |
+| Junior KG to Grade 6 (whole junior school), section `Mavericks - N` | **Grade 5** (`g5`, Statue of Unity) | the JS tab lists `MLC` under Grade 5's Batch 1; restated by the school 2026-11-28, which added JK/SK (they used to keep their own grade) |
 | Grade 7–12, section `Mavericks - N` | **MLC** (`mlc`, Manali) | the SS tab's MLC row, "All grades together (G7-12)" — its own independent trip |
 | any other section | own grade | unchanged |
 
@@ -3490,6 +3496,25 @@ Raised in `docs/DATA-HANDOVER.md`; none answered yet. Do not assume any of these
 - `legacy/trip-explorer.html` is frozen reference. Do not edit it.
 
 ## Changelog
+- 2026-11-28 — School restated the MLC/Mavericks rules: JS (Junior KG to Grade 6) goes with
+  Grade 5; SS (Grade 7+) sees only the MLC (Manali) card. `tripGradeFor` already did this for
+  Grade 1+, but JK/SK Mavericks kept their own grade. Fixed: `n >= 0` → `g5`. Checked against
+  the live nucleus roster (62 Mavericks, Grades 5-12 only, counts only, copy deleted). Every
+  parent email signs in and lands on the right trip. Every Grade 7+ student email does too.
+  The only refusals are Grade 5/6 children's own `s.` addresses (13 + 15). That is the existing
+  JS parent-login rule, likely what "login problem" means (unconfirmed). Not committed.
+  **Confirmed by the user the same day: junior Mavericks (Grades 5/6) sign in with the PARENT's
+  login only.** Do not open student login below Grade 7 for Mavericks.
+- 2026-11-28 — "Student list shows only a link, not the table": a SHARING problem, no code change.
+  The JS tab gained a Student list column (sk, g1-g6). Anonymous `gviz/tq?tqx=out:csv` answers
+  **401** for sk, g1, g2, g4, g5, g6 and g9 (browser fetch shows "Failed to fetch", a CORS failure on
+  the sign-in redirect), so `LiveList` falls back to the link by design. g3, g7 and mlc answer 200
+  and draw the table; g8 B2 is 200 but has no names, so it shows the link. Fix: the school sets each
+  list file to "Anyone with the link → Viewer". Re-check with `curl -s -o /dev/null -w "%{http_code}"
+  "https://docs.google.com/spreadsheets/d/<id>/gviz/tq?tqx=out:csv"`.
+- 2026-11-28 — Grade 2 (Mahal, Dangs) replaced the Wikipedia Taj Mahal stand-in with a Commons
+  photo of the Purna river at the campsite (Yndesai, CC BY-SA 4.0); `g2` added to
+  `tripPhotos`/`tripCardPhotos`. Credit not shown on page (open). Not committed.
 - 2026-11-27 — JS tab split `Dates` into `Dates` (real dates) + new `Sections` column; added
   `SECTION_ALIASES` + `datesCell()` in `src/data/tripApp.js` so junior cards show date + sections
   like the senior ones. Verified on live sheet; not committed.
