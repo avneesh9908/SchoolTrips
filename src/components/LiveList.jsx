@@ -1,6 +1,28 @@
 import { useEffect, useState } from 'react'
 import { describeDoc } from '../lib/docPreview'
 import { parseCsv } from '../data/csv'
+import { useAuth } from '../auth/AuthContext'
+import { config } from '../config'
+import { safeColumns } from '../lib/studentListColumns'
+
+/**
+ * A private list, read by OUR server with the school's service account (2026-11-28:
+ * "give all persons those are login this app"). The session's `listPass` proves this
+ * browser signed in; the server re-checks it, reads the sheet and drops the hidden
+ * columns. Same origin as `/api/lookup`, wherever `rosterApiUrl` points.
+ */
+function readThroughServer(listPass, id, gid) {
+  const base = config().rosterApiUrl || '/api/lookup'
+  const endpoint = new URL('/api/student-list', new URL(base, window.location.href)).toString()
+  return fetch(endpoint, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ pass: listPass, id, gid: gid || '' }),
+  }).then(async (res) => {
+    if (!res.ok) throw new Error(String(res.status))
+    return (await res.json()).rows || []
+  })
+}
 
 /**
  * A spreadsheet tab rendered as a table by this app, rather than framed from Google.
@@ -31,6 +53,8 @@ import { parseCsv } from '../data/csv'
  */
 export function LiveList({ url, onResolved }) {
   const [state, setState] = useState({ status: 'loading' })
+  const { session } = useAuth()
+  const listPass = session?.listPass || ''
 
   useEffect(() => {
     const { kind, id } = describeDoc(url)
@@ -51,17 +75,23 @@ export function LiveList({ url, onResolved }) {
         return res.text()
       })
       .then((text) => {
-        if (!live) return
         // Google answers a permission failure with an HTML sign-in page, not an error.
         if (/^\s*</.test(text)) throw new Error('not shared')
-        setState({ status: 'ready', rows: parseCsv(text) })
+        return parseCsv(text)
       })
+      // Not public: the server reads it for this signed-in family.
+      .catch(() => {
+        if (!listPass) throw new Error('no pass')
+        return readThroughServer(listPass, id, gid)
+      })
+      // Same hidden columns on both paths, so a public list cannot show more.
+      .then((rows) => live && setState({ status: 'ready', rows: safeColumns(rows) }))
       .catch(() => live && setState({ status: 'error' }))
 
     return () => {
       live = false
     }
-  }, [url])
+  }, [url, listPass])
 
   /**
    * Must sit above the early returns: a hook cannot run conditionally, and the
@@ -78,12 +108,23 @@ export function LiveList({ url, onResolved }) {
     return <div className="live-list is-note">The list could not be read here — open it below.</div>
   }
 
-  const [head = [], ...body] = state.rows
-  const { title, first } = splitMergedHeading(head[0])
-  const headers = [first, ...head.slice(1)]
-
+  const [rawHead = [], ...rawBody] = state.rows
   /** A row carrying nothing but its serial number has not been filled in yet. */
-  const filled = body.filter((r) => r.slice(1).some((c) => c.trim() !== ''))
+  const rawFilled = rawBody.filter((r) => r.slice(1).some((c) => String(c ?? '').trim() !== ''))
+
+  /**
+   * Columns with no header AND no value in any filled row are dropped (2026-11-28). The
+   * junior lists carry a dozen blank columns to the right of Section; Google's own view
+   * drew every one as an empty grid, which is what the school called "ui is not good".
+   */
+  const keep = rawHead
+    .map((_, c) => c)
+    .filter((c) => String(rawHead[c] ?? '').trim() || rawFilled.some((r) => String(r[c] ?? '').trim()))
+  const head = keep.map((c) => String(rawHead[c] ?? ''))
+  const filled = rawFilled.map((r) => keep.map((c) => String(r[c] ?? '')))
+
+  const { first } = splitMergedHeading(head[0])
+  const headers = [first, ...head.slice(1)]
 
   /**
    * **The table, and nothing but the table** (2026-08-20: the school removed both the
@@ -141,7 +182,7 @@ export function LiveList({ url, onResolved }) {
  */
 function filledCount(rows) {
   const [, ...body] = rows || []
-  return body.filter((r) => r.slice(1).some((c) => c.trim() !== '')).length
+  return body.filter((r) => r.slice(1).some((c) => String(c ?? '').trim() !== '')).length
 }
 
 /**

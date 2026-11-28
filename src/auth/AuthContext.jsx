@@ -42,7 +42,7 @@ export function AuthProvider({ children }) {
    * here and nowhere else — no screen ever takes a grade from the URL or from
    * user input.
    */
-  const startSession = useCallback((students, { via, identifier, displayName, role, signedInAs }) => {
+  const startSession = useCallback((students, { via, identifier, displayName, role, signedInAs, listPass = '' }) => {
     // Staff have no child row; their scope is every grade.
     if (role === 'admin') {
       setSession({
@@ -53,6 +53,7 @@ export function AuthProvider({ children }) {
         students: [],
         grades: ALL_GRADE_IDS,
         activeStudentId: null,
+        listPass,
       })
       return
     }
@@ -72,6 +73,8 @@ export function AuthProvider({ children }) {
       students: valid,
       grades: tripGradesOf(valid),
       activeStudentId: valid.length === 1 ? valid[0].id : null,
+      // Server-signed pass for reading private student lists (studentList.js).
+      listPass,
     })
   }, [])
 
@@ -93,7 +96,7 @@ export function AuthProvider({ children }) {
       // A bare array is the older adapter shape.
       return Array.isArray(result)
         ? { students: result, role: undefined, signedInAs: 'parent' }
-        : { students: result.students || [], role: result.role, signedInAs: result.signedInAs }
+        : { students: result.students || [], role: result.role, signedInAs: result.signedInAs, listPass: result.listPass }
     }
 
     // Last resort, for an adapter with no `lookup` of its own. Same matcher as
@@ -125,11 +128,11 @@ export function AuthProvider({ children }) {
         return
       }
 
-      const { students, role, signedInAs } = await resolveIdentity({ credential, email: value })
+      const { students, role, signedInAs, listPass } = await resolveIdentity({ credential, email: value })
       if (role !== 'admin' && students.length === 0) {
         throw new Error(NO_MATCH)
       }
-      startSession(students, { via: 'google', identifier: value, displayName: name, role, signedInAs })
+      startSession(students, { via: 'google', identifier: value, displayName: name, role, signedInAs, listPass })
     } finally {
       setBusy(false)
     }

@@ -29,6 +29,7 @@ import { extname, join, normalize, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createGzip } from 'node:zlib'
 import { resolveSignIn } from './netlify/functions/lookup.js'
+import { resolveStudentList } from './netlify/functions/studentList.js'
 
 const ROOT = fileURLToPath(new URL('./dist/', import.meta.url))
 const PORT = Number(process.env.PORT) || 8080
@@ -207,6 +208,25 @@ const server = createServer(async (req, res) => {
       console.error('[lookup]', err)
       sendJson(res, 502, { error: 'Could not reach the school roster right now.' })
     }
+    return
+  }
+
+  // A private student list, read with the school's service account for a
+  // signed-in family. See netlify/functions/studentList.js.
+  if (pathname === '/api/student-list') {
+    if (req.method !== 'POST') {
+      sendJson(res, 405, { error: 'Use POST.' })
+      return
+    }
+    let body
+    try {
+      body = await readJsonBody(req)
+    } catch (err) {
+      sendJson(res, 400, { error: err.message })
+      return
+    }
+    const { status, body: out } = await resolveStudentList(body || {})
+    sendJson(res, status, out)
     return
   }
 

@@ -2,6 +2,7 @@ import { csvToObjects } from '../../src/data/csv.js'
 import { toStudent } from '../../src/data/normalize.js'
 import { matchStudent } from '../../src/lib/identity.js'
 import { verifyGoogleIdToken, SignInError } from './googleToken.js'
+import { issueListPass } from './studentList.js'
 
 /**
  * Resolves a login against the school roster, server-side — a parent's, or from
@@ -149,7 +150,7 @@ export async function resolveSignIn(credential) {
   if (await isStaff(email)) {
     return {
       status: 200,
-      body: { role: 'admin', parentName: name || nameFromEmail(email), students: [] },
+      body: { role: 'admin', parentName: name || nameFromEmail(email), students: [], listPass: issueListPass(email) },
     }
   }
 
@@ -186,6 +187,8 @@ export async function resolveSignIn(credential) {
       role: 'parent',
       signedInAs,
       parentName: signedInAs === 'student' ? matches[0].name : matches[0].parentName,
+      // Lets this browser read the grade's private student list for a while (studentList.js).
+      listPass: issueListPass(email),
       // Deliberately minimal: no emails, phones, addresses, DOB or blood group
       // ever cross this boundary.
       students: matches.map((s) => ({

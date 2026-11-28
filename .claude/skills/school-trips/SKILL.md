@@ -3496,6 +3496,56 @@ Raised in `docs/DATA-HANDOVER.md`; none answered yet. Do not assume any of these
 - `legacy/trip-explorer.html` is frozen reference. Do not edit it.
 
 ## Changelog
+- 2026-11-28 — Private (not link-shared) student lists, three attempts in one day:
+  1. **iframe of gviz `out:html`**: works for a viewer whose Google account can open the sheet
+     (the user's screenshot), but it is Google's raw table with a dozen empty grid columns. The
+     user rejected it ("ui is not good"). Unsigned viewers see Google's sign-in box.
+  2. **JSONP** (`<script>` + `tqx=responseHandler:`, the Google Charts route) to draw the app's own
+     table with the viewer's cookies. Works for PUBLIC sheets (g3, ok, 101 rows), but **Google
+     refuses it for a private sheet even in the user's signed-in Chrome** (script `onerror`).
+     A credentialed `fetch` fails too (no `Access-Control-Allow-Credentials`). Removed. Don't retry.
+  3. **Current (uncommitted):** back to live behaviour (unreadable → Open link only), plus
+     `LiveList` now drops columns that are empty in the header and in every filled row.
+  So the app's styled table for a private list needs either public sharing or a SERVER read
+  (service account the school shares the lists with, serving only safe columns to signed-in
+  parents of that grade). Put to the user as a decision.
+  4. **Chosen by the user ("give already grade student have access to see list"): read with the
+     VIEWER's own access.** New `src/auth/sheetsAccess.js`: GIS token client, scope
+     `spreadsheets.readonly`, `hint` = the session email, token in memory only, then Sheets API v4
+     (`?fields=sheets.properties` to map gid → tab title, then `/values/'<tab>'`). `LiveList` gains a
+     `private` state: public gviz read fails → if the tab already has a token it reads at once, else
+     it shows "Show the student list". One click covers every card (`onSheetsAccess` re-reads all).
+     If the request is refused or the window is closed → `error` → Open link. Verified locally (8080): the button
+     opens Google's real "Sign in to continue to School Trips" window (no origin error). The full
+     grant → table path is **unverified**. It needs a real school account, the **Google Sheets API
+     enabled** and the **`spreadsheets.readonly` scope on the consent screen** of the client's
+     Cloud project (unconfirmed either is done). If the consent screen is External, a sensitive
+     scope shows an "unverified app" warning until Google verifies it. Internal (Workspace-only)
+     avoids that.
+  5. **Blank page bug, same day (caught by the user, never shipped):** removing attempt 2 with
+     `sed -i "N,\$d"` also deleted `splitMergedHeading`, which sat after it, so every page that
+     drew a list crashed (`ReferenceError`, `#root` empty). **`vite build` does NOT catch an
+     undefined function.** Restored from HEAD. Then **Vite's dev server kept serving the stale
+     transform** after a shell `cat >>` append (HMR logged an update, but `curl /src/...` lacked
+     the function). Only a real Edit made it re-read the file. Lessons: never truncate to EOF to
+     remove one function, and after a shell edit check what the dev server actually serves.
+     Re-verified in the user's Chrome: g7 (no names yet) shows the link, g3 shows 101 rows, g1
+     shows the "Show the student list" button, and there are no console errors.
+  6. **SUPERSEDES 4 (user: "give all persons those are login this app" = no button, no
+     permission window): the SERVER reads private lists.** `sheetsAccess.js` was deleted. New
+     `netlify/functions/studentList.js`: `/api/lookup` now returns `listPass` (HMAC, 12 h,
+     `SESSION_SECRET`, else a random secret per boot) and the session stores it.
+     `POST /api/student-list {pass,id,gid}` (routed in `server.js`, plus a Netlify handler) verifies
+     the pass, reads the sheet via a service account (hand-rolled RS256 JWT → token →
+     Sheets v4) and returns rows. `LiveList`: public gviz first, else the server, else the link.
+     New `src/lib/studentListColumns.js` `safeColumns` drops Aadhaar/DOB/email/phone/address/
+     blood/passport columns **on both paths** (g3 now shows Sr. no | Name | FSK ID | Section | Age |
+     Gender). Env: `GOOGLE_SERVICE_ACCOUNT_JSON` (user creates it in Google Cloud and pastes it on
+     Railway, never handled by Claude), and the school shares each list with the SA email. Known gap:
+     any pass holder can read any list shared with the SA, not only their own grade's. Stub-tested
+     all server branches (401/400/503/200/404). Not yet tested with a real SA. Not committed.
+  **PII flag raised:** g3's public list carries Aadhaar numbers, DOB and student emails, readable
+  by anyone with the link and by every Grade 3 parent.
 - 2026-11-28 — School restated the MLC/Mavericks rules: JS (Junior KG to Grade 6) goes with
   Grade 5; SS (Grade 7+) sees only the MLC (Manali) card. `tripGradeFor` already did this for
   Grade 1+, but JK/SK Mavericks kept their own grade. Fixed: `n >= 0` → `g5`. Checked against

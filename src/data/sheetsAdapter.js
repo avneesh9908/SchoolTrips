@@ -210,6 +210,7 @@ export const sheetsAdapter = {
     return {
       role: data.role || 'parent',
       signedInAs: data.signedInAs || 'parent',
+      listPass: data.listPass || '',
       // The server sends only id/name/grade/section; fill the shape the app expects.
       students: (data.students || []).map((s) => ({
         ...s,
